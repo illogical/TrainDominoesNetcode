@@ -5,5 +5,5 @@ using UnityEngine;
 
 public class MyNetworkManager : NetworkManager
 {
-    
+    public List<DominoPlayer> Players = new List<DominoPlayer>();
 }

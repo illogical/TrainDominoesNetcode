@@ -10,6 +10,13 @@ public class DominoPlayer : NetworkBehaviour
         if(IsOwner)
         {
             Debug.Log("Welcome!");
+
+            ((MyNetworkManager)NetworkManager.Singleton).Players.Add(this);
         }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        ((MyNetworkManager)NetworkManager.Singleton).Players.Remove(this);
     }
 }

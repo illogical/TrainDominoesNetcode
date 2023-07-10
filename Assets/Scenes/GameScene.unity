@@ -576,7 +576,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aabf1f138a3a0f74697089f050532984, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BottomYOffset: 0.01
+  BottomYOffset: 0.015
   BottomSideMargin: 0.01
   SelectionRaiseAmount: 0.02
   PlayerDominoSlideIn: {fileID: 11400000, guid: b4663a5952161fa499a7f0fd42cc51b1,

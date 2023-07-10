@@ -10,36 +10,19 @@ public class GameSession : NetworkBehaviour
 
     public static GameSession Instance { get; private set; }
 
+    private List<ulong> readyPlayers = new List<ulong>();
+
     private void Awake()
     {
         Instance = this;
+        gameplayManager.CreateDominoSet();
     }
 
-    public override void OnNetworkSpawn()
-    {
-        if (IsServer)
-        {
-            //CreateDominoSetServerRpc();
-        }
-
-        //DrawDominoesServerRpc();
-    }
-
-    [ServerRpc]
-    public void CreateDominoSetServerRpc()
-    {
-        gameplayManager.DominoManager.CreateDominoSet();
-        Debug.Log("Domino set created");
-    }
 
     [ServerRpc(RequireOwnership = false)]
     public void DrawDominoesServerRpc(ServerRpcParams serverRpcParams = default)
     {
-        gameplayManager.DominoManager.PickUpDominoes(serverRpcParams.Receive.SenderClientId, 12);
-        var myDominoes = gameplayManager.DominoManager.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId);
-        var dominoIds = myDominoes.Select(d => d.ID).ToArray();
-
-        Debug.Log($"{gameplayManager.DominoManager.GetDominoesRemainingCount()} dominoes remaining");
+        var dominoIds = gameplayManager.DrawPlayerDominoes(serverRpcParams.Receive.SenderClientId);
 
         ClientRpcParams clientRpcParams = new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };
         DrawDominoesClientRpc(dominoIds, clientRpcParams);
@@ -48,15 +31,48 @@ public class GameSession : NetworkBehaviour
     [ClientRpc]
     public void DrawDominoesClientRpc(int[] dominoIds, ClientRpcParams clientRpcParams)
     {
-        // TODO: display the dominoes in the player's hand
-
         Debug.Log($"Received {dominoIds.Length} dominoes");
 
-        
         gameplayManager.DisplayPlayerDominoes(dominoIds);
-        
+    }
 
-        //var domino = gameplayManager.DominoManager.GetDominoByID(dominoId);
-        //Debug.Log($"Received domino: {domino.ID} {domino.TopScore} {domino.BottomScore}");
+    [ServerRpc(RequireOwnership = false)]
+    public void EndTurnServerRpc(ServerRpcParams serverRpcParams = default)
+    {
+        // TODO: submit the dominoes that were laid down to the server and add to a new station track
+        // TODO: validate that this is not being run a 2nd time for the same player
+
+        ulong clientId = serverRpcParams.Receive.SenderClientId;
+
+        if (readyPlayers.Contains(clientId))
+        {
+            Debug.LogError($"Player {clientId} is already ready");
+            return;
+        }
+        else
+        {
+            Debug.Log($"Player {clientId} is ready");
+        }
+
+        readyPlayers.Add(clientId);
+        // TODO: Need to know how many dominoes have been played or which is the player's track or null via a StationManager. If 0 then this player is ending their first turn without laying any dominoes down
+        gameplayManager.SetPlayerLaidFirstTrack(clientId);
+
+        if (readyPlayers.Count == ((MyNetworkManager)NetworkManager.Singleton).Players.Count)
+        {
+            // first player to draw will set whose turn it is (set to the first player who joined so the host)
+            if (!gameplayManager.GetPlayerIdForTurn().HasValue)
+            {
+                gameplayManager.SetPlayerTurn(((MyNetworkManager)NetworkManager.Singleton).Players[0].OwnerClientId);
+            }
+
+            PlayerReadyClientRpc();
+        }
+    }
+
+    [ClientRpc]
+    public void PlayerReadyClientRpc()
+    {
+        Debug.Log("All players are ready");
     }
 }

@@ -11,12 +11,15 @@ public class DominoPlayer : NetworkBehaviour
         {
             Debug.Log("Welcome!");
 
-            ((MyNetworkManager)NetworkManager.Singleton).Players.Add(this);
+            ((MyNetworkManager)NetworkManager.Singleton).LocalPlayer = this;
         }
+
+        ((MyNetworkManager)NetworkManager.Singleton).Players.Add(this);
     }
 
     public override void OnNetworkDespawn()
     {
         ((MyNetworkManager)NetworkManager.Singleton).Players.Remove(this);
+        ((MyNetworkManager)NetworkManager.Singleton).LocalPlayer = null;
     }
 }

@@ -13,10 +13,16 @@ public class PanelRightUI : MonoBehaviour
     private void Start()
     {
         drawButton.onClick.AddListener(OnDrawButtonClicked);
+        endTurnButton.onClick.AddListener(OnEndTurnButtonClicked);
     }
 
     private void OnDrawButtonClicked()
     {
         GameSession.Instance.DrawDominoesServerRpc();
+    }
+
+    private void OnEndTurnButtonClicked()
+    {
+        GameSession.Instance.EndTurnServerRpc();
     }
 }

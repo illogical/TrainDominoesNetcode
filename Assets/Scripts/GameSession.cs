@@ -14,7 +14,7 @@ public class GameSession : NetworkBehaviour
 
     [SerializeField] private GameplayManager gameplayManager;
 
-
+    private GameStateContext gameState;
     private List<ulong> readyPlayers = new List<ulong>();
     private bool gameStarted = false;
 
@@ -25,6 +25,15 @@ public class GameSession : NetworkBehaviour
 
     }
 
+    private void Start()
+    {
+        if (!gameStarted)
+        {
+            gameStarted = true;
+            gameState = new GameStateContext(this, gameplayManager);
+        }
+    }
+
     public override void OnNetworkSpawn()
     {
         OnPlayerJoined?.Invoke(this, EventArgs.Empty);
@@ -33,7 +42,7 @@ public class GameSession : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void DrawDominoesServerRpc(ServerRpcParams serverRpcParams = default)
     {
-        if(gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId).Count > 0)
+        if (gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId).Count > 0)
         {
             // TODO: Instead of this check, the button should be disabled after the dominoes are drawn
             Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} already has dominoes. Don't cheat! Ideally this button would be disabled.");

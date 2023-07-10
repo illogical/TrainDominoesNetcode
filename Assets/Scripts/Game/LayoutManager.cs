@@ -11,6 +11,8 @@ public class LayoutManager : MonoBehaviour
     [SerializeField] private float SelectionRaiseAmount = 0.02f;
     [Header("Animations")]
     public AnimationDefinition PlayerDominoSlideIn;
+    public AnimationDefinition PlayerDominoSelection;
+    public AnimationDefinition PlayerDominoDeselection;
 
     private Camera mainCamera;
     private float playerYPosition = 0;
@@ -38,5 +40,21 @@ public class LayoutManager : MonoBehaviour
 
             StartCoroutine(mover.MoveOverSeconds(positions[i], PlayerDominoSlideIn.Duration, staggerDelay, PlayerDominoSlideIn.Curve));
         }
+    }
+
+    public void SelectDomino(GameObject domino)
+    {
+        var destination = new Vector3(domino.transform.position.x, playerYPosition + SelectionRaiseAmount, domino.transform.position.z);
+
+        var mover = domino.GetComponent<Mover>();
+        StartCoroutine(mover.MoveOverSeconds(destination, PlayerDominoSelection));
+    }
+
+    public void DeselectDomino(GameObject domino)
+    {
+        var destination = new Vector3(domino.transform.position.x, playerYPosition, domino.transform.position.z);
+
+        var mover = domino.GetComponent<Mover>();
+        StartCoroutine(mover.MoveOverSeconds(destination, PlayerDominoDeselection));
     }
 }

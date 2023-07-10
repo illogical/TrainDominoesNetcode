@@ -1,3 +1,4 @@
+using Assets.Scripts.Game;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,19 +12,81 @@ public class GameplayManager : MonoBehaviour
 
     [SerializeField] private MeshManager meshManager;
     [SerializeField] private LayoutManager layoutManager;
+    [SerializeField] public InputManager InputManager;
 
-    private DominoManager _dominoManager;
+    [HideInInspector]
+    public DominoTracker DominoTracker;
+
+    public event EventHandler<int> DominoClicked;
+    public event EventHandler<int> PlayerDominoSelected;
+    public event EventHandler<int> EngineDominoSelected;
+    public event EventHandler<int> TrackDominoSelected;
+
+    //private DominoManager _dominoManager;
     private TurnManager _turnManager;
     private StationManager _stationManager;
 
+    private int? selectedDominoId;
+
     private void Awake()
     {
-        _dominoManager = new DominoManager();
         _turnManager = new TurnManager();
         _stationManager = new StationManager();
+
+        DominoTracker = new DominoTracker();
     }
 
-    public void CreateDominoSet() => _dominoManager.CreateDominoSet();
+    private void Start()
+    {
+        InputManager.DominoClicked += InputManager_DominoClicked;
+    }
+
+    private void InputManager_DominoClicked(object sender, int dominoId)
+    {
+        SelectDomino(dominoId);
+
+        // TODO: add set of events for which type of domino was clicked (player domino, station domino, or engine domino)
+
+        // currently only player dominoes are clickable
+
+
+    }
+
+    private void SelectPlayerDomino(int dominoId)
+    {
+        PlayerDominoSelected?.Invoke(this, dominoId);
+
+
+        // TODO: move this logic into the state machine
+        if (!selectedDominoId.HasValue)
+        {
+            // raise domino
+            layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
+            selectedDominoId = dominoId;
+        }
+        else if (selectedDominoId == dominoId)
+        {
+            // lower domino
+            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(dominoId));
+            selectedDominoId = null;
+        }
+        else
+        {
+            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(selectedDominoId.Value));
+            layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
+            selectedDominoId = dominoId;
+        }
+    }
+
+    public void CreateDominoSet() => DominoTracker.CreateDominoSet();
+
+    public void SelectDomino(int dominoId)
+    {
+        // TODO: decide if this was a player domino, station domino, or engine domino
+
+        SelectPlayerDomino(dominoId);
+    }
+
 
     public int GetDominoCountPerPlayer(int playerCount)
     {
@@ -35,9 +98,9 @@ public class GameplayManager : MonoBehaviour
 
     public int[] DrawPlayerDominoes(ulong clientId)
     {
-        _dominoManager.PickUpDominoes(clientId, 12);
-        var myDominoes = _dominoManager.GetPlayerDominoes(clientId);
-        return myDominoes.Select(d => d.ID).ToArray();
+        DominoTracker.PickUpDominoes(clientId, 12);
+        var myDominoes = DominoTracker.GetPlayerDominoes(clientId);
+        return myDominoes.ToArray();
     }
 
     public void DisplayPlayerDominoes(int[] dominoIds)
@@ -45,7 +108,7 @@ public class GameplayManager : MonoBehaviour
         var playerDominoes = new List<GameObject>();
         foreach (var dominoId in dominoIds)
         {
-            playerDominoes.Add(meshManager.CreatePlayerDominoFromInfo(_dominoManager.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Player));
+            playerDominoes.Add(meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Player));
         }
 
         layoutManager.PlacePlayerDominoes(playerDominoes);
@@ -72,5 +135,5 @@ public class GameplayManager : MonoBehaviour
         Debug.Log($"{clientId} player's turn set");
     }
 
-
+    public int? GetSelectedDomino() => selectedDominoId;
 }

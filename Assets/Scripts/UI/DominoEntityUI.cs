@@ -10,6 +10,8 @@ public class DominoEntityUI : MonoBehaviour
 
     private DominoEntity dominoEntity;
 
+    public DominoEntity DominoInfo { get => dominoEntity; }
+
     public void SetDominoInfo(DominoEntity dominoEntity)
     {
         this.dominoEntity = dominoEntity;

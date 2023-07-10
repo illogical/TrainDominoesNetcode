@@ -1,3 +1,5 @@
+using Assets.Scripts.Game.States;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,22 +8,38 @@ using UnityEngine;
 
 public class GameSession : NetworkBehaviour
 {
-    [SerializeField] private GameplayManager gameplayManager;
-
     public static GameSession Instance { get; private set; }
 
+    public event EventHandler OnPlayerJoined;
+
+    [SerializeField] private GameplayManager gameplayManager;
+
+
     private List<ulong> readyPlayers = new List<ulong>();
+    private bool gameStarted = false;
 
     private void Awake()
     {
         Instance = this;
         gameplayManager.CreateDominoSet();
+
     }
 
+    public override void OnNetworkSpawn()
+    {
+        OnPlayerJoined?.Invoke(this, EventArgs.Empty);
+    }
 
     [ServerRpc(RequireOwnership = false)]
     public void DrawDominoesServerRpc(ServerRpcParams serverRpcParams = default)
     {
+        if(gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId).Count > 0)
+        {
+            // TODO: Instead of this check, the button should be disabled after the dominoes are drawn
+            Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} already has dominoes. Don't cheat! Ideally this button would be disabled.");
+            return;
+        }
+
         var dominoIds = gameplayManager.DrawPlayerDominoes(serverRpcParams.Receive.SenderClientId);
 
         ClientRpcParams clientRpcParams = new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };

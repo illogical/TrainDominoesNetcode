@@ -49,11 +49,11 @@ namespace Assets.Scripts.Models
             return Tracks[trackIndex];
         }
 
-        public Track GetTrackByNetId(int netId)
+        public Track GetTrackByNetId(ulong clientId)
         {
             foreach (var track in Tracks)
             {
-                if (track.PlayerId == netId)
+                if (track.PlayerId == clientId)
                 {
                     return track;
                 }

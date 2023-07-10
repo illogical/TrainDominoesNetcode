@@ -524,6 +524,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 425682248}
+  - component: {fileID: 425682249}
   - component: {fileID: 425682247}
   - component: {fileID: 425682246}
   - component: {fileID: 425682245}
@@ -564,6 +565,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   meshManager: {fileID: 425682245}
   layoutManager: {fileID: 425682247}
+  InputManager: {fileID: 425682249}
 --- !u!114 &425682247
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -581,6 +583,10 @@ MonoBehaviour:
   SelectionRaiseAmount: 0.02
   PlayerDominoSlideIn: {fileID: 11400000, guid: b4663a5952161fa499a7f0fd42cc51b1,
     type: 2}
+  PlayerDominoSelection: {fileID: 11400000, guid: 4537fe7ef65719b43a1bb742da028b25,
+    type: 2}
+  PlayerDominoDeselection: {fileID: 11400000, guid: 8f3fe1b13929aad49bc3cb1813a1def2,
+    type: 2}
 --- !u!4 &425682248
 Transform:
   m_ObjectHideFlags: 0
@@ -596,6 +602,19 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &425682249
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 425682244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc5f29c01f56ffb439b56aace6aa11b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  MainCamera: {fileID: 330585545}
 --- !u!1 &663592774
 GameObject:
   m_ObjectHideFlags: 0
@@ -922,8 +941,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 304f019aaa165bf43930e3f12634f7c0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  drawButton: {fileID: 1676960533}
-  endTurnButton: {fileID: 920903223}
+  DrawButton: {fileID: 1676960533}
+  EndTurnButton: {fileID: 920903223}
 --- !u!1001 &1102143019
 PrefabInstance:
   m_ObjectHideFlags: 0

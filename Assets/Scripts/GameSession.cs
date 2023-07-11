@@ -16,6 +16,7 @@ public class GameSession : NetworkBehaviour
 
     private GameStateContext gameState;
     private List<ulong> readyPlayers = new List<ulong>();
+    private List<ulong> playersCompletedFirstTurn = new List<ulong>();  // players who have completed their first turn but may not have laid down a track
     private bool gameStarted = false;
 
     private void Awake()
@@ -63,7 +64,6 @@ public class GameSession : NetworkBehaviour
     {
         if (gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId).Count > 0)
         {
-            // TODO: Instead of this check, the button should be disabled after the dominoes are drawn
             Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} already has dominoes.");
             return;
         }
@@ -101,12 +101,18 @@ public class GameSession : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void EndTurnServerRpc(ServerRpcParams serverRpcParams = default)
+    public void EndFirstTurnServerRpc(ServerRpcParams serverRpcParams = default)
     {
         // TODO: submit the dominoes that were laid down to the server and add to a new station track
         // TODO: validate that this is not being run a 2nd time for the same player
 
         ulong clientId = serverRpcParams.Receive.SenderClientId;
+
+        if (!playersCompletedFirstTurn.Contains(clientId))
+        {
+            gameplayManager.TurnManager.CompleteLaidFirstTrack(clientId);
+            playersCompletedFirstTurn.Add(clientId);
+        }
 
         if (readyPlayers.Contains(clientId))
         {
@@ -120,17 +126,34 @@ public class GameSession : NetworkBehaviour
 
         readyPlayers.Add(clientId);
         // TODO: Need to know how many dominoes have been played or which is the player's track or null via a StationManager. If 0 then this player is ending their first turn without laying any dominoes down
-        gameplayManager.SetPlayerLaidFirstTrack(clientId);
+        //gameplayManager.SetPlayerLaidFirstTrack(clientId);
 
         if (readyPlayers.Count == ((MyNetworkManager)NetworkManager.Singleton).Players.Count)
         {
+            // this is the last player to end their turn
+
+            ulong? currentPlayerId = gameplayManager.TurnManager.CurrentPlayerId;
             // first player to draw will set whose turn it is (set to the first player who joined so the host)
-            if (!gameplayManager.GetPlayerIdForTurn().HasValue)
+
+            gameplayManager.TurnManager.IncrementTurn();
+
+
+            if (!currentPlayerId.HasValue)
             {
-                gameplayManager.SetPlayerTurn(((MyNetworkManager)NetworkManager.Singleton).Players[0].OwnerClientId);
+                // this is the first player's turn
+
+                // TODO: decide which players added their track which did not
+
+                //gameplayManager.SetPlayerTurn(readyPlayers[0]);
+                //gameplayManager.SetPlayerTurn(((MyNetworkManager)NetworkManager.Singleton).Players[0].OwnerClientId);
+            }
+            else
+            {
+                // TODO: turn manager needs to keep track of the index of the player whose turn it is
+                // for now the order of the players is the same as the order they clicked "End Turn"
             }
 
-            PlayerReadyClientRpc();
+            PlayerReadyClientRpc(gameplayManager.TurnManager.CurrentPlayerId.Value);
         }
     }
 
@@ -180,11 +203,33 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void PlayerReadyClientRpc()
+    public void PlayerReadyClientRpc(ulong clientIdForTurn)
     {
-        Debug.Log("All players are ready");
+        Debug.Log("All players have ended their first turn.");
+
+        if(clientIdForTurn == NetworkManager.Singleton.LocalClientId)
+        {
+            Debug.Log("It is now your turn.");
+
+            gameplayManager.StartPlayerTurn();
+        }
+        else
+        {
+            Debug.Log($"It is now player {clientIdForTurn}'s turn.");
+
+            gameplayManager.StartAwaitingTurn();
+        }
+
+        gameplayManager.CompleteTurn();
     }
 
     private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };
 
+    [ServerRpc(RequireOwnership = false)]
+    internal void PlayerJoinedServerRpc(ServerRpcParams serverRpcParams = default)
+    {
+        gameplayManager.TurnManager.AddPlayer(serverRpcParams.Receive.SenderClientId);
+
+        // TODO: handle player removal (this list is also tracked on the DominoPlayer object)
+    }
 }

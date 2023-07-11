@@ -16,18 +16,22 @@ public class GameplayManager : MonoBehaviour
 
     [HideInInspector]
     public DominoTracker DominoTracker;
+    [HideInInspector]
+    public TurnManager TurnManager;
 
     public event EventHandler<int> DominoClicked;
     public event EventHandler<int> PlayerDominoSelected;
     public event EventHandler<int> EngineDominoSelected;
     public event EventHandler<int> TrackDominoSelected;
+    public event EventHandler TurnCompleted;
+    public event EventHandler PlayerTurnStarted;
+    public event EventHandler AwaitTurn;
 
-    private TurnManager _turnManager;
+
 
     private void Awake()
     {
-        _turnManager = new TurnManager();
-
+        TurnManager = new TurnManager();
         DominoTracker = new DominoTracker();
     }
 
@@ -116,25 +120,14 @@ public class GameplayManager : MonoBehaviour
         layoutManager.PlacePlayerDominoes(playerDominoes);
     }
 
-    public ulong? GetPlayerIdForTurn()
+    public bool HasPlayerLaidFirstTrack(ulong clientId)
     {
-        return _turnManager.CurrentPlayerId;
-    }
-
-    public void HasPlayerLaidFirstTrack(ulong clientId)
-    {
-        _turnManager.HasPlayerLaidFirstTrack(clientId);
+        return TurnManager.HasPlayerLaidFirstTrack(clientId);
     }
 
     public void SetPlayerLaidFirstTrack(ulong clientId)
     {
-        _turnManager.CompleteLaidFirstTrack(clientId);
-    }
-
-    public void SetPlayerTurn(ulong clientId)
-    {
-        _turnManager.SetCurrentPlayerId(clientId);
-        Debug.Log($"{clientId} player's turn set");
+        TurnManager.CompleteLaidFirstTrack(clientId);
     }
 
     public int? GetSelectedDomino() => DominoTracker.SelectedDomino;
@@ -144,4 +137,9 @@ public class GameplayManager : MonoBehaviour
         GameObject engineDomino = meshManager.CreateEngineDomino(DominoTracker.GetDominoByID(dominoId), Vector3.zero);
         layoutManager.PlaceEngine(engineDomino);
     }
+
+    internal void CompleteTurn() => TurnCompleted?.Invoke(this, EventArgs.Empty);
+    internal void StartPlayerTurn() => PlayerTurnStarted?.Invoke(this, EventArgs.Empty);
+    internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
+
 }

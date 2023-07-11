@@ -20,15 +20,18 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.InputManager.DrawButtonClicked += InputManager_DrawButtonClicked;
             ctx.GameplayManager.InputManager.EndTurnClicked += InputManager_EndTurnClicked;
 
+            ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
+            ctx.GameplayManager.AwaitTurn += GameplayManager_AwaitTurn;
+
             ctx.GameSession.PlaceEngineServerRpc();
 
-            Debug.Log($"{Name}.EnterState");
+            // this could also draw the initial dominoes however the animations are not smooth for the host player for some reason
+            //ctx.GameSession.DrawInitialDominoesServerRpc();
         }
-
 
         public override void UpdateState()
         {
-            //ctx.SwitchState(ctx.PlayerTurnStartedState);
+
         }
 
         public override void LeaveState()
@@ -50,7 +53,17 @@ namespace Assets.Scripts.Game.States
 
         private void InputManager_EndTurnClicked(object sender, EventArgs e)
         {
-            ctx.GameSession.EndTurnServerRpc();
+            ctx.GameSession.EndFirstTurnServerRpc();
+        }
+
+        private void GameplayManager_PlayerTurnStarted(object sender, EventArgs e)
+        {
+            ctx.SwitchState(ctx.PlayerTurnStartedState);
+        }
+
+        private void GameplayManager_AwaitTurn(object sender, EventArgs e)
+        {
+            ctx.SwitchState(ctx.PlayerAwaitingTurnState);
         }
     }
 }

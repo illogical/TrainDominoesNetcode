@@ -15,14 +15,16 @@ namespace Assets.Scripts.Game.States
 
         public override void EnterState()
         {
-            // TODO: await all players to be ready
-            Debug.Log("PregameState.EnterState");
+            // TODO: await all players to be ready (eventually min of 2 players and max of 6 players (I think))
 
             ctx.GameSession.OnPlayerJoined += GameSession_OnPlayerJoined;
         }
 
         private void GameSession_OnPlayerJoined(object sender, EventArgs e)
         {
+            // register the player with the server
+            ctx.GameSession.PlayerJoinedServerRpc();
+
             ctx.SwitchState(ctx.GameStartedState);
         }
 

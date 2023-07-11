@@ -5,10 +5,12 @@ namespace Assets.Scripts.Game.States
     public class GameStateContext
     {
         public GameSession GameSession { get; private set; }
-        public GameplayManager GameplayManager;
+        public GameplayManager GameplayManager { get; private set; }
 
         public PregameState PregameState;
         public GameStartedState GameStartedState;
+        public PlayerTurnStartedState PlayerTurnStartedState;
+        public PlayerAwaitingTurnState PlayerAwaitingTurnState;
 
         private GameStateBase currentState;
 
@@ -16,11 +18,14 @@ namespace Assets.Scripts.Game.States
         {
             PregameState = new PregameState(this);
             GameStartedState = new GameStartedState(this);
+            PlayerTurnStartedState = new PlayerTurnStartedState(this);
+            PlayerAwaitingTurnState = new PlayerAwaitingTurnState(this);
+
 
             GameSession = gameSession;
             GameplayManager = gameplayManager;
-            currentState = PregameState;
 
+            currentState = PregameState;
             currentState.EnterState();
         }
 

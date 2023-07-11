@@ -10,8 +10,10 @@ namespace Assets.Scripts.Game.States
     public class GameStartedState : GameStateBase
     {
         public GameStartedState(GameStateContext gameContext) : base(gameContext) { }
-
         public override string Name => nameof(GameStartedState);
+
+        private int? selectedDominoId;
+
         public override void EnterState()
         {
             ctx.GameplayManager.InputManager.DominoClicked += InputManager_DominoClicked;
@@ -20,9 +22,9 @@ namespace Assets.Scripts.Game.States
 
             ctx.GameSession.PlaceEngineServerRpc();
 
-            Debug.Log("GameStartedState.EnterState");
-            //ctx.Player.CmdDealDominoes(12);    // TODO: wondering if GameplayManager should contain the logic for determining how many dominoes to deal to each player
+            Debug.Log($"{Name}.EnterState");
         }
+
 
         public override void UpdateState()
         {
@@ -36,31 +38,8 @@ namespace Assets.Scripts.Game.States
 
         private void InputManager_DominoClicked(object sender, int dominoId)
         {
-            ctx.GameplayManager.SelectDomino(dominoId);
-
-            //if (!selectedDominoId.HasValue)
-            //{
-            //    // raise domino
-            //    layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
-            //    selectedDominoId = dominoId;
-            //}
-            //else if (selectedDominoId == dominoId)
-            //{
-            //    // lower domino
-            //    layoutManager.DeselectDomino(meshManager.GetDominoMeshById(dominoId));
-            //    selectedDominoId = null;
-            //}
-            //else
-            //{
-            //    layoutManager.DeselectDomino(meshManager.GetDominoMeshById(selectedDominoId.Value));
-            //    layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
-            //    selectedDominoId = dominoId;
-            //}
-
-            // TODO: add set of events for which type of domino was clicked (player domino, station domino, or engine domino)
-
-            // currently only player dominoes are clickable
-
+            // the server decides which type of domino was clicked
+            ctx.GameSession.SelectDominoServerRpc(dominoId);
         }
 
         // TODO: how to prevent needing to repeat this across all states? It is different for first state vs subsequent states

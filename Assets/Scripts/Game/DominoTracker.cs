@@ -75,7 +75,7 @@ namespace Assets.Scripts.Game
             return newDomino.ID;
         }
 
-        public void SetSelectedDomino(int dominoId)
+        public void SetSelectedDomino(int? dominoId)
         {
             SelectedDomino = dominoId;
         }

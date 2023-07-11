@@ -1,8 +1,6 @@
 using Assets.Scripts.Game.States;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -134,6 +132,51 @@ public class GameSession : NetworkBehaviour
 
             PlayerReadyClientRpc();
         }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SelectDominoServerRpc(int dominoId, ServerRpcParams serverRpcParams = default)
+    {
+
+        // TODO: the server needs to decide if the domino can be played. Is it this player's turn? Is it a valid domino to play? Is it a valid track to play on?
+
+        // decide if this was a player domino, station domino, or engine domino
+        if (gameplayManager.DominoTracker.IsPlayerDomino(serverRpcParams.Receive.SenderClientId, dominoId))
+        {
+            // tell client to select the domino
+            SelectPlayerDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
+        }
+        else if (gameplayManager.DominoTracker.IsEngine(dominoId))
+        {
+            SelectEngineDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
+        }
+        else
+        {
+            // track domino
+
+            // get the track index and pass it to the client to move the domino to the track
+            SelectTrackDominoClientRpc(dominoId, 0, SendToClientSender(serverRpcParams));
+        }        
+    }
+
+    [ClientRpc]
+    public void SelectPlayerDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    {
+        gameplayManager.SelectPlayerDomino(dominoId);
+    }
+
+    [ClientRpc]
+    public void SelectEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    {
+        Debug.Log("Engine domino clicked");
+        //gameplayManager.AddDominoToNewTrack(dominoId);
+    }
+
+    [ClientRpc]
+    public void SelectTrackDominoClientRpc(int dominoId, int trackIndex, ClientRpcParams clientRpcParams = default)
+    {
+        Debug.Log("Track domino clicked");
+        //gameplayManager.AddDominoToTrack(dominoId, trackIndex);
     }
 
     [ClientRpc]

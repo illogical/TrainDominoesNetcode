@@ -24,8 +24,6 @@ public class GameplayManager : MonoBehaviour
 
     private TurnManager _turnManager;
 
-    private int? selectedDominoId;
-
     private void Awake()
     {
         _turnManager = new TurnManager();
@@ -33,40 +31,50 @@ public class GameplayManager : MonoBehaviour
         DominoTracker = new DominoTracker();
     }
 
-    private void SelectPlayerDomino(int dominoId)
+    public void SelectPlayerDomino(int dominoId)
     {
         PlayerDominoSelected?.Invoke(this, dominoId);
 
-
-        // TODO: move this logic into the state machine
-        if (!selectedDominoId.HasValue)
+        if (!DominoTracker.SelectedDomino.HasValue)
         {
             // raise domino
             layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
-            selectedDominoId = dominoId;
+            DominoTracker.SetSelectedDomino(dominoId);
         }
-        else if (selectedDominoId == dominoId)
+        else if (DominoTracker.SelectedDomino == dominoId)
         {
             // lower domino
             layoutManager.DeselectDomino(meshManager.GetDominoMeshById(dominoId));
-            selectedDominoId = null;
+            DominoTracker.SetSelectedDomino(null);
         }
         else
         {
-            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(selectedDominoId.Value));
+            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(DominoTracker.SelectedDomino.Value));
             layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
-            selectedDominoId = dominoId;
+            DominoTracker.SetSelectedDomino(dominoId);
         }
     }
 
     public void CreateDominoSet() => DominoTracker.CreateDominoSet();
 
-    public void SelectDomino(int dominoId)
-    {
-        // TODO: decide if this was a player domino, station domino, or engine domino
 
-        SelectPlayerDomino(dominoId);
-    }
+    //public void SelectDomino(int dominoId)
+    //{
+    //    // TODO: decide if this was a player domino, station domino, or engine domino
+    //    // TODO: the server needs to decide if the domino can be played
+    //    if (DominoTracker.IsPlayerDomino(clientId, dominoId))
+    //    {
+    //        SelectPlayerDomino(dominoId);
+    //    }
+    //    else if (DominoTracker.IsEngine(dominoId))
+    //    {
+
+    //    }
+    //    else
+    //    {
+    //        // station domino
+    //    }
+    //}
 
 
     public int GetDominoCountPerPlayer(int playerCount)
@@ -129,7 +137,7 @@ public class GameplayManager : MonoBehaviour
         Debug.Log($"{clientId} player's turn set");
     }
 
-    public int? GetSelectedDomino() => selectedDominoId;
+    public int? GetSelectedDomino() => DominoTracker.SelectedDomino;
 
     internal void CreateAndPlaceEngine(int dominoId)
     {

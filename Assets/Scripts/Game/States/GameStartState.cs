@@ -15,6 +15,7 @@ namespace Assets.Scripts.Game.States
         public override void EnterState()
         {
             ctx.GameplayManager.InputManager.DominoClicked += InputManager_DominoClicked;
+            ctx.GameSession.PlaceEngineServerRpc();
 
             Debug.Log("GameStartedState.EnterState");
             //ctx.Player.CmdDealDominoes(12);    // TODO: wondering if GameplayManager should contain the logic for determining how many dominoes to deal to each player
@@ -32,6 +33,8 @@ namespace Assets.Scripts.Game.States
 
         private void InputManager_DominoClicked(object sender, int dominoId)
         {
+            ctx.GameplayManager.SelectDomino(dominoId);
+
             //if (!selectedDominoId.HasValue)
             //{
             //    // raise domino

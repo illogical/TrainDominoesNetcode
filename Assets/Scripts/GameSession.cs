@@ -11,6 +11,7 @@ public class GameSession : NetworkBehaviour
     public static GameSession Instance { get; private set; }
 
     public event EventHandler OnPlayerJoined;
+    public event EventHandler<int[]> OnPlayerDrewFromPile;
 
     [SerializeField] private GameplayManager gameplayManager;
 
@@ -22,16 +23,13 @@ public class GameSession : NetworkBehaviour
     {
         Instance = this;
         gameplayManager.CreateDominoSet();
-
+        gameplayManager.GetNewEngineDomino();
     }
 
     private void Start()
     {
-        if (!gameStarted)
-        {
-            gameStarted = true;
-            gameState = new GameStateContext(this, gameplayManager);
-        }
+        gameStarted = true;
+        gameState = new GameStateContext(this, gameplayManager);
     }
 
     public override void OnNetworkSpawn()
@@ -40,19 +38,33 @@ public class GameSession : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void DrawDominoesServerRpc(ServerRpcParams serverRpcParams = default)
+    public void PlaceEngineServerRpc(ServerRpcParams serverRpcParams = default)
+    {
+        DominoEntity engineDomino = gameplayManager.GetEngineDomino();
+
+        PlaceEngineDominoClientRpc(engineDomino.ID, SendToClientSender(serverRpcParams));
+    }
+
+    [ClientRpc]
+    public void PlaceEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    {
+        // create a mesh and place it on the side of the screen
+        gameplayManager.CreateAndPlaceEngine(dominoId);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void DrawInitialDominoesServerRpc(ServerRpcParams serverRpcParams = default)
     {
         if (gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId).Count > 0)
         {
             // TODO: Instead of this check, the button should be disabled after the dominoes are drawn
-            Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} already has dominoes. Don't cheat! Ideally this button would be disabled.");
+            Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} already has dominoes.");
             return;
         }
 
         var dominoIds = gameplayManager.DrawPlayerDominoes(serverRpcParams.Receive.SenderClientId);
 
-        ClientRpcParams clientRpcParams = new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };
-        DrawDominoesClientRpc(dominoIds, clientRpcParams);
+        DrawDominoesClientRpc(dominoIds, SendToClientSender(serverRpcParams));
     }
 
     [ClientRpc]
@@ -60,7 +72,26 @@ public class GameSession : NetworkBehaviour
     {
         Debug.Log($"Received {dominoIds.Length} dominoes");
 
+        OnPlayerDrewFromPile?.Invoke(this, dominoIds);
         gameplayManager.DisplayPlayerDominoes(dominoIds);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void DrawDominoServerRpc(ServerRpcParams serverRpcParams = default)
+    {
+        var dominoId = gameplayManager.DrawPlayerDomino(serverRpcParams.Receive.SenderClientId);
+
+        DrawDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
+    }
+
+    [ClientRpc]
+    public void DrawDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams)
+    {
+        var dominoes = new int[] { dominoId };
+        OnPlayerDrewFromPile?.Invoke(this, dominoes);
+
+        // TODO: different animation for drawing a single domino
+        //gameplayManager.DisplayPlayerDominoes(dominoes);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -102,4 +133,7 @@ public class GameSession : NetworkBehaviour
     {
         Debug.Log("All players are ready");
     }
+
+    private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };
+
 }

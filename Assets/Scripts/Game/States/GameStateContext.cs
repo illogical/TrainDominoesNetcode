@@ -19,9 +19,9 @@ namespace Assets.Scripts.Game.States
 
             GameSession = gameSession;
             GameplayManager = gameplayManager;
-            currentState = GameStartedState;
+            currentState = PregameState;
 
-            GameStartedState.EnterState();
+            currentState.EnterState();
         }
 
         public void Update()

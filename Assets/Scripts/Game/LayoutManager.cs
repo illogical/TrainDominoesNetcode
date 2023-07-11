@@ -1,4 +1,5 @@
 using Assets.Scripts.Helpers;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,6 +11,7 @@ public class LayoutManager : MonoBehaviour
     [SerializeField] private float BottomSideMargin = 0.01f;
     [SerializeField] private float SelectionRaiseAmount = 0.02f;
     [Header("Animations")]
+    public AnimationDefinition EngineSlideIn;
     public AnimationDefinition PlayerDominoSlideIn;
     public AnimationDefinition PlayerDominoSelection;
     public AnimationDefinition PlayerDominoDeselection;
@@ -42,6 +44,14 @@ public class LayoutManager : MonoBehaviour
         }
     }
 
+    public void PlaceEngine(GameObject engine, Action afterComplete = null)
+    {
+        var destination = GetEnginePosition(engine);
+
+        var mover = engine.GetComponent<Mover>();
+        StartCoroutine(mover.MoveOverSeconds(destination, EngineSlideIn, afterComplete));
+    }
+
     public void SelectDomino(GameObject domino)
     {
         var destination = new Vector3(domino.transform.position.x, playerYPosition + SelectionRaiseAmount, domino.transform.position.z);
@@ -57,4 +67,11 @@ public class LayoutManager : MonoBehaviour
         var mover = domino.GetComponent<Mover>();
         StartCoroutine(mover.MoveOverSeconds(destination, PlayerDominoDeselection));
     }
+
+    private Vector3 GetEnginePosition(GameObject engine)
+    {
+        var objectSize = PositionHelper.GetObjectDimensions(engine);
+        return PositionHelper.GetScreenLeftCenterPositionForObject(objectSize, mainCamera, 0);
+    }
+
 }

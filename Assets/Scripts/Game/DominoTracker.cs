@@ -45,6 +45,7 @@ namespace Assets.Scripts.Game
         }
 
         public DominoEntity GetDominoByID(int dominoId) => AllDominoes[dominoId];
+        public DominoEntity GetEngineDomino() => AllDominoes[engineIndices[engineIndex]];
         public int GetEngineDominoID() => engineIndices[engineIndex];
         public List<int> GetPlayerDominoes(ulong clientId) => playerDominoes.GetPlayerDominoes(clientId);
         public bool IsPlayerDomino(ulong clientId, int dominoId) => playerDominoes.Dominoes[clientId].Contains(dominoId);
@@ -54,12 +55,24 @@ namespace Assets.Scripts.Game
         /// Used for picking up a player's dominoes at the start of a game
         /// </summary>
         /// <param name="count"></param>
-        public void PickUpDominoes(ulong clientId, int count)
+        public int[] PickUpDominoes(ulong clientId, int count)
         {
+            List<int> newDominoes = new List<int>();
             for (int i = 0; i < count; i++)
             {
-                AddPlayerDomino(clientId, GetDominoFromBonePile().ID);
+                DominoEntity newDomino = GetDominoFromBonePile();
+                newDominoes.Add(newDomino.ID);
+                AddPlayerDomino(clientId, newDomino.ID);
             }
+            return newDominoes.ToArray();
+        }
+
+        public int PickUpDomino(ulong clientId)
+        {
+            var newDomino = GetDominoFromBonePile();
+            AddPlayerDomino(clientId, newDomino.ID);
+
+            return newDomino.ID;
         }
 
         public void SetSelectedDomino(int dominoId)

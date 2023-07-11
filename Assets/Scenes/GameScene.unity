@@ -581,6 +581,7 @@ MonoBehaviour:
   BottomYOffset: 0.015
   BottomSideMargin: 0.01
   SelectionRaiseAmount: 0.02
+  EngineSlideIn: {fileID: 11400000, guid: 8fb81f0cdb7be194e8be02203a41379a, type: 2}
   PlayerDominoSlideIn: {fileID: 11400000, guid: b4663a5952161fa499a7f0fd42cc51b1,
     type: 2}
   PlayerDominoSelection: {fileID: 11400000, guid: 4537fe7ef65719b43a1bb742da028b25,

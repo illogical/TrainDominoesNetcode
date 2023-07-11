@@ -10,7 +10,7 @@ public class MeshManager : MonoBehaviour
     private Dictionary<int, GameObject> dominoObjects = new Dictionary<int, GameObject>();   // TODO: now both clients know about each other's dominoes. Feels unsure.
     private Quaternion dominoRotation = Quaternion.Euler(new Vector3(-90, 0, 180));
 
-    private int engineDominoId;
+    private int engineDominoId = -1;
 
     public GameObject GetDominoMeshById(int id)
     {
@@ -19,9 +19,10 @@ public class MeshManager : MonoBehaviour
 
     public GameObject GetEngineDomino() => dominoObjects[engineDominoId];
 
-    public GameObject CreateEngineDomino(GameObject prefab, DominoEntity info, Vector3 position)
+    public GameObject CreateEngineDomino(DominoEntity info, Vector3 position)
     {
-        var engineDomino = CreateDominoFromInfo(prefab, info, position, PurposeType.Engine);
+        var engineDomino = CreateDominoFromInfo(playerDominoPrefab, info, position, PurposeType.Engine);
+        engineDominoId = info.ID;
         return engineDomino;
     }
 

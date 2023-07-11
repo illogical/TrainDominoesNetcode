@@ -17,16 +17,23 @@ namespace Assets.Scripts.Game.States
         {
             // TODO: await all players to be ready
             Debug.Log("PregameState.EnterState");
+
+            ctx.GameSession.OnPlayerJoined += GameSession_OnPlayerJoined;
         }
 
-        public override void UpdateState()
+        private void GameSession_OnPlayerJoined(object sender, EventArgs e)
         {
             ctx.SwitchState(ctx.GameStartedState);
         }
 
-        public override void LeaveState()
+        public override void UpdateState()
         {
             
+        }
+
+        public override void LeaveState()
+        {
+            ctx.GameSession.OnPlayerJoined -= GameSession_OnPlayerJoined;
         }
 
 

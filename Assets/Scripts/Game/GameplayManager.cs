@@ -22,34 +22,15 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler<int> EngineDominoSelected;
     public event EventHandler<int> TrackDominoSelected;
 
-    //private DominoManager _dominoManager;
     private TurnManager _turnManager;
-    private StationManager _stationManager;
 
     private int? selectedDominoId;
 
     private void Awake()
     {
         _turnManager = new TurnManager();
-        _stationManager = new StationManager();
 
         DominoTracker = new DominoTracker();
-    }
-
-    private void Start()
-    {
-        InputManager.DominoClicked += InputManager_DominoClicked;
-    }
-
-    private void InputManager_DominoClicked(object sender, int dominoId)
-    {
-        SelectDomino(dominoId);
-
-        // TODO: add set of events for which type of domino was clicked (player domino, station domino, or engine domino)
-
-        // currently only player dominoes are clickable
-
-
     }
 
     private void SelectPlayerDomino(int dominoId)
@@ -98,9 +79,22 @@ public class GameplayManager : MonoBehaviour
 
     public int[] DrawPlayerDominoes(ulong clientId)
     {
-        DominoTracker.PickUpDominoes(clientId, 12);
-        var myDominoes = DominoTracker.GetPlayerDominoes(clientId);
-        return myDominoes.ToArray();
+        return DominoTracker.PickUpDominoes(clientId, 12);
+    }
+
+    public int DrawPlayerDomino(ulong clientId)
+    {
+        return DominoTracker.PickUpDomino(clientId); 
+    }
+
+    public DominoEntity GetNewEngineDomino()
+    {
+        return DominoTracker.GetNextEngineAndCreateStation();
+    }
+
+    public DominoEntity GetEngineDomino()
+    {
+        return DominoTracker.GetEngineDomino();
     }
 
     public void DisplayPlayerDominoes(int[] dominoIds)
@@ -136,4 +130,10 @@ public class GameplayManager : MonoBehaviour
     }
 
     public int? GetSelectedDomino() => selectedDominoId;
+
+    internal void CreateAndPlaceEngine(int dominoId)
+    {
+        GameObject engineDomino = meshManager.CreateEngineDomino(DominoTracker.GetDominoByID(dominoId), Vector3.zero);
+        layoutManager.PlaceEngine(engineDomino);
+    }
 }

@@ -13,27 +13,10 @@ public class PanelRightUI : MonoBehaviour
 
     private void Start()
     {
-        DrawButton.onClick.AddListener(OnDrawButtonClicked);
-        EndTurnButton.onClick.AddListener(OnEndTurnButtonClicked);
-
         GameSession.Instance.OnPlayerJoined += OnPlayerJoined;
         GameSession.Instance.OnPlayerDrewFromPile += OnPlayerDrewFromPile;
 
         DisableButtons();
-    }
-
-    private void OnDrawButtonClicked()
-    {
-        // TODO: execute event instead of calling server rpc
-        
-        GameSession.Instance.DrawInitialDominoesServerRpc();
-    }
-
-    private void OnEndTurnButtonClicked()
-    {
-        // TODO: execute event instead of calling server rpc
-
-        GameSession.Instance.EndTurnServerRpc();
     }
 
     public void EnableButtons()

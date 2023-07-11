@@ -15,6 +15,9 @@ namespace Assets.Scripts.Game.States
         public override void EnterState()
         {
             ctx.GameplayManager.InputManager.DominoClicked += InputManager_DominoClicked;
+            ctx.GameplayManager.InputManager.DrawButtonClicked += InputManager_DrawButtonClicked;
+            ctx.GameplayManager.InputManager.EndTurnClicked += InputManager_EndTurnClicked;
+
             ctx.GameSession.PlaceEngineServerRpc();
 
             Debug.Log("GameStartedState.EnterState");
@@ -58,6 +61,17 @@ namespace Assets.Scripts.Game.States
 
             // currently only player dominoes are clickable
 
+        }
+
+        // TODO: how to prevent needing to repeat this across all states? It is different for first state vs subsequent states
+        private void InputManager_DrawButtonClicked(object sender, EventArgs e)
+        {
+            ctx.GameSession.DrawInitialDominoesServerRpc();
+        }
+
+        private void InputManager_EndTurnClicked(object sender, EventArgs e)
+        {
+            ctx.GameSession.EndTurnServerRpc();
         }
     }
 }

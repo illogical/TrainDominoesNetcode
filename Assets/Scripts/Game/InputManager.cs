@@ -1,18 +1,41 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class InputManager : MonoBehaviour
 {
-    public Camera MainCamera;
     public event EventHandler<int> DominoClicked;
+    public event EventHandler DrawButtonClicked;
+    public event EventHandler EndTurnClicked;
 
+    public Camera MainCamera;
+    [Space]
+    [SerializeField] private Button DrawButton;
+    [SerializeField] private Button EndTurnButton;
+
+
+    private void Start()
+    {
+        DrawButton.onClick.AddListener(OnDrawButtonClicked);
+        EndTurnButton.onClick.AddListener(OnEndTurnButtonClicked);
+    }
 
     void Update()
     {
         GetMouseClick();
     }
 
-    void GetMouseClick()
+    private void OnDrawButtonClicked()
+    {
+        DrawButtonClicked?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnEndTurnButtonClicked()
+    {
+        EndTurnClicked?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void GetMouseClick()
     {
         if (!Input.GetMouseButtonDown(0))
         {

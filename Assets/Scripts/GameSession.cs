@@ -12,6 +12,7 @@ public class GameSession : NetworkBehaviour
 
     public event EventHandler OnPlayerJoined;
     public event EventHandler<int[]> OnPlayerDrewFromPile;
+    public event EventHandler OnPlayerDrawClick;
 
     [SerializeField] private GameplayManager gameplayManager;
 
@@ -30,6 +31,13 @@ public class GameSession : NetworkBehaviour
     {
         gameStarted = true;
         gameState = new GameStateContext(this, gameplayManager);
+
+        OnPlayerDrawClick += HandlePlayerDrawClick;
+    }
+
+    private void HandlePlayerDrawClick(object sender, EventArgs e)
+    {
+        
     }
 
     public override void OnNetworkSpawn()

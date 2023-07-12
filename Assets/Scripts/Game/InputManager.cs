@@ -63,4 +63,8 @@ public class InputManager : MonoBehaviour
             DominoClicked?.Invoke(this, id);
         }
     }
+
+    public void SetDrawButtonEnabled(bool enabled) => DrawButton.interactable = enabled;
+    public void SetEndTurnButtonEnabled(bool enabled) => EndTurnButton.interactable = enabled;
+
 }

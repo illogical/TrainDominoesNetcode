@@ -20,12 +20,13 @@ namespace Assets.Scripts.Game.States
         public override string Name => nameof(PlayerTurnStartedState);
         public override void EnterState()
         {
+            ctx.GameplayManager.InputManager.SetDrawButtonEnabled(true);
+            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
+
             SelectedPlayerDominoId = null;
             ctx.GameplayManager.DominoClicked += DominoClicked;
             ctx.GameplayManager.PlayerDominoSelected += SelectPlayerDomino;
         }
-
-
 
         public override void UpdateState() { }
 

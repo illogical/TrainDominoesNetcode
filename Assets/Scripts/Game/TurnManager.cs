@@ -4,10 +4,9 @@ using UnityEngine;
 
 public class TurnManager
 {
-    private ulong? _currentPlayerId;
     private int _currentTurn;
 
-    private List<ulong> _allPlayers = new List<ulong>();
+    private List<ulong> _allPlayers = new List<ulong>();  // these are in the order that they ended the group turn
     private List<ulong> _laidFirstTrack;
 
     public TurnManager()

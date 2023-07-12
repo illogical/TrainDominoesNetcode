@@ -13,7 +13,8 @@ namespace Assets.Scripts.Game.States
 
         public override void EnterState()
         {
-
+            ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
+            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
         }
 
         public override void UpdateState()

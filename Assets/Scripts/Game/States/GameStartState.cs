@@ -25,6 +25,10 @@ namespace Assets.Scripts.Game.States
 
             ctx.GameSession.PlaceEngineServerRpc();
 
+            // cannot end turn until the dominoes are drawn
+            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
+            ctx.GameplayManager.InputManager.SetDrawButtonEnabled(true);
+
             // this could also draw the initial dominoes however the animations are not smooth for the host player for some reason
             //ctx.GameSession.DrawInitialDominoesServerRpc();
         }
@@ -49,11 +53,14 @@ namespace Assets.Scripts.Game.States
         private void InputManager_DrawButtonClicked(object sender, EventArgs e)
         {
             ctx.GameSession.DrawInitialDominoesServerRpc();
+            ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
+            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
         }
 
         private void InputManager_EndTurnClicked(object sender, EventArgs e)
         {
             ctx.GameSession.EndFirstTurnServerRpc();
+            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
         }
 
         private void GameplayManager_PlayerTurnStarted(object sender, EventArgs e)

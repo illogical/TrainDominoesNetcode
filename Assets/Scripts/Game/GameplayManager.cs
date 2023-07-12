@@ -62,25 +62,6 @@ public class GameplayManager : MonoBehaviour
     public void CreateDominoSet() => DominoTracker.CreateDominoSet();
 
 
-    //public void SelectDomino(int dominoId)
-    //{
-    //    // TODO: decide if this was a player domino, station domino, or engine domino
-    //    // TODO: the server needs to decide if the domino can be played
-    //    if (DominoTracker.IsPlayerDomino(clientId, dominoId))
-    //    {
-    //        SelectPlayerDomino(dominoId);
-    //    }
-    //    else if (DominoTracker.IsEngine(dominoId))
-    //    {
-
-    //    }
-    //    else
-    //    {
-    //        // station domino
-    //    }
-    //}
-
-
     public int GetDominoCountPerPlayer(int playerCount)
     {
         // Up to 4 players take 15 dominoes each, 5 or 6 take 12 each, 7 or 8 take 10 each.

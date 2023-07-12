@@ -10,7 +10,6 @@ public class GameSession : NetworkBehaviour
 
     public event EventHandler OnPlayerJoined;
     public event EventHandler<int[]> OnPlayerDrewFromPile;
-    public event EventHandler OnPlayerDrawClick;
 
     [SerializeField] private GameplayManager gameplayManager;
 
@@ -30,13 +29,6 @@ public class GameSession : NetworkBehaviour
     {
         gameStarted = true;
         gameState = new GameStateContext(this, gameplayManager);
-
-        OnPlayerDrawClick += HandlePlayerDrawClick;
-    }
-
-    private void HandlePlayerDrawClick(object sender, EventArgs e)
-    {
-        
     }
 
     public override void OnNetworkSpawn()
@@ -125,6 +117,10 @@ public class GameSession : NetworkBehaviour
         }
 
         readyPlayers.Add(clientId);
+
+        // first player to draw will set whose turn it is (set to the first player who joined so the host)
+        gameplayManager.TurnManager.AddPlayer(clientId);
+
         // TODO: Need to know how many dominoes have been played or which is the player's track or null via a StationManager. If 0 then this player is ending their first turn without laying any dominoes down
         //gameplayManager.SetPlayerLaidFirstTrack(clientId);
 
@@ -132,29 +128,14 @@ public class GameSession : NetworkBehaviour
         {
             // this is the last player to end their turn
 
-            ulong? currentPlayerId = gameplayManager.TurnManager.CurrentPlayerId;
-            // first player to draw will set whose turn it is (set to the first player who joined so the host)
-
-            gameplayManager.TurnManager.IncrementTurn();
-
-
-            if (!currentPlayerId.HasValue)
-            {
-                // this is the first player's turn
-
-                // TODO: decide which players added their track which did not
-
-                //gameplayManager.SetPlayerTurn(readyPlayers[0]);
-                //gameplayManager.SetPlayerTurn(((MyNetworkManager)NetworkManager.Singleton).Players[0].OwnerClientId);
-            }
-            else
-            {
-                // TODO: turn manager needs to keep track of the index of the player whose turn it is
-                // for now the order of the players is the same as the order they clicked "End Turn"
-            }
-
             PlayerReadyClientRpc(gameplayManager.TurnManager.CurrentPlayerId.Value);
         }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void EndTurnServerRpc(ServerRpcParams serverRpcParams = default)
+    {
+        //TODO: gameplayManager.TurnManager.IncrementTurn(); when ending a typical turn
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -228,7 +209,7 @@ public class GameSession : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     internal void PlayerJoinedServerRpc(ServerRpcParams serverRpcParams = default)
     {
-        gameplayManager.TurnManager.AddPlayer(serverRpcParams.Receive.SenderClientId);
+        // gameplayManager.TurnManager.AddPlayer(serverRpcParams.Receive.SenderClientId);
 
         // TODO: handle player removal (this list is also tracked on the DominoPlayer object)
     }

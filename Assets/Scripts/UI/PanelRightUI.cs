@@ -13,9 +13,6 @@ public class PanelRightUI : MonoBehaviour
 
     private void Start()
     {
-        GameSession.Instance.OnPlayerJoined += OnPlayerJoined;
-        GameSession.Instance.OnPlayerDrewFromPile += OnPlayerDrewFromPile;
-
         DisableButtons();
     }
 
@@ -29,15 +26,5 @@ public class PanelRightUI : MonoBehaviour
     {
         DrawButton.interactable = false;
         EndTurnButton.interactable = false;
-    }
-
-    private void OnPlayerJoined(object sender, EventArgs e)
-    {
-        EnableButtons();
-    }
-
-    private void OnPlayerDrewFromPile(object sender, int[] e)
-    {
-        DrawButton.interactable = false;
     }
 }

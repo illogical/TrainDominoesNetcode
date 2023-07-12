@@ -1,4 +1,5 @@
 using Assets.Scripts.Game;
+using Assets.Scripts.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -123,4 +124,61 @@ public class GameplayManager : MonoBehaviour
     internal void StartPlayerTurn() => PlayerTurnStarted?.Invoke(this, EventArgs.Empty);
     internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
 
+    //internal void AddDominoToNewTrack(int dominoId)
+    //{
+    //    if (!CompareDominoes(selectedDominoId, DominoTracker.GetEngineDominoID()))
+    //    {
+    //        Debug.Log("Those don't match, nice try.");
+    //        return;
+    //    }
+
+    //    // add domino to track
+    //    var newTrack = DominoTracker.Station.AddTrack(selectedDominoId);
+
+    //    var startPosition = PositionHelper.GetScreenLeftCenter(mainCamera);
+    //}
+
+    public void AddSelectedToNewTrack()
+    {
+        if (!DominoTracker.SelectedDomino.HasValue)
+        {
+            return;
+        }
+
+        float trackSlideDuration = 0.3f;
+        GameObject currentObj = meshManager.GetDominoMeshById(DominoTracker.SelectedDomino.Value);
+        int trackCount = DominoTracker.Station.Tracks.Count;
+        int selectedId = DominoTracker.SelectedDomino.Value;
+        // positions the empty where the first object in the line will be placed
+        var trackLeftPosition = new Vector3(layoutManager.GetTrackStartXPosition(), layoutManager.GetTrackYPosition(trackCount, trackCount + 1), 0);
+
+        DominoTracker.Station.AddTrack(DominoTracker.SelectedDomino.Value);
+
+        // move empties to move the lines and animate the selected box moving to the track
+        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj, trackLeftPosition, trackCount, trackSlideDuration));
+
+        DominoTracker.SetSelectedDomino(null);
+    }
+
+    private bool CompareDominoes(int playerSelectedDominoId, int trackDominoID)
+    {
+        var trackDomino = DominoTracker.GetDominoByID(trackDominoID);
+        var selectedDomino = DominoTracker.GetDominoByID(playerSelectedDominoId);
+
+        // take into account flipped track dominoes
+        var trackScoreToCompare = trackDomino.Flipped ? trackDomino.BottomScore : trackDomino.TopScore;
+
+        // TODO: fix this after the domino knows if it wants to be flipped
+        //return trackScoreToCompare == selectedDomino.BottomScore
+        //|| trackScoreToCompare == selectedDomino.TopScore;
+        return trackDomino.TopScore == selectedDomino.BottomScore
+        || trackDomino.BottomScore == selectedDomino.TopScore
+        || trackDomino.TopScore == selectedDomino.TopScore
+        || trackDomino.BottomScore == selectedDomino.BottomScore;
+    }
+
+    internal void AddDominoToNewTrack(int dominoId)
+    {
+        throw new NotImplementedException();
+    }
 }

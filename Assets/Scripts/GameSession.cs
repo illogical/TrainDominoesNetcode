@@ -174,6 +174,8 @@ public class GameSession : NetworkBehaviour
     {
         Debug.Log("Engine domino clicked");
         //gameplayManager.AddDominoToNewTrack(dominoId);
+
+        gameplayManager.AddSelectedToNewTrack();
     }
 
     [ClientRpc]

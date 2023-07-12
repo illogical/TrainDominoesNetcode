@@ -525,9 +525,9 @@ GameObject:
   m_Component:
   - component: {fileID: 425682248}
   - component: {fileID: 425682249}
+  - component: {fileID: 425682245}
   - component: {fileID: 425682247}
   - component: {fileID: 425682246}
-  - component: {fileID: 425682245}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -581,6 +581,10 @@ MonoBehaviour:
   BottomYOffset: 0.015
   BottomSideMargin: 0.01
   SelectionRaiseAmount: 0.02
+  TrackMargin: 0
+  CenterLeftYOffset: 0
+  DominoPrefab: {fileID: 3325560248140386328, guid: 04a3b17bc1ca13144bb0acdfdfccebb9,
+    type: 3}
   EngineSlideIn: {fileID: 11400000, guid: 8fb81f0cdb7be194e8be02203a41379a, type: 2}
   PlayerDominoSlideIn: {fileID: 11400000, guid: b4663a5952161fa499a7f0fd42cc51b1,
     type: 2}
@@ -588,6 +592,10 @@ MonoBehaviour:
     type: 2}
   PlayerDominoDeselection: {fileID: 11400000, guid: 8f3fe1b13929aad49bc3cb1813a1def2,
     type: 2}
+  DominoRotateToTrack: {fileID: 11400000, guid: 07081af5bbe50e44c9cf7b1a0d47d852,
+    type: 2}
+  DominoSlideToTrack: {fileID: 11400000, guid: aa3a5534e30c69a4c9e27e6025723483, type: 2}
+  SelectionEase: {fileID: 11400000, guid: 3a7fea763cab8cd4591ddf05afab2d2d, type: 2}
 --- !u!4 &425682248
 Transform:
   m_ObjectHideFlags: 0
@@ -1756,7 +1764,7 @@ PrefabInstance:
     - target: {fileID: 224130951485110974, guid: 9ed2a051c32b4fe47a5e4fb95c20b03f,
         type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -0.000015258789
       objectReference: {fileID: 0}
     - target: {fileID: 224166536479716514, guid: 9ed2a051c32b4fe47a5e4fb95c20b03f,
         type: 3}

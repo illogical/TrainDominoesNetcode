@@ -49,6 +49,18 @@ namespace Assets.Scripts.Models
             return Tracks[trackIndex];
         }
 
+        public int? GetTrackIndexByDominoId(int dominoId)
+        {
+            foreach(var track in Tracks)
+            {
+                if (track.ContainsDomino(dominoId))
+                {
+                    return Tracks.IndexOf(track);
+                }
+            }
+            return null;
+        }
+
         public Track GetTrackByNetId(ulong clientId)
         {
             foreach (var track in Tracks)

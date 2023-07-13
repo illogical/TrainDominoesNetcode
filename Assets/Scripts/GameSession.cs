@@ -45,7 +45,7 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void PlaceEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    private void PlaceEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
     {
         // create a mesh and place it on the side of the screen
         gameplayManager.CreateAndPlaceEngine(dominoId);
@@ -66,7 +66,7 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void DrawDominoesClientRpc(int[] dominoIds, ClientRpcParams clientRpcParams)
+    private void DrawDominoesClientRpc(int[] dominoIds, ClientRpcParams clientRpcParams)
     {
         Debug.Log($"Received {dominoIds.Length} dominoes");
 
@@ -83,7 +83,7 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void DrawDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams)
+    private void DrawDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams)
     {
         var dominoes = new int[] { dominoId };
         OnPlayerDrewFromPile?.Invoke(this, dominoes);
@@ -93,7 +93,20 @@ public class GameSession : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void EndFirstTurnServerRpc(ServerRpcParams serverRpcParams = default)
+    public void EndTurnServerRpc(ServerRpcParams serverRpcParams = default)
+    {
+        if(gameplayManager.TurnManager.IsGroupTurn)
+        {
+            EndGroupTurnServerRpc(serverRpcParams);
+        }
+        else
+        {
+            EndPlayerTurnServerRpc(serverRpcParams);
+        }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void EndGroupTurnServerRpc(ServerRpcParams serverRpcParams = default)
     {
         // TODO: submit the dominoes that were laid down to the server and add to a new station track
         // TODO: validate that this is not being run a 2nd time for the same player
@@ -128,20 +141,48 @@ public class GameSession : NetworkBehaviour
         {
             // this is the last player to end their turn
 
+            gameplayManager.TurnManager.CompleteGroupTurn();
+
             PlayerReadyClientRpc(gameplayManager.TurnManager.CurrentPlayerId.Value);
         }
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void EndTurnServerRpc(ServerRpcParams serverRpcParams = default)
+    private void EndPlayerTurnServerRpc(ServerRpcParams serverRpcParams = default)
     {
-        //TODO: gameplayManager.TurnManager.IncrementTurn(); when ending a typical turn
+        if (gameplayManager.TurnManager.CurrentPlayerId != serverRpcParams.Receive.SenderClientId)
+        {
+            Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} is not the current player");
+            return;
+        }
+
+        // TODO: submit the dominoes that were laid down to the server and add to a new station track
+        // TODO: validate that this is not being run a 2nd time for the same player
+
+        EndTurnClientRpc(SendToClientSender(serverRpcParams));
+
+        gameplayManager.TurnManager.IncrementTurn();
+
+        // tell the next player to start their turn
+        StartNextPlayerTurnClientRpc(SendToClient(gameplayManager.TurnManager.CurrentPlayerId.Value));
+    }
+
+    [ClientRpc]
+    private void EndTurnClientRpc(ClientRpcParams clientRpcParams = default)
+    {
+        gameplayManager.EndPlayerTurn();
+    }
+
+    [ClientRpc]
+    private void StartNextPlayerTurnClientRpc(ClientRpcParams clientRpcParams = default)
+    {
+        Debug.Log("StartNextPlayerTurnClientRpc");
+        gameplayManager.StartPlayerTurn(NetworkManager.LocalClientId);
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void SelectDominoServerRpc(int dominoId, ServerRpcParams serverRpcParams = default)
     {
-
         // TODO: the server needs to decide if the domino can be played. Is it this player's turn? Is it a valid domino to play? Is it a valid track to play on?
 
         // decide if this was a player domino, station domino, or engine domino
@@ -150,13 +191,16 @@ public class GameSession : NetworkBehaviour
             // tell client to select the domino
             SelectPlayerDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
         }
-        else if (gameplayManager.DominoTracker.IsEngine(dominoId))
+        else if (gameplayManager.DominoTracker.IsEngine(dominoId)) // TODO: && gameplayManager.CompareDominoToEngine(dominoId))
         {
             SelectEngineDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
         }
         else
         {
-            // track domino
+            // track domino was clicked
+
+            // TODO: compare the domino to the last domino on the track
+            gameplayManager.DominoTracker.Station.GetTrackByDominoId(dominoId);
 
             // get the track index and pass it to the client to move the domino to the track
             SelectTrackDominoClientRpc(dominoId, 0, SendToClientSender(serverRpcParams));
@@ -164,13 +208,13 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void SelectPlayerDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    private void SelectPlayerDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
     {
         gameplayManager.SelectPlayerDomino(dominoId);
     }
 
     [ClientRpc]
-    public void SelectEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    private void SelectEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Engine domino clicked");
         //gameplayManager.AddDominoToNewTrack(dominoId);
@@ -179,22 +223,22 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void SelectTrackDominoClientRpc(int dominoId, int trackIndex, ClientRpcParams clientRpcParams = default)
+    private void SelectTrackDominoClientRpc(int dominoId, int trackIndex, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Track domino clicked");
         //gameplayManager.AddDominoToTrack(dominoId, trackIndex);
     }
 
     [ClientRpc]
-    public void PlayerReadyClientRpc(ulong clientIdForTurn)
+    private void PlayerReadyClientRpc(ulong clientIdForTurn)
     {
-        Debug.Log("All players have ended their first turn.");
+        Debug.Log("Group turn complete");
 
         if(clientIdForTurn == NetworkManager.Singleton.LocalClientId)
         {
             Debug.Log("It is now your turn.");
 
-            gameplayManager.StartPlayerTurn();
+            gameplayManager.StartPlayerTurn(clientIdForTurn);
         }
         else
         {
@@ -203,10 +247,11 @@ public class GameSession : NetworkBehaviour
             gameplayManager.StartAwaitingTurn();
         }
 
-        gameplayManager.CompleteTurn();
+        gameplayManager.CompleteGroupTurn();
     }
 
     private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };
+    private ClientRpcParams SendToClient(ulong targetClientId) => new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } } };
 
     [ServerRpc(RequireOwnership = false)]
     internal void PlayerJoinedServerRpc(ServerRpcParams serverRpcParams = default)

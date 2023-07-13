@@ -81,7 +81,7 @@ public class Mover : MonoBehaviour
         transform.rotation = rotationAmount;
     }
 
-    public IEnumerator SlideToPosition(Transform objectTransform, Vector3 endPos, float duration, float delay, AnimationCurve curve)
+    public IEnumerator SlideToPosition(Transform objectTransform, Vector3 endPos, AnimationDefinition animationDefinition)
     {
         if (objectTransform.position == endPos)
         {
@@ -89,11 +89,11 @@ public class Mover : MonoBehaviour
             yield break;
         }
 
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(objectTransform, endPos, duration, delay, curve));
+        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(objectTransform, endPos, animationDefinition));
     }
 
-    public IEnumerator SlideToPositionByIndex(int index, Vector3 destination, float animationDuration, float delayBeforeStart, float delayStagger, AnimationCurve curve)
+    public IEnumerator SlideToPositionByIndex(int index, Vector3 destination, float animationDuration, float delayBeforeStart, float delayStagger, AnimationDefinition animationDefinition)
     {
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(transform, destination, animationDuration, index * delayStagger + delayBeforeStart, curve));
+        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(transform, destination, animationDuration, index * delayStagger + delayBeforeStart, animationDefinition));
     }
 }

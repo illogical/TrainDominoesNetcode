@@ -9,6 +9,8 @@ public class TurnManager
     private List<ulong> _allPlayers = new List<ulong>();  // these are in the order that they ended the group turn
     private List<ulong> _laidFirstTrack;
 
+    private bool _isGroupTurn = true;
+
     public TurnManager()
     {
         _currentTurn = 0;
@@ -25,6 +27,12 @@ public class TurnManager
     
     public bool HaveAllPlayersLaidTrack(int playerCount) => _laidFirstTrack.Count == playerCount;
     public bool HasPlayerLaidFirstTrack(ulong playerId) => _laidFirstTrack.Contains(playerId);
+    public bool IsGroupTurn => _isGroupTurn;
+
+    public void CompleteGroupTurn()
+    {
+        _isGroupTurn = false;
+    }
 
     public void CompleteLaidFirstTrack(ulong playerId)
     {

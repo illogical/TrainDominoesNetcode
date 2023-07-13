@@ -24,8 +24,9 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler<int> PlayerDominoSelected;
     public event EventHandler<int> EngineDominoSelected;
     public event EventHandler<int> TrackDominoSelected;
-    public event EventHandler TurnCompleted;
-    public event EventHandler PlayerTurnStarted;
+    public event EventHandler<ulong> PlayerTurnStarted;
+    public event EventHandler PlayerTurnEnded;
+    public event EventHandler GroupTurnEnded;
     public event EventHandler AwaitTurn;
 
 
@@ -120,8 +121,9 @@ public class GameplayManager : MonoBehaviour
         layoutManager.PlaceEngine(engineDomino);
     }
 
-    internal void CompleteTurn() => TurnCompleted?.Invoke(this, EventArgs.Empty);
-    internal void StartPlayerTurn() => PlayerTurnStarted?.Invoke(this, EventArgs.Empty);
+    internal void CompleteGroupTurn() => GroupTurnEnded?.Invoke(this, EventArgs.Empty);
+    internal void StartPlayerTurn(ulong clientId) => PlayerTurnStarted?.Invoke(this, clientId);
+    internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
     internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
 
     //internal void AddDominoToNewTrack(int dominoId)
@@ -160,9 +162,15 @@ public class GameplayManager : MonoBehaviour
         DominoTracker.SetSelectedDomino(null);
     }
 
-    private bool CompareDominoes(int playerSelectedDominoId, int trackDominoID)
+    public bool CompareDominoToEngine(int dominoId)
     {
-        var trackDomino = DominoTracker.GetDominoByID(trackDominoID);
+        var engineDomino = DominoTracker.GetEngineDomino();
+        return CompareDominoes(dominoId, engineDomino.ID);
+    }
+
+    private bool CompareDominoes(int playerSelectedDominoId, int otherDominoId)
+    {
+        var trackDomino = DominoTracker.GetDominoByID(otherDominoId);
         var selectedDomino = DominoTracker.GetDominoByID(playerSelectedDominoId);
 
         // take into account flipped track dominoes
@@ -177,7 +185,7 @@ public class GameplayManager : MonoBehaviour
         || trackDomino.BottomScore == selectedDomino.BottomScore;
     }
 
-    internal void AddDominoToNewTrack(int dominoId)
+    internal void AddDominoToExistingTrack(int dominoId)
     {
         throw new NotImplementedException();
     }

@@ -15,6 +15,8 @@ namespace Assets.Scripts.Game.States
         {
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
+
+            ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
         }
 
         public override void UpdateState()
@@ -24,7 +26,12 @@ namespace Assets.Scripts.Game.States
 
         public override void LeaveState()
         {
-            throw new NotImplementedException();
+            ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
+        }
+
+        private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
+        {
+            ctx.SwitchState(ctx.PlayerTurnStartedState);
         }
     }
 }

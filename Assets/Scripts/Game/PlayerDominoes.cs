@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Assets.Scripts.Game
 {
@@ -46,5 +47,19 @@ namespace Assets.Scripts.Game
             Dominoes[netId].AddRange(dominoIds);
         }
 
+        public void RemoveDomino(ulong netId, int dominoId)
+        {
+            if (!Dominoes.ContainsKey(netId))
+            {
+                Debug.LogError($"PlayerDominoes.RemoveDomino: clientId {netId} not found");
+            }
+
+            if (!Dominoes[netId].Contains(dominoId))
+            {
+                Debug.LogError($"PlayerDominoes.RemoveDomino: dominoId {dominoId} not found");
+            }
+
+            Dominoes[netId].Remove(dominoId);
+        }
     }
 }

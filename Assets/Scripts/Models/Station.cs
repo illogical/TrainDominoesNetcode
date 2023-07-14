@@ -74,6 +74,19 @@ namespace Assets.Scripts.Models
             return null;
         }
 
+        public int[][] GetTracksWithDominoes()
+        {
+            var tracks = new List<int[]>();
+
+            foreach (var track in Tracks)
+            {
+
+                tracks.Add(track.DominoIds.ToArray());
+            }
+
+            return tracks.ToArray();
+        }
+
         public int? GetTrackByDominoId(int dominoId)
         {
             for (int i = 0; i < Tracks.Count; i++)

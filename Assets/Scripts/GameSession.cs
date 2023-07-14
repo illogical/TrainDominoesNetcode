@@ -1,3 +1,4 @@
+using Assets.Scripts.Game;
 using Assets.Scripts.Game.States;
 using System;
 using System.Collections.Generic;
@@ -48,7 +49,7 @@ public class GameSession : NetworkBehaviour
     private void PlaceEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
     {
         // create a mesh and place it on the side of the screen
-        gameplayManager.CreateAndPlaceEngine(dominoId);
+        gameplayManager.ClientCreateAndPlaceEngine(dominoId);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -71,7 +72,7 @@ public class GameSession : NetworkBehaviour
         Debug.Log($"Received {dominoIds.Length} dominoes");
 
         OnPlayerDrewFromPile?.Invoke(this, dominoIds);
-        gameplayManager.DisplayPlayerDominoes(dominoIds);
+        gameplayManager.ClientDisplayPlayerDominoes(dominoIds);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -189,44 +190,68 @@ public class GameSession : NetworkBehaviour
         if (gameplayManager.DominoTracker.IsPlayerDomino(serverRpcParams.Receive.SenderClientId, dominoId))
         {
             // tell client to select the domino
-            SelectPlayerDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
+            SelectPlayerDominoClientRpc(dominoId, gameplayManager.DominoTracker.SelectedDomino ?? -1, SendToClientSender(serverRpcParams));
+            gameplayManager.ServerSelectPlayerDomino(dominoId);
         }
         else if (gameplayManager.DominoTracker.IsEngine(dominoId)) // TODO: && gameplayManager.CompareDominoToEngine(dominoId))
         {
-            SelectEngineDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
+            if(!gameplayManager.DominoTracker.SelectedDomino.HasValue)
+            {
+                return;
+            }
+
+            // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
+            gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, gameplayManager.DominoTracker.Station.Tracks.Count);
+            int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
+            gameplayManager.DominoTracker.SetSelectedDomino(null);
+
+            SelectEngineDominoClientRpc(selectedDominoId, gameplayManager.DominoTracker.Station.GetTracksWithDominoes(), SendToClientSender(serverRpcParams));
         }
         else
         {
+            if (!gameplayManager.DominoTracker.SelectedDomino.HasValue)
+            {
+                return;
+            }
             // track domino was clicked
 
             // TODO: compare the domino to the last domino on the track
-            gameplayManager.DominoTracker.Station.GetTrackByDominoId(dominoId);
+            //gameplayManager.DominoTracker.Station.GetTrackByDominoId(dominoId);
+
+            gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, gameplayManager.DominoTracker.Station.Tracks.Count);
+            int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
+            gameplayManager.DominoTracker.SetSelectedDomino(null);
 
             // get the track index and pass it to the client to move the domino to the track
-            SelectTrackDominoClientRpc(dominoId, 0, SendToClientSender(serverRpcParams));
+            int trackIndex = gameplayManager.DominoTracker.Station.GetTrackIndexByDominoId(dominoId).Value;
+            SelectTrackDominoClientRpc(selectedDominoId, trackIndex, gameplayManager.DominoTracker.Station.GetTracksWithDominoes(), SendToClientSender(serverRpcParams));
         }        
     }
 
+
     [ClientRpc]
-    private void SelectPlayerDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    private void SelectPlayerDominoClientRpc(int newlySelectedDominoId, int currentlySelectedDominoId, ClientRpcParams clientRpcParams = default)
     {
-        gameplayManager.SelectPlayerDomino(dominoId);
+        // cannot serialize null
+        int? selectedDominoId = currentlySelectedDominoId < 0 ? null : currentlySelectedDominoId;
+
+        gameplayManager.ClientSelectPlayerDomino(newlySelectedDominoId, selectedDominoId);
     }
 
     [ClientRpc]
-    private void SelectEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
+    private void SelectEngineDominoClientRpc(int selectedDominoId, int[][] tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Engine domino clicked");
 
-        gameplayManager.AddSelectedToNewTrack();
+        gameplayManager.ClientAddSelectedToNewTrack(selectedDominoId, tracksWithDominoIds);
     }
 
     [ClientRpc]
-    private void SelectTrackDominoClientRpc(int dominoId, int trackIndex, ClientRpcParams clientRpcParams = default)
+    private void SelectTrackDominoClientRpc(int selectedDominoId, int trackIndex, int[][] tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Track domino clicked");
 
-        //gameplayManager.AddDominoToTrack(dominoId, trackIndex);
+        gameplayManager.ClientAddSelectedDominoToTrack(selectedDominoId, trackIndex, tracksWithDominoIds);
     }
 
     [ClientRpc]

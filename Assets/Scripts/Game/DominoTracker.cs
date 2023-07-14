@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Collections.Specialized.BitVector32;
 
 namespace Assets.Scripts.Game
 {
@@ -108,6 +109,25 @@ namespace Assets.Scripts.Game
             Station = new Station(engine);
 
             return engine;
+        }
+
+        /// <summary>
+        /// Move a domino from the player to the station
+        /// </summary>
+        /// <param name="clientId"></param>
+        /// <param name="dominoId"></param>
+        public void PlayDomino(ulong clientId, int dominoId, int trackIndex)
+        {
+            playerDominoes.RemoveDomino(clientId, dominoId);
+
+            if(trackIndex >= Station.Tracks.Count)
+            {
+                Station.AddTrack(dominoId);
+            }
+            else
+            {
+                Station.AddDominoToTrack(dominoId, trackIndex);
+            }
         }
 
         //public Track AddToNewTrack(int dominoId) => station.AddTrack(dominoId);

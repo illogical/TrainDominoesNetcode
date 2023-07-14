@@ -37,27 +37,24 @@ public class GameplayManager : MonoBehaviour
         DominoTracker = new DominoTracker();
     }
 
-    public void SelectPlayerDomino(int dominoId)
+    public void ClientSelectPlayerDomino(int newSelectedDominoId, int? currentlySelectedDominoId)
     {
-        PlayerDominoSelected?.Invoke(this, dominoId);
+        PlayerDominoSelected?.Invoke(this, newSelectedDominoId);
 
-        if (!DominoTracker.SelectedDomino.HasValue)
+        if (!currentlySelectedDominoId.HasValue)
         {
             // raise domino
-            layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
-            DominoTracker.SetSelectedDomino(dominoId);
+            layoutManager.SelectDomino(meshManager.GetDominoMeshById(newSelectedDominoId));
         }
-        else if (DominoTracker.SelectedDomino == dominoId)
+        else if (currentlySelectedDominoId == newSelectedDominoId)
         {
             // lower domino
-            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(dominoId));
-            DominoTracker.SetSelectedDomino(null);
+            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(newSelectedDominoId));
         }
         else
         {
-            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(DominoTracker.SelectedDomino.Value));
-            layoutManager.SelectDomino(meshManager.GetDominoMeshById(dominoId));
-            DominoTracker.SetSelectedDomino(dominoId);
+            layoutManager.DeselectDomino(meshManager.GetDominoMeshById(currentlySelectedDominoId.Value));
+            layoutManager.SelectDomino(meshManager.GetDominoMeshById(newSelectedDominoId));
         }
     }
 
@@ -92,7 +89,7 @@ public class GameplayManager : MonoBehaviour
         return DominoTracker.GetEngineDomino();
     }
 
-    public void DisplayPlayerDominoes(int[] dominoIds)
+    public void ClientDisplayPlayerDominoes(int[] dominoIds)
     {
         var playerDominoes = new List<GameObject>();
         foreach (var dominoId in dominoIds)
@@ -115,7 +112,7 @@ public class GameplayManager : MonoBehaviour
 
     public int? GetSelectedDomino() => DominoTracker.SelectedDomino;
 
-    internal void CreateAndPlaceEngine(int dominoId)
+    internal void ClientCreateAndPlaceEngine(int dominoId)
     {
         GameObject engineDomino = meshManager.CreateEngineDomino(DominoTracker.GetDominoByID(dominoId), Vector3.zero);
         layoutManager.PlaceEngine(engineDomino);
@@ -140,34 +137,41 @@ public class GameplayManager : MonoBehaviour
     //    var startPosition = PositionHelper.GetScreenLeftCenter(mainCamera);
     //}
 
-    public void AddSelectedToNewTrack()
+    public void ServerSelectPlayerDomino(int dominoId)
     {
         if (!DominoTracker.SelectedDomino.HasValue)
         {
-            return;
+            DominoTracker.SetSelectedDomino(dominoId);
         }
+        else if (DominoTracker.SelectedDomino == dominoId)
+        {
+            DominoTracker.SetSelectedDomino(null);
+        }
+        else
+        {
+            DominoTracker.SetSelectedDomino(dominoId);
+        }
+    }
 
+    public void ClientAddSelectedToNewTrack(int selectedDominoId, int[][] tracksWithDomininoIds)
+    {
         float trackSlideDuration = 0.3f;
-        GameObject currentObj = meshManager.GetDominoMeshById(DominoTracker.SelectedDomino.Value);
-        int trackCount = DominoTracker.Station.Tracks.Count;
-        int selectedId = DominoTracker.SelectedDomino.Value;
-        // positions the empty where the first object in the line will be placed
-        //var trackLeftPosition = new Vector3(layoutManager.GetTrackStartXPosition(), layoutManager.GetTrackYPosition(trackCount, trackCount + 1), 0);
-
-        DominoTracker.Station.AddTrack(DominoTracker.SelectedDomino.Value);
+        GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
 
         // move empties to move the lines and animate the selected box moving to the track
-        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, DominoTracker, meshManager, trackSlideDuration));
-
-        DominoTracker.SetSelectedDomino(null);
+        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, selectedDominoId, tracksWithDomininoIds, meshManager, trackSlideDuration));
     }
 
-    public void AddDominoToTrack(int dominoId, int trackIndex)
+    public void ClientAddSelectedDominoToTrack(int selectedDominoId, int trackIndex, int[][] tracksWithDominoIds)
     {
+        float trackSlideDuration = 0.3f;
+        GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
 
+        // move empties to move the lines and animate the selected box moving to the track
+        StartCoroutine(layoutManager.AddDominoAndUpdateTrackPositions(currentObj.transform, tracksWithDominoIds, meshManager, trackIndex, trackSlideDuration));
     }
 
-    public bool CompareDominoToEngine(int dominoId)
+    public bool ServerCompareDominoToEngine(int dominoId)
     {
         var engineDomino = DominoTracker.GetEngineDomino();
         return CompareDominoes(dominoId, engineDomino.ID);

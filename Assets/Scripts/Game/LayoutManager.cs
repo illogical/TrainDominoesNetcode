@@ -109,6 +109,11 @@ public class LayoutManager : MonoBehaviour
         return new Vector3(GetTrackStartXPosition(), GetTrackYPosition(trackIndex, trackCount), 0);
     }
 
+    public Vector3 GetTrackPosition(int trackDominoIndex, int trackIndex, int trackCount)
+    {
+        return new Vector3(GetTrackXPosition(trackDominoIndex, trackIndex, trackCount), GetTrackYPosition(trackIndex, trackCount), 0);
+    }
+
     private float GetTrackStartXPosition()
     {
         var dominoSize = PositionHelper.GetObjectDimensions(DominoPrefab);
@@ -155,14 +160,14 @@ public class LayoutManager : MonoBehaviour
         yield return new WaitForSeconds(duration);
     }
 
-    public IEnumerator AddDominoToTrack(Transform boxTransform, int trackIndex, int trackCount, Action afterComplete = null)
+    public IEnumerator AddDominoToTrack(Transform boxTransform, int trackObjectIndex, int trackIndex, int trackCount, Action afterComplete = null)
     {
         float rotationDuration = 0.2f;
         float rotationDelay = 0.25f;
 
         // TODO: need to know if the domino needs to be flipped
         StartCoroutine(AnimationHelper.RotateOverSeconds(boxTransform, Quaternion.Euler(0, -90, -90), rotationDuration, rotationDelay, SelectionEase));
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(boxTransform, GetTrackLeftPosition(trackIndex, trackCount), SelectionEase));
+        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(boxTransform, GetTrackPosition(trackObjectIndex, trackIndex, trackCount), SelectionEase));
 
         if (afterComplete != null)
         {
@@ -181,16 +186,16 @@ public class LayoutManager : MonoBehaviour
         yield return StartCoroutine(AnimationHelper.MoveOverSeconds(objectTransform, endPos, SelectionEase));
     }
 
-    public IEnumerator AddNewDominoAndUpdateTrackPositions(Transform gameObjectToAdd, int dominoId, int[][] tracksWithDomininoIds, MeshManager meshManager, float duration, Action afterComplete = null)
+    public IEnumerator AddNewDominoAndUpdateTrackPositions(Transform gameObjectToAdd, int addedDominoId, int[][] tracksWithDomininoIds, MeshManager meshManager, float duration, Action afterComplete = null)
     {
-        StartCoroutine(UpdateTrackPositions(tracksWithDomininoIds, meshManager, duration, dominoId));
-        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, tracksWithDomininoIds.Length - 1, tracksWithDomininoIds.Length, afterComplete));
+        StartCoroutine(UpdateTrackPositions(tracksWithDomininoIds, meshManager, duration, addedDominoId));
+        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, 0, tracksWithDomininoIds.Length - 1, tracksWithDomininoIds.Length, afterComplete));
     }
 
     public IEnumerator AddDominoAndUpdateTrackPositions(Transform gameObjectToAdd, int[][] tracksWithDomininoIds, MeshManager meshManager, int trackIndex, float duration, Action afterComplete = null)
     {
-        StartCoroutine(UpdateTrackPositions(tracksWithDomininoIds, meshManager, duration));
-        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, trackIndex, tracksWithDomininoIds.Length, afterComplete));
+        //StartCoroutine(UpdateTrackPositions(tracksWithDomininoIds, meshManager, duration, addedDominoId));
+        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, tracksWithDomininoIds[trackIndex].Length - 1, trackIndex, tracksWithDomininoIds.Length, afterComplete));
     }
 
     private IEnumerator UpdateTrackPositions(int[][] tracksWithDomininoIds, MeshManager meshManager, float duration, int? addedDominoId = null)

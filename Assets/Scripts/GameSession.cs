@@ -201,6 +201,7 @@ public class GameSession : NetworkBehaviour
             }
 
             // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
+            
             gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, gameplayManager.DominoTracker.Station.Tracks.Count);
             int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
             gameplayManager.DominoTracker.SetSelectedDomino(null);
@@ -216,14 +217,14 @@ public class GameSession : NetworkBehaviour
             // track domino was clicked
 
             // TODO: compare the domino to the last domino on the track
-            //gameplayManager.DominoTracker.Station.GetTrackByDominoId(dominoId);
-
-            gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, gameplayManager.DominoTracker.Station.Tracks.Count);
+            
+            int trackIndex = gameplayManager.DominoTracker.Station.GetTrackIndexByDominoId(dominoId).Value;
+            gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, trackIndex);
             int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
             // get the track index and pass it to the client to move the domino to the track
-            int trackIndex = gameplayManager.DominoTracker.Station.GetTrackIndexByDominoId(dominoId).Value;
+
             SelectTrackDominoClientRpc(selectedDominoId, trackIndex, gameplayManager.DominoTracker.Station.GetTracksWithDominoes(), SendToClientSender(serverRpcParams));
         }        
     }

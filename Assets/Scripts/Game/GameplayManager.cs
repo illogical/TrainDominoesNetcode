@@ -152,14 +152,19 @@ public class GameplayManager : MonoBehaviour
         int trackCount = DominoTracker.Station.Tracks.Count;
         int selectedId = DominoTracker.SelectedDomino.Value;
         // positions the empty where the first object in the line will be placed
-        var trackLeftPosition = new Vector3(layoutManager.GetTrackStartXPosition(), layoutManager.GetTrackYPosition(trackCount, trackCount + 1), 0);
+        //var trackLeftPosition = new Vector3(layoutManager.GetTrackStartXPosition(), layoutManager.GetTrackYPosition(trackCount, trackCount + 1), 0);
 
         DominoTracker.Station.AddTrack(DominoTracker.SelectedDomino.Value);
 
         // move empties to move the lines and animate the selected box moving to the track
-        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj, trackLeftPosition, trackCount, trackSlideDuration));
+        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, DominoTracker, meshManager, trackSlideDuration));
 
         DominoTracker.SetSelectedDomino(null);
+    }
+
+    public void AddDominoToTrack(int dominoId, int trackIndex)
+    {
+
     }
 
     public bool CompareDominoToEngine(int dominoId)

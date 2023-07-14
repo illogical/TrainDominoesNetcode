@@ -105,7 +105,7 @@ public class GameSession : NetworkBehaviour
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [ServerRpc]
     private void EndGroupTurnServerRpc(ServerRpcParams serverRpcParams = default)
     {
         // TODO: submit the dominoes that were laid down to the server and add to a new station track
@@ -147,7 +147,7 @@ public class GameSession : NetworkBehaviour
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [ServerRpc]
     private void EndPlayerTurnServerRpc(ServerRpcParams serverRpcParams = default)
     {
         if (gameplayManager.TurnManager.CurrentPlayerId != serverRpcParams.Receive.SenderClientId)
@@ -217,7 +217,6 @@ public class GameSession : NetworkBehaviour
     private void SelectEngineDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Engine domino clicked");
-        //gameplayManager.AddDominoToNewTrack(dominoId);
 
         gameplayManager.AddSelectedToNewTrack();
     }
@@ -226,6 +225,7 @@ public class GameSession : NetworkBehaviour
     private void SelectTrackDominoClientRpc(int dominoId, int trackIndex, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Track domino clicked");
+
         //gameplayManager.AddDominoToTrack(dominoId, trackIndex);
     }
 

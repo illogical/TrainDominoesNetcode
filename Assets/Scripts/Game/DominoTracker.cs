@@ -10,7 +10,7 @@ namespace Assets.Scripts.Game
     public class DominoTracker
     {
         public int? SelectedDomino { get; private set; }
-        public Dictionary<int, DominoEntity> AllDominoes = new Dictionary<int, DominoEntity>();
+        public Dictionary<int, DominoEntity> AllDominoes = new Dictionary<int, DominoEntity>();     // all clients should have this dictionary
         public Station Station { get; private set; }
 
         private PlayerDominoes playerDominoes = new PlayerDominoes();

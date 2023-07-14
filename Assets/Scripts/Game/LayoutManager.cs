@@ -1,4 +1,6 @@
+using Assets.Scripts.Game;
 using Assets.Scripts.Helpers;
+using Assets.Scripts.Models;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,7 +14,7 @@ public class LayoutManager : MonoBehaviour
     [SerializeField] private float BottomSideMargin = 0.01f;
     [SerializeField] private float SelectionRaiseAmount = 0.02f;
     [Range(0, 2)]
-    [SerializeField] private float TrackMargin = 0f; // distance from left side box
+    [SerializeField] private float TrackMargin = 0f; // distance from engine
     [Range(0, 1.5f)]
     [SerializeField] private float CenterLeftYOffset = 0f; // can be used to prevent the tracks from running into the bottom line of boxes
     [SerializeField] private GameObject DominoPrefab;   // used for measuring domino size
@@ -102,7 +104,12 @@ public class LayoutManager : MonoBehaviour
     //    var xStartPosition = GetEnginePosition(domino).x;
     //}
 
-    public float GetTrackStartXPosition()
+    public Vector3 GetTrackLeftPosition(int trackIndex, int trackCount)
+    {
+        return new Vector3(GetTrackStartXPosition(), GetTrackYPosition(trackIndex, trackCount), 0);
+    }
+
+    private float GetTrackStartXPosition()
     {
         var dominoSize = PositionHelper.GetObjectDimensions(DominoPrefab);
         Vector3 leftCenterPos = PositionHelper.GetScreenLeftCenterPositionForObject(dominoSize, mainCamera, 0);
@@ -114,7 +121,14 @@ public class LayoutManager : MonoBehaviour
         return leftCenterPos.x + marginFromLeftCenter;
     }
 
-    public float GetTrackYPosition(int trackIndex, int trackCount)
+    private float GetTrackXPosition(int trackObjectIndex, Vector3 trackStartPosition)
+    {
+        var objLength = PositionHelper.GetObjectDimensions(DominoPrefab);
+
+        return trackStartPosition.x + (objLength.y * trackObjectIndex);
+    }
+
+    private float GetTrackYPosition(int trackIndex, int trackCount)
     {
         var objLength = PositionHelper.GetObjectDimensions(DominoPrefab).x;
         var leftSide = PositionHelper.GetScreenLeftCenter(mainCamera);
@@ -129,13 +143,7 @@ public class LayoutManager : MonoBehaviour
         return centerPos + trackIndexLength - centerOffset;
     }
 
-    internal IEnumerator AddNewDominoAndUpdateTrackPositions(GameObject currentObj, Vector3 trackLeftPosition, int trackCount, float trackSlideDuration, Action afterComplete = null)
-    {
-        StartCoroutine(UpdateTrackPositions(currentObj, trackSlideDuration, trackCount));
-        yield return StartCoroutine(AddDominoToTrack(currentObj.transform, trackLeftPosition, afterComplete));
-    }
-
-    IEnumerator UpdateTrackPositions(GameObject currentObj, float duration, int trackCount)
+    public IEnumerator UpdateTrackPosition(GameObject currentObj, float duration, int trackCount)
     {
         for (int i = 0; i < trackCount; i++)
         {
@@ -146,7 +154,7 @@ public class LayoutManager : MonoBehaviour
         yield return new WaitForSeconds(duration);
     }
 
-    private IEnumerator AddDominoToTrack(Transform boxTransform, Vector3 destinationPosition, Action afterComplete = null)
+    public IEnumerator AddDominoToTrack(Transform boxTransform, Vector3 destinationPosition, Action afterComplete = null)
     {
         float rotationDuration = 0.2f;
         float rotationDelay = 0.25f;
@@ -161,7 +169,7 @@ public class LayoutManager : MonoBehaviour
         }
     }
 
-    public IEnumerator SlideToPosition(Transform objectTransform, Vector3 endPos, float duration, float delay)
+    private IEnumerator SlideToPosition(Transform objectTransform, Vector3 endPos, float duration, float delay)
     {
         if (objectTransform.position == endPos)
         {
@@ -170,5 +178,36 @@ public class LayoutManager : MonoBehaviour
         }
 
         yield return StartCoroutine(AnimationHelper.MoveOverSeconds(objectTransform, endPos, SelectionEase));
+    }
+
+    public IEnumerator AddNewDominoAndUpdateTrackPositions(Transform gameObjectToAdd, DominoTracker dominoTracker, MeshManager meshManager, float duration, Action afterComplete = null)
+    {
+        var trackLeftPosition = GetTrackLeftPosition(dominoTracker.Station.Tracks.Count - 1, dominoTracker.Station.Tracks.Count);
+        StartCoroutine(UpdateTrackPositions(dominoTracker, meshManager, duration));
+        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, trackLeftPosition, afterComplete));
+    }
+
+    private IEnumerator UpdateTrackPositions(DominoTracker dominoTracker, MeshManager meshManager, float duration)
+    {
+        // TODO: need to move all dominoes along with the track
+
+        for (int i = 0; i < dominoTracker.Station.Tracks.Count; i++)
+        {
+            float currentYPosition = GetTrackYPosition(i, dominoTracker.Station.Tracks.Count);
+
+            for (int j = 0; j < dominoTracker.Station.Tracks[i].DominoIds.Count; j++)
+            {
+                // TODO: stagger or ease the sliding to look cool?
+
+                float currentXPosition = GetTrackXPosition(j, GetTrackLeftPosition(i, dominoTracker.Station.Tracks.Count));
+                int currentDominoId = dominoTracker.Station.Tracks[i].DominoIds[j];
+                Transform transform = meshManager.GetDominoMeshById(currentDominoId).transform;
+                StartCoroutine(SlideToPosition(transform, new Vector3(currentXPosition, currentYPosition, 0), duration, 0));
+            }
+
+
+        }
+
+        yield return new WaitForSeconds(duration);
     }
 }

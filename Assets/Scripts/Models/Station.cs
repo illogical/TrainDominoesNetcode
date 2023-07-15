@@ -8,11 +8,9 @@ namespace Assets.Scripts.Models
         // a station has 8 tracks
         public List<Track> Tracks = new List<Track>(8);  // tracks by track number
 
-        public DominoEntity Engine { get; private set; }
-
-        public Station(DominoEntity engine)
+        public Station()
         {
-            Engine = engine;
+
         }
 
         /// <summary>

@@ -202,12 +202,12 @@ public class GameSession : NetworkBehaviour
             }
 
             // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
-            
-            gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, gameplayManager.DominoTracker.Station.Tracks.Count);
+            var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(serverRpcParams.Receive.SenderClientId);
+            gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, playerTurnStation.Tracks.Count);
             int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
-            JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
+            JsonContainer stationContainer = new JsonContainer(playerTurnStation);
             SelectEngineDominoClientRpc(selectedDominoId, stationContainer, SendToClientSender(serverRpcParams));
         }
         else
@@ -219,14 +219,15 @@ public class GameSession : NetworkBehaviour
             // track domino was clicked
 
             // TODO: compare the domino to the last domino on the track
-            
-            int trackIndex = gameplayManager.DominoTracker.Station.GetTrackIndexByDominoId(dominoId).Value;
+
+            var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(serverRpcParams.Receive.SenderClientId);
+            int trackIndex = playerTurnStation.GetTrackIndexByDominoId(dominoId).Value;
             gameplayManager.DominoTracker.PlayDomino(serverRpcParams.Receive.SenderClientId, gameplayManager.DominoTracker.SelectedDomino.Value, trackIndex);
             int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
             // get the track index and pass it to the client to move the domino to the track
-            JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
+            JsonContainer stationContainer = new JsonContainer(playerTurnStation);
             SelectTrackDominoClientRpc(selectedDominoId, trackIndex, stationContainer, SendToClientSender(serverRpcParams));
         }        
     }

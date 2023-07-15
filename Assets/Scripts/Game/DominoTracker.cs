@@ -14,12 +14,19 @@ namespace Assets.Scripts.Game
         public Dictionary<int, DominoEntity> AllDominoes = new Dictionary<int, DominoEntity>();     // all clients should have this dictionary
         public Station Station { get; private set; }
 
+        private Dictionary<ulong, Station> _turnStations;   // track a station for each player and reconcile when the player ends their turn
+
         private PlayerDominoes playerDominoes = new PlayerDominoes();
         private List<int> availableDominoes = new List<int>();
         private List<int> engineIndices = new List<int>();
         private int engineIndex = -1;
 
         private const int maxDots = 12;
+
+        public DominoTracker()
+        {
+            _turnStations = new Dictionary<ulong, Station>();
+        }
 
         /// <summary>
         /// Creates 91 dominoes based upon 12 point max train domino set
@@ -51,6 +58,16 @@ namespace Assets.Scripts.Game
         public List<int> GetPlayerDominoes(ulong clientId) => playerDominoes.GetPlayerDominoes(clientId);
         public bool IsPlayerDomino(ulong clientId, int dominoId) => playerDominoes.Dominoes[clientId].Contains(dominoId);
         public bool IsEngine(int dominoId) => engineIndices[engineIndex] == dominoId;
+
+        public Station GetTurnStationByClientId(ulong clientId)
+        {
+            if (!_turnStations.ContainsKey(clientId))
+            {
+                _turnStations.Add(clientId, new Station());
+            }
+
+            return _turnStations[clientId];
+        }
 
         /// <summary>
         /// Used for picking up a player's dominoes at the start of a game
@@ -86,11 +103,6 @@ namespace Assets.Scripts.Game
             playerDominoes.AddDomino(clientId, dominoId);
         }
 
-        public void AddPlayerDominoes(ulong clientId, List<int> dominoIds)
-        {
-            playerDominoes.AddDominoes(clientId, dominoIds);
-        }
-
         public DominoEntity GetDominoFromBonePile()
         {
             int randomDominoIndex = UnityEngine.Random.Range(0, availableDominoes.Count); // TODO: could do a single shuffle instead (better performance)
@@ -106,7 +118,7 @@ namespace Assets.Scripts.Game
             var engine = AllDominoes[engineIndices[++engineIndex]];
             availableDominoes.Remove(engine.ID);    // no longer available to pick up
 
-            Station = new Station(engine);
+            Station = new Station();
 
             return engine;
         }
@@ -120,13 +132,15 @@ namespace Assets.Scripts.Game
         {
             playerDominoes.RemoveDomino(clientId, dominoId);
 
-            if(trackIndex >= Station.Tracks.Count)
+            Station playerTurnStation = GetTurnStationByClientId(clientId);
+
+            if(trackIndex >= playerTurnStation.Tracks.Count)
             {
-                Station.AddTrack(dominoId);
+                playerTurnStation.AddTrack(dominoId);
             }
             else
             {
-                Station.AddDominoToTrack(dominoId, trackIndex);
+                playerTurnStation.AddDominoToTrack(dominoId, trackIndex);
             }
         }
 

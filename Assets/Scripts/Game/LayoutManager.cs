@@ -36,12 +36,14 @@ public class LayoutManager : MonoBehaviour
         mainCamera = Camera.main;
     }
 
-    public void PlacePlayerDominoes(List<GameObject> playerDominoes)
+    public void PlaceInitialPlayerDominoes(List<GameObject> playerDominoes)
     {
         PositionHelper.LayoutAcrossAndUnderScreen(playerDominoes, mainCamera, BottomSideMargin);  //place them outside of the camera's view to allow them to slide in
 
-        var objectSize = PositionHelper.GetObjectDimensions(playerDominoes[0]);
-        var positions = PositionHelper.GetLayoutAcrossScreen(objectSize, mainCamera, playerDominoes.Count, BottomSideMargin);
+        var objectSize = PositionHelper.GetObjectDimensions(DominoPrefab);
+
+        // TODO: this throws a NAN error for x position when one domino is passed
+        var positions = PositionHelper.GetLayoutAcrossScreen(objectSize, mainCamera, playerDominoes.Count, BottomSideMargin); 
 
         playerYPosition = positions[0].y;
 
@@ -97,12 +99,6 @@ public class LayoutManager : MonoBehaviour
         StartCoroutine(mover.RotateOverSeconds(Quaternion.Euler(0, 90, 90), DominoRotateToTrack));
         StartCoroutine(mover.MoveOverSeconds(destination, DominoSlideToTrack, afterComplete));   // TODO: new animation definition for adding domino to track
     }
-
-    //public Vector3 GetNextTrackPosition(GameObject domino)
-    //{
-    //    var yStartPosition = PositionHelper.GetScreenLeftCenter(mainCamera).y;
-    //    var xStartPosition = GetEnginePosition(domino).x;
-    //}
 
     public Vector3 GetTrackLeftPosition(int trackIndex, int trackCount)
     {
@@ -226,5 +222,81 @@ public class LayoutManager : MonoBehaviour
         }
 
         yield return new WaitForSeconds(duration);
+    }
+
+    public void AddNewDominoForPlayer(Dictionary<int, Transform> playerDominoes, int incomingDominoId)
+    {
+        var objLength = PositionHelper.GetObjectDimensions(DominoPrefab);
+        var positionOffScreen = PositionHelper.GetScreenRightCenter(mainCamera) + new Vector3(objLength.x, 0, 0);
+
+        //newObj.transform.rotation = Quaternion.Euler(new Vector3(0, 180, 0));   // start flipped over?
+
+        // fly in and rotate
+        StartCoroutine(SlideAndRotateToCenterThenAddToBottom(playerDominoes, incomingDominoId, () => Debug.Log("Intro animation complete")));
+    }
+
+
+    private IEnumerator SlideAndRotateToCenterThenAddToBottom(Dictionary<int, Transform> playerDominoes, int incomingDominoId, Action afterComplete = null)
+    {
+        float showDuration = 2f; // seconds that the box is displayed in the center before moving into its bottom position
+        float beginAnimationDelay = 0.4f;   // delay before beginning this animation
+        float rotationDelay = 0.1f;        // additional delay before rotation animation begins
+        float slideAnimationDuration = 1f;
+        float rotationAnimationDuration = 0.5f;
+        float depth = -0.015f; // z position
+
+        var newDominoTransform = playerDominoes[incomingDominoId];
+        newDominoTransform.rotation = Quaternion.Euler(new Vector3(-90, 180, 180));   // start flipped over
+
+        StartCoroutine(SlideToPosition(newDominoTransform, new Vector3(0, 0, depth), slideAnimationDuration, beginAnimationDelay));
+        yield return StartCoroutine(
+            AnimationHelper.RotateOverSeconds(
+                newDominoTransform.transform,
+                Quaternion.Euler(-90, 0, 180),
+                rotationAnimationDuration,
+                beginAnimationDelay + rotationDelay,
+                SelectionEase
+                )
+            );
+
+        yield return new WaitForSeconds(showDuration);
+
+        yield return StartCoroutine(UpdateHorizontalPositionsWithDepth(playerDominoes, incomingDominoId, depth * 0.9f));
+
+        if (afterComplete != null)
+        {
+            afterComplete();
+        }
+    }
+
+
+    private IEnumerator UpdateHorizontalPositionsWithDepth(Dictionary<int, Transform> playerDominoes, int incomingDominoId, float depthFromFinalPosition)
+    {
+        float animationDuration = 0.3f;
+        float delayBeforeAnimation = 0.1f;
+        float totalAnimationTime = delayBeforeAnimation + animationDuration;
+        float horizontalSideMargin = 0f;
+
+        var objectDimensions = PositionHelper.GetObjectDimensions(DominoPrefab);
+        Vector2 screenSize = PositionHelper.GetScreenSize(mainCamera);
+        var positionY = PositionHelper.GetPlayerDominoYPosition(objectDimensions, mainCamera);
+
+        int i = 0;
+        foreach(int dominoId in playerDominoes.Keys)
+        {
+            float endXPos = PositionHelper.GetCenterPositionByIndex(screenSize.x, objectDimensions.x, i++, playerDominoes.Count, horizontalSideMargin);
+
+            if (dominoId == incomingDominoId)
+            {
+                // moves the new domino to its final place then moves it in the Z position to its final spot
+                StartCoroutine(AnimationHelper.MoveOverSecondsWithDepthReturn(playerDominoes[dominoId].transform, new Vector3(endXPos, positionY, 0), animationDuration, delayBeforeAnimation, depthFromFinalPosition, SelectionEase));
+            }
+            else
+            {
+                StartCoroutine(SlideToPosition(playerDominoes[dominoId].transform, new Vector3(endXPos, positionY, 0), animationDuration, delayBeforeAnimation));
+            }
+        }
+
+        yield return new WaitForSeconds(totalAnimationTime);
     }
 }

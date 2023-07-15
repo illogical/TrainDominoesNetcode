@@ -1,3 +1,5 @@
+using Assets.Scripts.Game;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -14,7 +16,30 @@ public class MeshManager : MonoBehaviour
 
     public GameObject GetDominoMeshById(int id)
     {
+        if(!dominoObjects.ContainsKey(id))
+        {
+            return null;
+        }
+
         return dominoObjects[id];
+    }
+
+    public Dictionary<int, Transform> GetDominoMeshesByIds(DominoEntity[] dominoEntities)
+    {
+        var playerDominoes = new Dictionary<int, Transform>();
+        foreach (var domino in dominoEntities)
+        {
+            // use the mesh if it already exists, otherwise create it
+            var dominoMesh = GetDominoMeshById(domino.ID);
+            if (dominoMesh == null)
+            {
+                dominoMesh = CreatePlayerDominoFromInfo(domino, new Vector3(0, 1, 0), PurposeType.Player);
+
+            }
+            playerDominoes.Add(domino.ID, dominoMesh.transform);
+        }
+
+        return playerDominoes;
     }
 
     public GameObject GetEngineDomino() => dominoObjects[engineDominoId];

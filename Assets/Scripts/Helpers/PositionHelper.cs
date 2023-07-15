@@ -174,15 +174,20 @@ namespace Assets.Scripts.Helpers
             Vector2 screenSize = GetScreenSize(camera);
             List<float> xPositions = GetPositionsSpreadAcrossLength(screenSize.x, objectDimensions.x, totalCount, sideMargin);
 
-            Vector3 screenBottom = camera.ViewportToWorldPoint(new Vector3(0, 0, Mathf.Abs(camera.transform.position.z)));
-
             var positions = new List<Vector3>();
             foreach (var x in xPositions)
             {
-                positions.Add(new Vector3(x, screenBottom.y + objectDimensions.y / 2, 0));
+                positions.Add(new Vector3(x, GetPlayerDominoYPosition(objectDimensions, camera), 0));
             }
 
             return positions;
+        }
+
+        public static float GetPlayerDominoYPosition(Vector3 objectDimensions, Camera camera)
+        {
+            Vector3 screenBottom = camera.ViewportToWorldPoint(new Vector3(0, 0, Mathf.Abs(camera.transform.position.z)));
+
+            return screenBottom.y + objectDimensions.y / 2;
         }
 
         // TODO: begin using GetScreenBottomCenterPositionForObject() and provide a Y position

@@ -54,44 +54,58 @@ public class GameSession : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void DrawInitialDominoesServerRpc(ServerRpcParams serverRpcParams = default)
+    public void DrawDominoesServerRpc(ServerRpcParams serverRpcParams = default)
     {
         if (gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId).Count > 0)
         {
-            Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} already has dominoes.");
+            // player already has dominoes so add one to their hand
+            var newDominoId = gameplayManager.DrawPlayerDomino(serverRpcParams.Receive.SenderClientId);
+            var playerDominoIds = gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId);
+            DrawDominoClientRpc(playerDominoIds.ToArray(), newDominoId, SendToClientSender(serverRpcParams));
+
+            // TODO: track that the player drew a domino this turn
+
             return;
         }
 
-        var dominoIds = gameplayManager.DrawPlayerDominoes(serverRpcParams.Receive.SenderClientId);
+        // this is the first time the player is drawing dominoes
 
+        var dominoIds = gameplayManager.DrawPlayerDominoes(serverRpcParams.Receive.SenderClientId);
         DrawDominoesClientRpc(dominoIds, SendToClientSender(serverRpcParams));
     }
 
     [ClientRpc]
     private void DrawDominoesClientRpc(int[] dominoIds, ClientRpcParams clientRpcParams)
     {
-        Debug.Log($"Received {dominoIds.Length} dominoes");
-
         OnPlayerDrewFromPile?.Invoke(this, dominoIds);
-        gameplayManager.ClientDisplayPlayerDominoes(dominoIds);
+        gameplayManager.ClientDisplayInitialPlayerDominoes(dominoIds);
+    }
+
+    [ClientRpc]
+    private void DrawDominoClientRpc(int[] dominoIds, int newDominoId, ClientRpcParams clientRpcParams)
+    {
+        OnPlayerDrewFromPile?.Invoke(this, dominoIds);
+        gameplayManager.ClientDisplayPlayerDominoes(dominoIds, newDominoId);
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void DrawDominoServerRpc(ServerRpcParams serverRpcParams = default)
     {
-        var dominoId = gameplayManager.DrawPlayerDomino(serverRpcParams.Receive.SenderClientId);
+        int newDominoId = gameplayManager.DrawPlayerDomino(serverRpcParams.Receive.SenderClientId);
 
-        DrawDominoClientRpc(dominoId, SendToClientSender(serverRpcParams));
+        List<int> playerDominoIds = gameplayManager.DominoTracker.GetPlayerDominoes(serverRpcParams.Receive.SenderClientId);
+        DrawDominoClientRpc(playerDominoIds.ToArray(), newDominoId, serverRpcParams.Receive.SenderClientId, SendToClientSender(serverRpcParams));
     }
 
     [ClientRpc]
-    private void DrawDominoClientRpc(int dominoId, ClientRpcParams clientRpcParams)
+    private void DrawDominoClientRpc(int[] playerDominoIds, int newDominoId, ulong clientId, ClientRpcParams clientRpcParams)
     {
-        var dominoes = new int[] { dominoId };
+        var dominoes = new int[] { newDominoId };
         OnPlayerDrewFromPile?.Invoke(this, dominoes);
 
-        // TODO: different animation for drawing a single domino
-        //gameplayManager.DisplayPlayerDominoes(dominoes);
+        Dictionary<int, Transform> playerDominoes = gameplayManager.ClientGetPlayerDominoTransforms(playerDominoIds);
+
+        gameplayManager.ClientAddNewDominoForPlayer(playerDominoes, newDominoId);
     }
 
     [ServerRpc(RequireOwnership = false)]

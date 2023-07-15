@@ -57,7 +57,7 @@ namespace Assets.Scripts.Game.States
         // TODO: how to prevent needing to repeat this across all states? It is different for first state vs subsequent states
         private void InputManager_DrawButtonClicked(object sender, EventArgs e)
         {
-            ctx.GameSession.DrawInitialDominoesServerRpc();
+            ctx.GameSession.DrawDominoesServerRpc();
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
         }

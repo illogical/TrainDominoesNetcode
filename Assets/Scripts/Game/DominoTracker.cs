@@ -52,6 +52,17 @@ namespace Assets.Scripts.Game
             }
         }
 
+        public DominoEntity[] GetDominoesByIDs(int[] dominoIds)
+        {
+            var dominoes = new List<DominoEntity>();
+            foreach(var dominoId in dominoIds)
+            {
+                dominoes.Add(AllDominoes[dominoId]);
+            }
+
+            return dominoes.ToArray();
+        }
+
         public DominoEntity GetDominoByID(int dominoId) => AllDominoes[dominoId];
         public DominoEntity GetEngineDomino() => AllDominoes[engineIndices[engineIndex]];
         public int GetEngineDominoID() => engineIndices[engineIndex];

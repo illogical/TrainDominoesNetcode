@@ -69,6 +69,18 @@ public class GameplayManager : MonoBehaviour
         else return 10;
     }
 
+    public Dictionary<int, Transform> ClientGetPlayerDominoTransforms(int[] playerDominoIds)
+    {
+        var playerDominoTransforms = new Dictionary<int, Transform>();
+
+        foreach (int dominoId in playerDominoIds)
+        {
+            playerDominoTransforms.Add(dominoId, meshManager.GetDominoMeshById(dominoId).transform);
+        }
+
+        return playerDominoTransforms;
+    }
+
     public int[] DrawPlayerDominoes(ulong clientId)
     {
         return DominoTracker.PickUpDominoes(clientId, 12);
@@ -89,15 +101,29 @@ public class GameplayManager : MonoBehaviour
         return DominoTracker.GetEngineDomino();
     }
 
-    public void ClientDisplayPlayerDominoes(int[] dominoIds)
+    public void ClientDisplayInitialPlayerDominoes(int[] dominoIds)
     {
         var playerDominoes = new List<GameObject>();
         foreach (var dominoId in dominoIds)
         {
-            playerDominoes.Add(meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Player));
+            // use the mesh if it already exists, otherwise create it
+            var dominoMesh = meshManager.GetDominoMeshById(dominoId);
+            if(dominoMesh == null)
+            {
+                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Player);
+                
+            }
+            playerDominoes.Add(dominoMesh);
         }
 
-        layoutManager.PlacePlayerDominoes(playerDominoes);
+        layoutManager.PlaceInitialPlayerDominoes(playerDominoes);
+    }
+
+    public void ClientDisplayPlayerDominoes(int[] dominoIds, int newDominoId)
+    {
+        var meshes = meshManager.GetDominoMeshesByIds(DominoTracker.GetDominoesByIDs(dominoIds));
+
+        layoutManager.AddNewDominoForPlayer(meshes, newDominoId);
     }
 
     public bool HasPlayerLaidFirstTrack(ulong clientId)
@@ -197,8 +223,8 @@ public class GameplayManager : MonoBehaviour
         || trackDomino.BottomScore == selectedDomino.BottomScore;
     }
 
-    internal void AddDominoToExistingTrack(int dominoId)
+    internal void ClientAddNewDominoForPlayer(Dictionary<int, Transform> playerDominoes, int dominoId)
     {
-        throw new NotImplementedException();
+        layoutManager.AddNewDominoForPlayer(playerDominoes, dominoId);
     }
 }

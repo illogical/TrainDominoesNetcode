@@ -74,17 +74,16 @@ namespace Assets.Scripts.Models
             return null;
         }
 
-        public int[][] GetTracksWithDominoes()
+        public List<List<int>> GetDominoIdByTracks()
         {
-            var tracks = new List<int[]>();
+            var tracks = new List<List<int>>();
 
             foreach (var track in Tracks)
             {
-
-                tracks.Add(track.DominoIds.ToArray());
+                tracks.Add(track.DominoIds);
             }
 
-            return tracks.ToArray();
+            return tracks;
         }
 
         public int? GetTrackByDominoId(int dominoId)

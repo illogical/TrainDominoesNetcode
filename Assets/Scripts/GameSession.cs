@@ -1,5 +1,6 @@
 using Assets.Scripts.Game;
 using Assets.Scripts.Game.States;
+using Assets.Scripts.Models;
 using System;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -206,7 +207,8 @@ public class GameSession : NetworkBehaviour
             int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
-            SelectEngineDominoClientRpc(selectedDominoId, gameplayManager.DominoTracker.Station.GetTracksWithDominoes(), SendToClientSender(serverRpcParams));
+            JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
+            SelectEngineDominoClientRpc(selectedDominoId, stationContainer, SendToClientSender(serverRpcParams));
         }
         else
         {
@@ -224,8 +226,8 @@ public class GameSession : NetworkBehaviour
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
             // get the track index and pass it to the client to move the domino to the track
-
-            SelectTrackDominoClientRpc(selectedDominoId, trackIndex, gameplayManager.DominoTracker.Station.GetTracksWithDominoes(), SendToClientSender(serverRpcParams));
+            JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
+            SelectTrackDominoClientRpc(selectedDominoId, trackIndex, stationContainer, SendToClientSender(serverRpcParams));
         }        
     }
 
@@ -240,19 +242,19 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void SelectEngineDominoClientRpc(int selectedDominoId, int[][] tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
+    private void SelectEngineDominoClientRpc(int selectedDominoId, JsonContainer tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Engine domino clicked");
 
-        gameplayManager.ClientAddSelectedToNewTrack(selectedDominoId, tracksWithDominoIds);
+        gameplayManager.ClientAddSelectedToNewTrack(selectedDominoId, tracksWithDominoIds.GetDeserializedTrackDominoIds());
     }
 
     [ClientRpc]
-    private void SelectTrackDominoClientRpc(int selectedDominoId, int trackIndex, int[][] tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
+    private void SelectTrackDominoClientRpc(int selectedDominoId, int trackIndex, JsonContainer tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Track domino clicked");
 
-        gameplayManager.ClientAddSelectedDominoToTrack(selectedDominoId, trackIndex, tracksWithDominoIds);
+        gameplayManager.ClientAddSelectedDominoToTrack(selectedDominoId, trackIndex, tracksWithDominoIds.GetDeserializedTrackDominoIds());
     }
 
     [ClientRpc]

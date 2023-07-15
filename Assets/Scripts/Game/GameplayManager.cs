@@ -153,16 +153,19 @@ public class GameplayManager : MonoBehaviour
         }
     }
 
-    public void ClientAddSelectedToNewTrack(int selectedDominoId, int[][] tracksWithDomininoIds)
+    public void ClientAddSelectedToNewTrack(int selectedDominoId, List<List<int>> tracksWithDomininoIds)
     {
         float trackSlideDuration = 0.3f;
         GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
+
+        Debug.Log(tracksWithDomininoIds.Count + " tracks");
+        Debug.Log(tracksWithDomininoIds[0].Count + " dominos on first track");
 
         // move empties to move the lines and animate the selected box moving to the track
         StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, selectedDominoId, tracksWithDomininoIds, meshManager, trackSlideDuration));
     }
 
-    public void ClientAddSelectedDominoToTrack(int selectedDominoId, int trackIndex, int[][] tracksWithDominoIds)
+    public void ClientAddSelectedDominoToTrack(int selectedDominoId, int trackIndex, List<List<int>> tracksWithDominoIds)
     {
         float trackSlideDuration = 0.3f;
         GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);

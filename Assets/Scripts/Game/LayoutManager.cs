@@ -186,31 +186,31 @@ public class LayoutManager : MonoBehaviour
         yield return StartCoroutine(AnimationHelper.MoveOverSeconds(objectTransform, endPos, SelectionEase));
     }
 
-    public IEnumerator AddNewDominoAndUpdateTrackPositions(Transform gameObjectToAdd, int addedDominoId, int[][] tracksWithDomininoIds, MeshManager meshManager, float duration, Action afterComplete = null)
+    public IEnumerator AddNewDominoAndUpdateTrackPositions(Transform gameObjectToAdd, int addedDominoId, List<List<int>> tracksWithDomininoIds, MeshManager meshManager, float duration, Action afterComplete = null)
     {
         StartCoroutine(UpdateTrackPositions(tracksWithDomininoIds, meshManager, duration, addedDominoId));
-        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, 0, tracksWithDomininoIds.Length - 1, tracksWithDomininoIds.Length, afterComplete));
+        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, 0, tracksWithDomininoIds.Count - 1, tracksWithDomininoIds.Count, afterComplete));
     }
 
-    public IEnumerator AddDominoAndUpdateTrackPositions(Transform gameObjectToAdd, int[][] tracksWithDomininoIds, MeshManager meshManager, int trackIndex, float duration, Action afterComplete = null)
+    public IEnumerator AddDominoAndUpdateTrackPositions(Transform gameObjectToAdd, List<List<int>> tracksWithDomininoIds, MeshManager meshManager, int trackIndex, float duration, Action afterComplete = null)
     {
         //StartCoroutine(UpdateTrackPositions(tracksWithDomininoIds, meshManager, duration, addedDominoId));
-        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, tracksWithDomininoIds[trackIndex].Length - 1, trackIndex, tracksWithDomininoIds.Length, afterComplete));
+        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, tracksWithDomininoIds[trackIndex].Count - 1, trackIndex, tracksWithDomininoIds.Count, afterComplete));
     }
 
-    private IEnumerator UpdateTrackPositions(int[][] tracksWithDomininoIds, MeshManager meshManager, float duration, int? addedDominoId = null)
+    private IEnumerator UpdateTrackPositions(List<List<int>> tracksWithDomininoIds, MeshManager meshManager, float duration, int? addedDominoId = null)
     {
         // TODO: need to move all dominoes along with the track
 
-        for (int i = 0; i < tracksWithDomininoIds.Length; i++)
+        for (int i = 0; i < tracksWithDomininoIds.Count; i++)
         {
-            float currentYPosition = GetTrackYPosition(i, tracksWithDomininoIds.Length);
+            float currentYPosition = GetTrackYPosition(i, tracksWithDomininoIds.Count);
 
-            for (int j = 0; j < tracksWithDomininoIds[i].Length; j++)
+            for (int j = 0; j < tracksWithDomininoIds[i].Count; j++)
             {
                 // TODO: stagger or ease the sliding to look cool?
 
-                float currentXPosition = GetTrackXPosition(j, i, tracksWithDomininoIds.Length);
+                float currentXPosition = GetTrackXPosition(j, i, tracksWithDomininoIds.Count);
                 int currentDominoId = tracksWithDomininoIds[i][j];
                 if(currentDominoId == addedDominoId)
                 {

@@ -1,10 +1,6 @@
 using Assets.Scripts.Game;
-using Assets.Scripts.Helpers;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using Unity.Netcode;
 using UnityEngine;
 
 public class GameplayManager : MonoBehaviour
@@ -149,20 +145,6 @@ public class GameplayManager : MonoBehaviour
     internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
     internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
 
-    //internal void AddDominoToNewTrack(int dominoId)
-    //{
-    //    if (!CompareDominoes(selectedDominoId, DominoTracker.GetEngineDominoID()))
-    //    {
-    //        Debug.Log("Those don't match, nice try.");
-    //        return;
-    //    }
-
-    //    // add domino to track
-    //    var newTrack = DominoTracker.Station.AddTrack(selectedDominoId);
-
-    //    var startPosition = PositionHelper.GetScreenLeftCenter(mainCamera);
-    //}
-
     public void ServerSelectPlayerDomino(int dominoId)
     {
         if (!DominoTracker.SelectedDomino.HasValue)
@@ -227,4 +209,22 @@ public class GameplayManager : MonoBehaviour
     {
         layoutManager.AddNewDominoForPlayer(playerDominoes, dominoId);
     }
+    
+    internal void ClientUpdateStation(List<List<int>> trackDominoIds, int[] addDominoIds)
+    {
+        // TODO: slide in the new dominoes into place
+        // TODO: additional animation for new dominoes 
+        
+        // TODO: start from position above top of screen or right side
+        // TODO: stagger dominoes
+        
+    }
+
+    public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();
+
+    
+    public int[] GetUpdatedDominoes(ulong clientId) => DominoTracker.Station.GetNewDominoesByComparingToStation(
+        DominoTracker.GetTurnStationByClientId(clientId));
+
+    public void SubmitPlayerTurnStation(ulong clientId) => DominoTracker.UpdateStationToPlayerTurnStation(clientId);
 }

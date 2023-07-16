@@ -146,6 +146,8 @@ public class GameSession : NetworkBehaviour
         }
 
         readyPlayers.Add(clientId);
+        
+        // TODO: handle submitting multiple dominoes for first track vs adding a single domino
 
         // first player to draw will set whose turn it is (set to the first player who joined so the host)
         gameplayManager.TurnManager.AddPlayer(clientId);
@@ -156,9 +158,17 @@ public class GameSession : NetworkBehaviour
         if (readyPlayers.Count == ((MyNetworkManager)NetworkManager.Singleton).Players.Count)
         {
             // this is the last player to end their turn
+            
+            // sync all player stations
+            // get all new dominoes across players
+            int[] addedDominoes = gameplayManager.GetUpdatedDominoesForAllPlayers();
+            JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
+            // TODO: may want to handle animations for new tracks differently?
+            UpdateStationsClientRpc(stationContainer, addedDominoes);
 
             gameplayManager.TurnManager.CompleteGroupTurn();
 
+            // TODO: how to wait until animations complete before swapping turns?
             PlayerReadyClientRpc(gameplayManager.TurnManager.CurrentPlayerId.Value);
         }
     }
@@ -171,9 +181,16 @@ public class GameSession : NetworkBehaviour
             Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} is not the current player");
             return;
         }
-
-        // TODO: submit the dominoes that were laid down to the server and add to a new station track
+        
+        // TODO: validate that this player picked up their domino (or automatically deal in the future)
         // TODO: validate that this is not being run a 2nd time for the same player
+        
+        int[] addedDominoes = gameplayManager.GetUpdatedDominoes(serverRpcParams.Receive.SenderClientId);
+        // sets the Station to the current player's turn station
+        gameplayManager.SubmitPlayerTurnStation(serverRpcParams.Receive.SenderClientId);
+        
+        JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
+        UpdateStationsClientRpc(stationContainer, addedDominoes);
 
         EndTurnClientRpc(SendToClientSender(serverRpcParams));
 
@@ -187,6 +204,17 @@ public class GameSession : NetworkBehaviour
     private void EndTurnClientRpc(ClientRpcParams clientRpcParams = default)
     {
         gameplayManager.EndPlayerTurn();
+    }
+    
+    [ClientRpc]
+    private void UpdateStationsClientRpc(JsonContainer tracksWithDominoIds, int[] addDominoIds)
+    {
+        Debug.Log($"Recieved {addDominoIds.Length} new dominoes");
+        
+        // update MeshManager placement based upon the newly added dominoes
+        gameplayManager.ClientUpdateStation(tracksWithDominoIds.GetDeserializedTrackDominoIds(), addDominoIds);
+
+        // TODO: will need to ignore this on the player whose turn it is
     }
 
     [ClientRpc]

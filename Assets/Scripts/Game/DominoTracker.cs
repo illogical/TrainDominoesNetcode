@@ -123,6 +123,20 @@ namespace Assets.Scripts.Game
             availableDominoes.RemoveAt(randomDominoIndex);
             return domino;
         }
+        
+        public int[] GetDominoesFromTurnStations()
+        {
+            List<int> newDominoIds = new List<int>();
+
+            foreach (Station station in _turnStations.Values)
+            {
+                foreach (Track track in station.Tracks)
+                {
+                    newDominoIds.AddRange(track.DominoIds);
+                }
+            }
+            return newDominoIds.ToArray();
+        }
 
         public DominoEntity GetNextEngineAndCreateStation()
         {
@@ -168,6 +182,12 @@ namespace Assets.Scripts.Game
                 BottomScore = bottomScore,
                 ID = index
             };
+        }
+
+        public void UpdateStationToPlayerTurnStation(ulong clientId)
+        {
+            // TODO: keep an eye out regarding whether I should clone each track or if reference works here
+            Station = _turnStations[clientId];
         }
     }
 }

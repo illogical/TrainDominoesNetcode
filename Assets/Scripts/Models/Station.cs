@@ -1,16 +1,16 @@
 ﻿using System.Collections.Generic;
-
+using System.Linq;
+using JetBrains.Annotations;
 
 namespace Assets.Scripts.Models
 {
     public class Station
     {
         // a station has 8 tracks
-        public List<Track> Tracks = new List<Track>(8);  // tracks by track number
+        public List<Track> Tracks = new List<Track>(8); // tracks by track number
 
         public Station()
         {
-
         }
 
         /// <summary>
@@ -42,20 +42,27 @@ namespace Assets.Scripts.Models
             return Tracks[trackIndex];
         }
 
+        [CanBeNull]
         public Track GetTrackByIndex(int trackIndex)
         {
+            if (trackIndex >= Tracks.Count)
+            {
+                return null;
+            }
+            
             return Tracks[trackIndex];
         }
 
         public int? GetTrackIndexByDominoId(int dominoId)
         {
-            foreach(var track in Tracks)
+            foreach (var track in Tracks)
             {
                 if (track.ContainsDomino(dominoId))
                 {
                     return Tracks.IndexOf(track);
                 }
             }
+
             return null;
         }
 
@@ -95,6 +102,40 @@ namespace Assets.Scripts.Models
             }
 
             return null;
+        }
+
+        public int[] GetNewDominoesByComparingToStation(Station updatedStation)
+        {
+            List<int> newlyAddedDominoes = new List<int>();
+
+            for (int i = 0; i < updatedStation.Tracks.Count; i++)
+            {
+                Track localCurrentTrack = this.GetTrackByIndex(i);
+                Track updatedTrack = updatedStation.GetTrackByIndex(i);
+
+                if (localCurrentTrack == null)
+                {
+                    // this is a new track
+                    newlyAddedDominoes.AddRange(updatedTrack.DominoIds);
+                }
+                else if (localCurrentTrack.DominoIds.Count != updatedTrack.DominoIds.Count)
+                {
+                    // the track counts differ. Find which dominoes are unaccounted for.
+                    int addedDominoCount = updatedTrack.DominoIds.Count - localCurrentTrack.DominoIds.Count;
+                    List<int> endDominoes = updatedTrack.DominoIds.GetRange(localCurrentTrack.DominoIds.Count,
+                        addedDominoCount);
+                    newlyAddedDominoes.AddRange(endDominoes);
+                    // for (int j = 0; j < updatedTrack.DominoIds.Count; j++)
+                    // {
+                    //     if (localCurrentTrack.DominoIds.Count >= j)
+                    //     {
+                    //         
+                    //     }
+                    // }
+                }
+            }
+
+            return newlyAddedDominoes.ToArray();
         }
     }
 }

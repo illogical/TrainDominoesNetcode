@@ -75,7 +75,7 @@ public class GameplayManager : MonoBehaviour
             if (dominoMesh == null)
             {
                 // create the mesh
-                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Player);
+                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Table);
             }
             
             dominoTransforms.Add(dominoId, dominoMesh.transform);
@@ -223,11 +223,17 @@ public class GameplayManager : MonoBehaviour
         // TODO: additional animation for new dominoes
 
         // TODO: start from position above top of screen or right side
-        layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(addDominoIds));
+
+        List<int> allTrackDominoIds = new List<int>();
+        foreach (var track in trackDominoIds)
+        {
+            allTrackDominoIds.AddRange(track);
+        }
+        
+        layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(allTrackDominoIds.ToArray()));
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();
-
     
     public int[] GetUpdatedDominoes(ulong clientId) => DominoTracker.Station.GetNewDominoesByComparingToStation(
         DominoTracker.GetTurnStationByClientId(clientId));

@@ -1,11 +1,8 @@
-using Assets.Scripts.Game;
 using Assets.Scripts.Helpers;
-using Assets.Scripts.Models;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEngine.UI.Image;
 
 public class LayoutManager : MonoBehaviour
 {
@@ -297,7 +294,7 @@ public class LayoutManager : MonoBehaviour
 
     private IEnumerator MoveDominoesToStation(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms)
     {
-        float staggerDeloy = 0.15f;
+        float staggerDeloy = 0.25f;
         var staggerWait = new WaitForSeconds(staggerDeloy);
 
         for (int trackIndex = 0; trackIndex < trackDominoIds.Count; trackIndex++)
@@ -305,6 +302,7 @@ public class LayoutManager : MonoBehaviour
             for (int dominoIndex = 0; dominoIndex < trackDominoIds[trackIndex].Count; dominoIndex++)
             {
                 int dominoId = trackDominoIds[trackIndex][dominoIndex];
+                // TODO: slow this animation down (make it configurable)
                 StartCoroutine(AddDominoToTrack(dominoTransforms[dominoId], dominoIndex, trackIndex, trackDominoIds.Count));
             }
         }

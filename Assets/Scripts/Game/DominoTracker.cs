@@ -1,10 +1,7 @@
 ﻿using Assets.Scripts.Models;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Collections.Specialized.BitVector32;
+using UnityEngine;
 
 namespace Assets.Scripts.Game
 {
@@ -212,6 +209,51 @@ namespace Assets.Scripts.Game
                         Station.AddDominoToTrack(turnStations[stationIndex].Tracks[trackIndex].DominoIds[dominoIndex], addedTracks - 1);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Apply's a player's dominoes to the main station via adding a new track or adding to an existing track.
+        /// </summary>
+        /// <param name="trackClientId">ClientId of the player whose submitted dominoes are being added to the main station.</param>
+        public void MergeTurnTrackIntoStation(ulong trackClientId)
+        {
+            var turnStation = _turnStations[trackClientId];
+            // check if any dominoes had been added to any tracks. If so, add them to the main station's equivalent track
+            for (int trackIndex = 0; trackIndex < Station.TrackCount(); trackIndex++)
+            {
+                Track turnStationTrack = turnStation.Tracks[trackIndex];
+                Track currentLocalTrack = Station.Tracks[trackIndex];
+
+                if (turnStationTrack.DominoIds.Count > currentLocalTrack.DominoIds.Count)
+                {
+                    int newDominoCount = turnStationTrack.DominoIds.Count -
+                                         currentLocalTrack.DominoIds.Count;
+                    Station.Tracks[trackIndex].DominoIds.AddRange(turnStationTrack.DominoIds.GetRange(currentLocalTrack.DominoIds.Count, newDominoCount));
+                }
+            }
+
+            int addedTracksCount = turnStation.TrackCount() - Station.TrackCount(); // should never be more than 1 track added per turn
+            if (addedTracksCount > 0)
+            {
+                // new track had been added
+                if (addedTracksCount > 1)
+                {
+                    Debug.LogError("Unexpected error: More than 1 track is being added during a player's turn.");
+                }
+
+                Station.Tracks.AddRange(turnStation.Tracks.GetRange(Station.Tracks.Count(), addedTracksCount));
+            }
+        }
+
+        /// <summary>
+        /// Overwrites all other players' TurnStation tracks with a clone of the main station's tracks.
+        /// </summary>
+        public void SyncMainStationWithPlayerTurnStations()
+        {
+            foreach (ulong clientId in _turnStations.Keys)
+            {
+                _turnStations[clientId].Tracks = Station.CloneTracks();
             }
         }
     }

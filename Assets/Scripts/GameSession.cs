@@ -1,4 +1,3 @@
-using Assets.Scripts.Game;
 using Assets.Scripts.Game.States;
 using Assets.Scripts.Models;
 using System;
@@ -161,9 +160,12 @@ public class GameSession : NetworkBehaviour
             
             // sync all player stations
             gameplayManager.DominoTracker.MergeTurnTracksIntoStation();
-            
             // get all new dominoes across players
             int[] addedDominoes = gameplayManager.GetUpdatedDominoesForAllPlayers();
+            // now sync main station back to all players' TurnStation
+            gameplayManager.DominoTracker.SyncMainStationWithPlayerTurnStations();
+            
+
             JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
             // TODO: may want to handle animations for new tracks differently?
             UpdateStationsClientRpc(stationContainer, addedDominoes);
@@ -187,7 +189,13 @@ public class GameSession : NetworkBehaviour
         // TODO: validate that this player picked up their domino (or automatically deal in the future)
         // TODO: validate that this is not being run a 2nd time for the same player
         
+        // get all new dominoes for the current player
         int[] addedDominoes = gameplayManager.GetUpdatedDominoes(serverRpcParams.Receive.SenderClientId);
+        // sync current player's station with main station
+        gameplayManager.DominoTracker.MergeTurnTrackIntoStation(serverRpcParams.Receive.SenderClientId);
+        // now sync main station back to all players' TurnStation
+        gameplayManager.DominoTracker.SyncMainStationWithPlayerTurnStations();
+        
         // sets the Station to the current player's turn station
         gameplayManager.SubmitPlayerTurnStation(serverRpcParams.Receive.SenderClientId);
         

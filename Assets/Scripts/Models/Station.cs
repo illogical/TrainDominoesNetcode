@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
 
@@ -108,6 +109,7 @@ namespace Assets.Scripts.Models
         {
             List<int> newlyAddedDominoes = new List<int>();
 
+            // TODO: currently there is a bug where this will iterate over newly-added tracks (I think)
             for (int i = 0; i < updatedStation.Tracks.Count; i++)
             {
                 Track localCurrentTrack = this.GetTrackByIndex(i);
@@ -122,6 +124,11 @@ namespace Assets.Scripts.Models
                 {
                     // the track counts differ. Find which dominoes are unaccounted for.
                     int addedDominoCount = updatedTrack.DominoIds.Count - localCurrentTrack.DominoIds.Count;
+                    if (addedDominoCount < 0)
+                    {
+                        throw new Exception($"addedDominoCount is negative. Why?");
+                    }
+                    
                     List<int> endDominoes = updatedTrack.DominoIds.GetRange(localCurrentTrack.DominoIds.Count,
                         addedDominoCount);
                     newlyAddedDominoes.AddRange(endDominoes);
@@ -136,6 +143,21 @@ namespace Assets.Scripts.Models
             }
 
             return newlyAddedDominoes.ToArray();
+        }
+
+        public List<Track> CloneTracks()
+        {
+            var clonedTracks = new List<Track>();
+            for (int trackIndex = 0; trackIndex < TrackCount(); trackIndex++)
+            {
+                // add the first domino to a fresh track
+                clonedTracks.Add(new Track(Tracks[trackIndex].DominoIds[0], Tracks[trackIndex].PlayerId, Tracks[trackIndex].HasTrain));
+                for (int dominoIndex = 1; dominoIndex < Tracks[trackIndex].DominoIds.Count; dominoIndex++)
+                {
+                    clonedTracks[trackIndex].AddDominoToTrack(Tracks[trackIndex].DominoIds[dominoIndex]);
+                }
+            }
+            return clonedTracks;
         }
     }
 }

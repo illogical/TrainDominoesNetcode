@@ -88,18 +88,6 @@ public class LayoutManager : MonoBehaviour
         return PositionHelper.GetScreenLeftCenterPositionForObject(objectSize, mainCamera, 0);
     }
 
-    public void PlaceDominoOnTrack(GameObject domino, int trackDominoIndex, Action afterComplete = null)
-    {
-        var mover = domino.GetComponent<Mover>();
-
-        var destination = new Vector3(GetTrackStartXPosition() + 0.05f, 0, 0);
-
-        // TODO: Move up to track y position then move over to the X
-        // TODO: even better, spring past the x position and come back for a little sample of juice
-        StartCoroutine(mover.RotateOverSeconds(Quaternion.Euler(0, 90, 90), DominoRotateToTrack));
-        StartCoroutine(mover.MoveOverSeconds(destination, DominoSlideToTrack, afterComplete));   // TODO: new animation definition for adding domino to track
-    }
-
     public Vector3 GetTrackLeftPosition(int trackIndex, int trackCount)
     {
         return new Vector3(GetTrackStartXPosition(), GetTrackYPosition(trackIndex, trackCount), 0);
@@ -156,14 +144,14 @@ public class LayoutManager : MonoBehaviour
         yield return new WaitForSeconds(duration);
     }
 
-    public IEnumerator AddDominoToTrack(Transform boxTransform, int trackObjectIndex, int trackIndex, int trackCount, Action afterComplete = null)
+    private IEnumerator AddDominoToTrack(Transform dominoTransform, int trackObjectIndex, int trackIndex, int trackCount, Action afterComplete = null)
     {
         float rotationDuration = 0.2f;
         float rotationDelay = 0.25f;
 
         // TODO: need to know if the domino needs to be flipped
-        StartCoroutine(AnimationHelper.RotateOverSeconds(boxTransform, Quaternion.Euler(0, -90, -90), rotationDuration, rotationDelay, SelectionEase));
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(boxTransform, GetTrackPosition(trackObjectIndex, trackIndex, trackCount), SelectionEase));
+        StartCoroutine(AnimationHelper.RotateOverSeconds(dominoTransform, Quaternion.Euler(0, -90, -90), rotationDuration, rotationDelay, SelectionEase));
+        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(dominoTransform, GetTrackPosition(trackObjectIndex, trackIndex, trackCount), SelectionEase));
 
         if (afterComplete != null)
         {
@@ -298,5 +286,29 @@ public class LayoutManager : MonoBehaviour
         }
 
         yield return new WaitForSeconds(totalAnimationTime);
+    }
+
+    public void UpdateStationPositions(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms)
+    {
+        // TODO: how to know when a domino is flipped? Might need full DominoEntity here instead of just an ID
+
+        StartCoroutine(MoveDominoesToStation(trackDominoIds, dominoTransforms));
+    }
+
+    private IEnumerator MoveDominoesToStation(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms)
+    {
+        float staggerDeloy = 0.15f;
+        var staggerWait = new WaitForSeconds(staggerDeloy);
+
+        for (int trackIndex = 0; trackIndex < trackDominoIds.Count; trackIndex++)
+        {
+            for (int dominoIndex = 0; dominoIndex < trackDominoIds[trackIndex].Count; dominoIndex++)
+            {
+                int dominoId = trackDominoIds[trackIndex][dominoIndex];
+                StartCoroutine(AddDominoToTrack(dominoTransforms[dominoId], dominoIndex, trackIndex, trackDominoIds.Count));
+            }
+        }
+
+        yield return staggerWait;
     }
 }

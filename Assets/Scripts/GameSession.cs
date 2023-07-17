@@ -103,7 +103,7 @@ public class GameSession : NetworkBehaviour
         var dominoes = new int[] { newDominoId };
         OnPlayerDrewFromPile?.Invoke(this, dominoes);
 
-        Dictionary<int, Transform> playerDominoes = gameplayManager.ClientGetPlayerDominoTransforms(playerDominoIds);
+        Dictionary<int, Transform> playerDominoes = gameplayManager.ClientGetDominoTransforms(playerDominoIds);
 
         gameplayManager.ClientAddNewDominoForPlayer(playerDominoes, newDominoId);
     }
@@ -160,6 +160,8 @@ public class GameSession : NetworkBehaviour
             // this is the last player to end their turn
             
             // sync all player stations
+            gameplayManager.DominoTracker.MergeTurnTracksIntoStation();
+            
             // get all new dominoes across players
             int[] addedDominoes = gameplayManager.GetUpdatedDominoesForAllPlayers();
             JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
@@ -210,11 +212,11 @@ public class GameSession : NetworkBehaviour
     private void UpdateStationsClientRpc(JsonContainer tracksWithDominoIds, int[] addDominoIds)
     {
         Debug.Log($"Recieved {addDominoIds.Length} new dominoes");
+
+        // TODO: will need to ignore this on the player whose turn it is. Server may want to specifically send to all other clients
         
         // update MeshManager placement based upon the newly added dominoes
         gameplayManager.ClientUpdateStation(tracksWithDominoIds.GetDeserializedTrackDominoIds(), addDominoIds);
-
-        // TODO: will need to ignore this on the player whose turn it is
     }
 
     [ClientRpc]

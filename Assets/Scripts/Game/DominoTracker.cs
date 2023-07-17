@@ -189,5 +189,30 @@ namespace Assets.Scripts.Game
             // TODO: keep an eye out regarding whether I should clone each track or if reference works here
             Station = _turnStations[clientId];
         }
+
+        public void MergeTurnTracksIntoStation()
+        {
+            int addedTracks = 0;
+            
+            // adds each TurnStation track to the main Station
+            for (int stationIndex = 0; stationIndex < _turnStations.Count; stationIndex++)
+            {
+                var turnStations = _turnStations.Values.ToList();
+                for (int trackIndex = 0; trackIndex < turnStations[stationIndex].TrackCount(); trackIndex++)
+                {
+                    for (int dominoIndex = 0; dominoIndex < turnStations[stationIndex].Tracks[trackIndex].DominoIds.Count; dominoIndex++)
+                    {
+                        if (dominoIndex == 0)
+                        {
+                            // add the track before adding the first domino to it
+                            Station.AddTrack(turnStations[stationIndex].Tracks[trackIndex].DominoIds[dominoIndex]);
+                            addedTracks++;
+                            continue;
+                        }
+                        Station.AddDominoToTrack(turnStations[stationIndex].Tracks[trackIndex].DominoIds[dominoIndex], addedTracks - 1);
+                    }
+                }
+            }
+        }
     }
 }

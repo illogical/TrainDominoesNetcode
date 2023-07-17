@@ -65,16 +65,23 @@ public class GameplayManager : MonoBehaviour
         else return 10;
     }
 
-    public Dictionary<int, Transform> ClientGetPlayerDominoTransforms(int[] playerDominoIds)
+    public Dictionary<int, Transform> ClientGetDominoTransforms(int[] dominoIds)
     {
-        var playerDominoTransforms = new Dictionary<int, Transform>();
+        var dominoTransforms = new Dictionary<int, Transform>();
 
-        foreach (int dominoId in playerDominoIds)
+        foreach (int dominoId in dominoIds)
         {
-            playerDominoTransforms.Add(dominoId, meshManager.GetDominoMeshById(dominoId).transform);
+            GameObject dominoMesh = meshManager.GetDominoMeshById(dominoId);
+            if (dominoMesh == null)
+            {
+                // create the mesh
+                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Player);
+            }
+            
+            dominoTransforms.Add(dominoId, dominoMesh.transform);
         }
 
-        return playerDominoTransforms;
+        return dominoTransforms;
     }
 
     public int[] DrawPlayerDominoes(ulong clientId)
@@ -213,11 +220,10 @@ public class GameplayManager : MonoBehaviour
     internal void ClientUpdateStation(List<List<int>> trackDominoIds, int[] addDominoIds)
     {
         // TODO: slide in the new dominoes into place
-        // TODO: additional animation for new dominoes 
-        
+        // TODO: additional animation for new dominoes
+
         // TODO: start from position above top of screen or right side
-        // TODO: stagger dominoes
-        
+        layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(addDominoIds));
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();

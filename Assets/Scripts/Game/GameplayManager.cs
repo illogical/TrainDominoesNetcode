@@ -129,16 +129,6 @@ public class GameplayManager : MonoBehaviour
         layoutManager.AddNewDominoForPlayer(meshes, newDominoId);
     }
 
-    public bool HasPlayerLaidFirstTrack(ulong clientId)
-    {
-        return TurnManager.HasPlayerLaidFirstTrack(clientId);
-    }
-
-    public void SetPlayerLaidFirstTrack(ulong clientId)
-    {
-        TurnManager.CompleteLaidFirstTrack(clientId);
-    }
-
     public int? GetSelectedDomino() => DominoTracker.SelectedDomino;
 
     internal void ClientCreateAndPlaceEngine(int dominoId)

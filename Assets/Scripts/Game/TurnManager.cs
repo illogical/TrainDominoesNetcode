@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Assets.Scripts.Models;
 using UnityEngine;
 
 public class TurnManager
@@ -7,14 +8,15 @@ public class TurnManager
     private int _currentTurn;
 
     private List<ulong> _allPlayers = new List<ulong>();  // these are in the order that they ended the group turn
-    private List<ulong> _laidFirstTrack;
-
+    private Dictionary<ulong, TurnState> _playerTurnStatuses;
     private bool _isGroupTurn = true;
 
     public TurnManager()
     {
         _currentTurn = 0;
-        _laidFirstTrack = new List<ulong>();
+        _playerTurnStatuses = new Dictionary<ulong, TurnState>();
+
+        ResetPlayerTurnStates();
     }
 
     public void AddPlayer(ulong clientId)
@@ -23,23 +25,24 @@ public class TurnManager
         {
             _allPlayers.Add(clientId);
         }
+
+        if (!_playerTurnStatuses.ContainsKey(clientId))
+        {
+            _playerTurnStatuses.Add(clientId, new TurnState());
+        }
     }
     
-    public bool HaveAllPlayersLaidTrack(int playerCount) => _laidFirstTrack.Count == playerCount;
-    public bool HasPlayerLaidFirstTrack(ulong playerId) => _laidFirstTrack.Contains(playerId);
-    public bool IsGroupTurn => _isGroupTurn;
-
+    private void ResetPlayerTurnStates()
+    {
+        foreach (ulong clientId in _playerTurnStatuses.Keys)
+        {
+            GetPlayerTurnStatus(clientId).ResetTurnStatus();
+        }
+    }
+    
     public void CompleteGroupTurn()
     {
         _isGroupTurn = false;
-    }
-
-    public void CompleteLaidFirstTrack(ulong playerId)
-    {
-        if(!_laidFirstTrack.Contains(playerId))
-        {
-            _laidFirstTrack.Add(playerId);
-        }
     }
 
     public void IncrementTurn()
@@ -50,9 +53,24 @@ public class TurnManager
             return;
         }
 
+        // reset all player's turn-specific state
+        ResetPlayerTurnStates();
+        
         _currentTurn++;
+    }
+
+    public TurnState GetPlayerTurnStatus(ulong clientId)
+    {
+        if (!_playerTurnStatuses.ContainsKey(clientId))
+        {
+            _playerTurnStatuses.Add(clientId, new TurnState());
+        }
+        
+        return _playerTurnStatuses[clientId];
     }
 
     public ulong? CurrentPlayerId => _allPlayers[CurrentTurn];
     public int CurrentTurn => _currentTurn % _allPlayers.Count;
+    public bool IsPlayerCurrentTurn(ulong clientId) => CurrentPlayerId == clientId;
+    public bool IsGroupTurn => _isGroupTurn;
 }

@@ -158,7 +158,12 @@ namespace Assets.Scripts.Game
 
             if(trackIndex >= playerTurnStation.Tracks.Count)
             {
-                playerTurnStation.AddTrack(dominoId);
+                Track newTrack = playerTurnStation.AddTrack(dominoId);
+                if (Station.GetTrackByNetId(clientId) == null)
+                {
+                    // this is this player's first track
+                    newTrack.PlayerId = clientId;
+                }
             }
             else
             {

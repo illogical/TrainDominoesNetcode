@@ -43,6 +43,8 @@ public class TurnManager
     public void CompleteGroupTurn()
     {
         _isGroupTurn = false;
+
+        ResetPlayerTurnStates();
     }
 
     public void IncrementTurn()

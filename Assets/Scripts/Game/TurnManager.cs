@@ -71,6 +71,7 @@ public class TurnManager
         return _playerTurnStatuses[clientId];
     }
 
+    public TurnState GetPlayerTurnState(ulong clientId) => _playerTurnStatuses[clientId];
     public ulong? CurrentPlayerId => _allPlayers[CurrentTurn];
     public int CurrentTurn => _currentTurn % _allPlayers.Count;
     public bool IsPlayerCurrentTurn(ulong clientId) => CurrentPlayerId == clientId;

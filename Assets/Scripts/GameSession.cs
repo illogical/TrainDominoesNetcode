@@ -2,6 +2,7 @@ using Assets.Scripts.Game.States;
 using Assets.Scripts.Models;
 using System;
 using System.Collections.Generic;
+using Assets.Scripts.Game;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -263,7 +264,7 @@ public class GameSession : NetworkBehaviour
             }
         }
         
- 
+
         // decide if this was a player domino, station domino, or engine domino
         if (gameplayManager.DominoTracker.IsPlayerDomino(senderClientId, dominoId))
         {
@@ -302,6 +303,16 @@ public class GameSession : NetworkBehaviour
             if (!gameplayManager.DominoTracker.SelectedDomino.HasValue)
             {
                 Debug.Log("A track has already been added.");
+                return;
+            }
+
+            // TODO: check train status for this track. DominoManager is likely currently tracking it
+            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnState(senderClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(senderClientId)
+            
+            Track track = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId).GetTrackByDominoId(dominoId);
+            if (track.PlayerId != senderClientId)
+            {
+                Debug.Log("That track is not yours.");
                 return;
             }
 

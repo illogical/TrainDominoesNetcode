@@ -207,7 +207,9 @@ namespace Assets.Scripts.Game
                         if (dominoIndex == 0)
                         {
                             // add the track before adding the first domino to it
-                            Station.AddTrack(turnStations[stationIndex].Tracks[trackIndex].DominoIds[dominoIndex]);
+                            Track track = Station.AddTrack(turnStations[stationIndex].Tracks[trackIndex].DominoIds[dominoIndex]);
+                            track.PlayerId = turnStations[stationIndex].Tracks[trackIndex].PlayerId;
+                            track.HasTrain = turnStations[stationIndex].Tracks[trackIndex].HasTrain;
                             addedTracks++;
                             continue;
                         }

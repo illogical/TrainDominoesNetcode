@@ -26,6 +26,14 @@ namespace Assets.Scripts.Models
             return track;
         }
 
+        public Track AddTrackClone(Track track)
+        {
+            Track newTrack = new Track(track.PlayerId, track.HasTrain);
+            newTrack.DominoIds.AddRange(track.DominoIds);
+
+            return newTrack;
+        }
+
         public int TrackCount()
         {
             return Tracks.Count;
@@ -92,13 +100,13 @@ namespace Assets.Scripts.Models
             return tracks;
         }
 
-        public int? GetTrackByDominoId(int dominoId)
+        public Track GetTrackByDominoId(int dominoId)
         {
             for (int i = 0; i < Tracks.Count; i++)
             {
                 if (Tracks[i].DominoIds.Contains(dominoId))
                 {
-                    return i;
+                    return Tracks[i];
                 }
             }
 
@@ -132,19 +140,13 @@ namespace Assets.Scripts.Models
                     List<int> endDominoes = updatedTrack.DominoIds.GetRange(localCurrentTrack.DominoIds.Count,
                         addedDominoCount);
                     newlyAddedDominoes.AddRange(endDominoes);
-                    // for (int j = 0; j < updatedTrack.DominoIds.Count; j++)
-                    // {
-                    //     if (localCurrentTrack.DominoIds.Count >= j)
-                    //     {
-                    //         
-                    //     }
-                    // }
                 }
             }
 
             return newlyAddedDominoes.ToArray();
         }
 
+        // TODO: CloneTracks is redundant
         public List<Track> CloneTracks()
         {
             var clonedTracks = new List<Track>();

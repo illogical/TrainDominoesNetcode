@@ -25,11 +25,12 @@ namespace Assets.Scripts.Models
 
             return track;
         }
-
+        
         public Track AddTrackClone(Track track)
         {
             Track newTrack = new Track(track.PlayerId, track.HasTrain);
             newTrack.DominoIds.AddRange(track.DominoIds);
+            Tracks.Add(newTrack);
 
             return newTrack;
         }
@@ -116,8 +117,7 @@ namespace Assets.Scripts.Models
         public int[] GetNewDominoesByComparingToStation(Station updatedStation)
         {
             List<int> newlyAddedDominoes = new List<int>();
-
-            // TODO: currently there is a bug where this will iterate over newly-added tracks (I think)
+            
             for (int i = 0; i < updatedStation.Tracks.Count; i++)
             {
                 Track localCurrentTrack = this.GetTrackByIndex(i);
@@ -145,19 +145,16 @@ namespace Assets.Scripts.Models
 
             return newlyAddedDominoes.ToArray();
         }
-
-        // TODO: CloneTracks is redundant
+        
         public List<Track> CloneTracks()
         {
             var clonedTracks = new List<Track>();
             for (int trackIndex = 0; trackIndex < TrackCount(); trackIndex++)
             {
                 // add the first domino to a fresh track
-                clonedTracks.Add(new Track(Tracks[trackIndex].DominoIds[0], Tracks[trackIndex].PlayerId, Tracks[trackIndex].HasTrain));
-                for (int dominoIndex = 1; dominoIndex < Tracks[trackIndex].DominoIds.Count; dominoIndex++)
-                {
-                    clonedTracks[trackIndex].AddDominoToTrack(Tracks[trackIndex].DominoIds[dominoIndex]);
-                }
+                Track newTrack = new Track(Tracks[trackIndex].PlayerId, Tracks[trackIndex].HasTrain);
+                newTrack.DominoIds.AddRange(Tracks[trackIndex].DominoIds);
+                clonedTracks.Add(newTrack);
             }
             return clonedTracks;
         }

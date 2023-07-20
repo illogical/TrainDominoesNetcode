@@ -202,19 +202,7 @@ namespace Assets.Scripts.Game
                 var turnStations = _turnStations.Values.ToList();
                 for (int trackIndex = 0; trackIndex < turnStations[stationIndex].TrackCount(); trackIndex++)
                 {
-                    for (int dominoIndex = 0; dominoIndex < turnStations[stationIndex].Tracks[trackIndex].DominoIds.Count; dominoIndex++)
-                    {
-                        if (dominoIndex == 0)
-                        {
-                            // add the track before adding the first domino to it
-                            Track track = Station.AddTrack(turnStations[stationIndex].Tracks[trackIndex].DominoIds[dominoIndex]);
-                            track.PlayerId = turnStations[stationIndex].Tracks[trackIndex].PlayerId;
-                            track.HasTrain = turnStations[stationIndex].Tracks[trackIndex].HasTrain;
-                            addedTracks++;
-                            continue;
-                        }
-                        Station.AddDominoToTrack(turnStations[stationIndex].Tracks[trackIndex].DominoIds[dominoIndex], addedTracks - 1);
-                    }
+                    Station.AddTrackClone(turnStations[stationIndex].Tracks[trackIndex]);
                 }
             }
         }

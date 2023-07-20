@@ -310,7 +310,7 @@ public class GameSession : NetworkBehaviour
             // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnState(senderClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(senderClientId)
             
             Track track = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId).GetTrackByDominoId(dominoId);
-            if (track.PlayerId != senderClientId)
+            if (track.PlayerId != null && track.PlayerId != senderClientId)
             {
                 Debug.Log("That track is not yours.");
                 return;

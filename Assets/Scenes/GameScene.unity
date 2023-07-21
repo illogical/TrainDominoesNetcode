@@ -1359,7 +1359,7 @@ GameObject:
   - component: {fileID: 838589475}
   - component: {fileID: 838589474}
   m_Layer: 5
-  m_Name: WinnerText
+  m_Name: WinnerNameText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3797,6 +3797,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2023990334}
   - component: {fileID: 2023990335}
+  - component: {fileID: 2023990336}
   m_Layer: 5
   m_Name: PlayerScoreTemplate
   m_TagString: Untagged
@@ -3852,6 +3853,20 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &2023990336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2023990333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 65ebedd977f98422d96f3a759c74f90b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  PlayerNameText: {fileID: 460179892}
+  PlayerScoreText: {fileID: 1393883447}
 --- !u!1 &2070239905
 GameObject:
   m_ObjectHideFlags: 0
@@ -3966,6 +3981,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2075969954}
+  - component: {fileID: 2075969955}
   m_Layer: 5
   m_Name: GameOverUI
   m_TagString: Untagged
@@ -3997,6 +4013,20 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2075969955
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2075969953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 832f4d065d3d245fa89e2792f25aaa38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  winnerNameText: {fileID: 838589474}
+  playerScoreTemplate: {fileID: 2023990336}
 --- !u!1 &2111324125
 GameObject:
   m_ObjectHideFlags: 0

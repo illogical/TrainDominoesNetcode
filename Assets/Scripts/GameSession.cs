@@ -194,7 +194,9 @@ public class GameSession : NetworkBehaviour
     [ServerRpc]
     private void EndPlayerTurnServerRpc(ServerRpcParams serverRpcParams = default)
     {
-        if (gameplayManager.TurnManager.CurrentPlayerId != serverRpcParams.Receive.SenderClientId)
+        ulong senderClientId = serverRpcParams.Receive.SenderClientId;
+            
+        if (gameplayManager.TurnManager.CurrentPlayerId != senderClientId)
         {
             Debug.LogError($"Player {serverRpcParams.Receive.SenderClientId} is not the current player");
             return;
@@ -204,14 +206,21 @@ public class GameSession : NetworkBehaviour
         // TODO: validate that this is not being run a 2nd time for the same player
 
         // get all new dominoes for the current player
-        int[] addedDominoes = gameplayManager.GetUpdatedDominoes(serverRpcParams.Receive.SenderClientId);
+        int[] addedDominoes = gameplayManager.GetUpdatedDominoes(senderClientId);
         // sync current player's station with main station
-        gameplayManager.DominoTracker.MergeTurnTrackIntoStation(serverRpcParams.Receive.SenderClientId);
+        gameplayManager.DominoTracker.MergeTurnTrackIntoStation(senderClientId);
         // now sync main station back to all players' TurnStation
         gameplayManager.DominoTracker.SyncMainStationWithPlayerTurnStations();
-
         // sets the Station to the current player's turn station
-        gameplayManager.SubmitPlayerTurnStation(serverRpcParams.Receive.SenderClientId);
+        gameplayManager.SubmitPlayerTurnStation(senderClientId);
+
+        // does this player have any remaining dominoes?
+        if (gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).Count == 0)
+        {
+            // we have a winner!
+            gameplayManager.PlayerWonGame(senderClientId);
+            return;
+        }
 
         JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
         UpdateStationsClientRpc(stationContainer, addedDominoes);

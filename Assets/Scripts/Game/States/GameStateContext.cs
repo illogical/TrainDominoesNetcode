@@ -11,6 +11,7 @@ namespace Assets.Scripts.Game.States
         public GameStartedState GameStartedState;
         public PlayerTurnStartedState PlayerTurnStartedState;
         public PlayerAwaitingTurnState PlayerAwaitingTurnState;
+        public GameOverState GameOverState;
 
         private GameStateBase currentState;
 
@@ -20,6 +21,7 @@ namespace Assets.Scripts.Game.States
             GameStartedState = new GameStartedState(this);
             PlayerTurnStartedState = new PlayerTurnStartedState(this);
             PlayerAwaitingTurnState = new PlayerAwaitingTurnState(this);
+            GameOverState = new GameOverState(this);
 
 
             GameSession = gameSession;

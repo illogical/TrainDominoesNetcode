@@ -23,6 +23,7 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
             ctx.GameplayManager.AwaitTurn += GameplayManager_AwaitTurn;
             ctx.GameplayManager.PlayerTurnEnded += GameplayManager_PlayerTurnEnded;
+            ctx.GameplayManager.PlayerHasWonGame += GameplayManager_PlayerHasWonGame;
 
             // cannot end turn until the dominoes are drawn
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
@@ -89,6 +90,11 @@ namespace Assets.Scripts.Game.States
         private void GameplayManager_AwaitTurn(object sender, EventArgs e)
         {
             ctx.SwitchState(ctx.PlayerAwaitingTurnState);
+        }
+        
+        private void GameplayManager_PlayerHasWonGame(object sender, ulong e)
+        {
+            ctx.SwitchState(ctx.GameOverState);
         }
     }
 }

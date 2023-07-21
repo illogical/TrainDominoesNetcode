@@ -21,6 +21,7 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler<int> EngineDominoSelected;
     public event EventHandler<int> TrackDominoSelected;
     public event EventHandler<ulong> PlayerTurnStarted;
+    public event EventHandler<ulong> PlayerHasWonGame;
     public event EventHandler PlayerTurnEnded;
     public event EventHandler GroupTurnEnded;
     public event EventHandler AwaitTurn;
@@ -141,6 +142,7 @@ public class GameplayManager : MonoBehaviour
     internal void StartPlayerTurn(ulong clientId) => PlayerTurnStarted?.Invoke(this, clientId);
     internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
     internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
+    internal void PlayerWonGame(ulong winnerClientId) => PlayerHasWonGame?.Invoke(this, winnerClientId);
 
     public void ServerSelectPlayerDomino(int dominoId)
     {

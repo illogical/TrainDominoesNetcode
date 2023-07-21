@@ -134,29 +134,29 @@ public class GameSession : NetworkBehaviour
         // TODO: submit the dominoes that were laid down to the server and add to a new station track
         // TODO: validate that this is not being run a 2nd time for the same player
 
-        ulong clientId = serverRpcParams.Receive.SenderClientId;
+        ulong senderClientId = serverRpcParams.Receive.SenderClientId;
 
-        if (!playersCompletedFirstTurn.Contains(clientId))
+        if (!playersCompletedFirstTurn.Contains(senderClientId))
         {
-            playersCompletedFirstTurn.Add(clientId);
+            playersCompletedFirstTurn.Add(senderClientId);
         }
 
-        if (readyPlayers.Contains(clientId))
+        if (readyPlayers.Contains(senderClientId))
         {
-            Debug.LogError($"Player {clientId} is already ready");
+            Debug.LogError($"Player {senderClientId} is already ready");
             return;
         }
         else
         {
-            Debug.Log($"Player {clientId} is ready");
+            Debug.Log($"Player {senderClientId} is ready");
         }
 
-        readyPlayers.Add(clientId);
+        readyPlayers.Add(senderClientId);
 
         // TODO: handle submitting multiple dominoes for first track vs adding a single domino
 
         // first player to draw will set whose turn it is (set to the first player who joined so the host)
-        gameplayManager.TurnManager.AddPlayer(clientId);
+        gameplayManager.TurnManager.AddPlayer(senderClientId);
 
         // TODO: Need to know how many dominoes have been played or which is the player's track or null via a StationManager. If 0 then this player is ending their first turn without laying any dominoes down
         //gameplayManager.SetPlayerLaidFirstTrack(clientId);
@@ -171,7 +171,14 @@ public class GameSession : NetworkBehaviour
             int[] addedDominoes = gameplayManager.GetUpdatedDominoesForAllPlayers();
             // now sync main station back to all players' TurnStation
             gameplayManager.DominoTracker.SyncMainStationWithPlayerTurnStations();
-
+            
+            // does this player have any remaining dominoes?
+            if (gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).Count == 0)
+            {
+                // we have a winner!
+                gameplayManager.PlayerWonGame(senderClientId);
+                return;
+            }
 
             JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
             // TODO: may want to handle animations for new tracks differently?

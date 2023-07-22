@@ -172,19 +172,24 @@ public class GameSession : NetworkBehaviour
             // now sync main station back to all players' TurnStation
             gameplayManager.DominoTracker.SyncMainStationWithPlayerTurnStations();
             
-            // does this player have any remaining dominoes?
-            if (gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).Count == 0)
-            {
-                // we have a winner!
-                gameplayManager.PlayerWonGame(senderClientId);
-                return;
-            }
 
             JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
             // TODO: may want to handle animations for new tracks differently?
             UpdateStationsClientRpc(stationContainer, addedDominoes);
 
             gameplayManager.TurnManager.CompleteGroupTurn();
+            
+            // TODO: what to do if more than one person can use all dominoes (super edge case)
+            
+            // this could be any player not just the current one
+            ulong? winner = gameplayManager.DominoTracker.CheckPlayerDominoesForWinner();
+            if (winner.HasValue)
+            {
+                // we have a winner!
+                gameplayManager.TurnManager.SetGameWinner(winner.Value);
+                EndGameClientRpc(winner.Value);   // send winner to all clients
+                return;
+            }
 
             // TODO: how to wait until animations complete before swapping turns?
             PlayerReadyClientRpc(gameplayManager.TurnManager.CurrentPlayerId.Value);
@@ -218,7 +223,8 @@ public class GameSession : NetworkBehaviour
         if (gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).Count == 0)
         {
             // we have a winner!
-            gameplayManager.PlayerWonGame(senderClientId);
+            gameplayManager.TurnManager.SetGameWinner(senderClientId);
+            EndGameClientRpc(senderClientId);   // send winner to all clients
             return;
         }
 
@@ -402,6 +408,14 @@ public class GameSession : NetworkBehaviour
         }
 
         gameplayManager.CompleteGroupTurn();
+    }
+
+    [ClientRpc]
+    private void EndGameClientRpc(ulong winnerClientId)
+    {
+        Debug.Log("EndGameClientRpc");
+        gameplayManager.TurnManager.SetGameWinner(winnerClientId);  // make sure this is set on all players, not just the server.
+        gameplayManager.PlayerWonGame(winnerClientId);
     }
 
     private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams

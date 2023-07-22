@@ -47,6 +47,7 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
             ctx.GameplayManager.AwaitTurn -= GameplayManager_AwaitTurn;
             ctx.GameplayManager.PlayerTurnEnded -= GameplayManager_PlayerTurnEnded;
+            ctx.GameplayManager.PlayerHasWonGame -= GameplayManager_PlayerHasWonGame;
         }
 
         private void InputManager_DominoClicked(object sender, int dominoId)
@@ -92,7 +93,7 @@ namespace Assets.Scripts.Game.States
             ctx.SwitchState(ctx.PlayerAwaitingTurnState);
         }
         
-        private void GameplayManager_PlayerHasWonGame(object sender, ulong e)
+        private void GameplayManager_PlayerHasWonGame(object sender, ulong winnerClientId)
         {
             ctx.SwitchState(ctx.GameOverState);
         }

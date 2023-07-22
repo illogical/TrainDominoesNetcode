@@ -5,16 +5,17 @@ using UnityEngine;
 
 public class GameplayManager : MonoBehaviour
 {
-    // TODO: Handle all server operations here
-
     [SerializeField] private MeshManager meshManager;
     [SerializeField] private LayoutManager layoutManager;
     [SerializeField] public InputManager InputManager;
-
+    [SerializeField] private GameOverUI gameOverUI;
+    
     [HideInInspector]
     public DominoTracker DominoTracker;
     [HideInInspector]
     public TurnManager TurnManager;
+    [HideInInspector]
+    public GameOverManager GameOver;
 
     public event EventHandler<int> DominoClicked;
     public event EventHandler<int> PlayerDominoSelected;
@@ -26,12 +27,11 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler GroupTurnEnded;
     public event EventHandler AwaitTurn;
 
-
-
     private void Awake()
     {
         TurnManager = new TurnManager();
         DominoTracker = new DominoTracker();
+        GameOver = new GameOverManager(gameOverUI);
     }
 
     public void ClientSelectPlayerDomino(int newSelectedDominoId, int? currentlySelectedDominoId)
@@ -87,7 +87,7 @@ public class GameplayManager : MonoBehaviour
 
     public int[] DrawPlayerDominoes(ulong clientId)
     {
-        return DominoTracker.PickUpDominoes(clientId, 12);
+        return DominoTracker.PickUpDominoes(clientId, 2);
     }
 
     public int DrawPlayerDomino(ulong clientId)

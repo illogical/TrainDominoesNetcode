@@ -4,12 +4,12 @@ namespace Assets.Scripts.Game.States
     {
         public GameOverState(GameStateContext gameContext) : base(gameContext) { }
         public override string Name => nameof(GameOverState);
-        
+
         public override void EnterState()
         {
             // TODO: calculate scores
-            // TODO: announce the winner
             // TODO: display UI for starting a new game, starting over, or exiting
+            ShowGameOverUI();
         }
 
         public override void UpdateState()
@@ -23,6 +23,18 @@ namespace Assets.Scripts.Game.States
             // TODO: wait for all players to click button to start new game
             // TODO: Alert other players how many other players have requested to play again
             // TODO: if any players leave the game then alert other players (generically) to start over or exit
+        }
+
+        private void ShowGameOverUI()
+        {
+            ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetGameWinnerClientId();
+            if (!winnerClientId.HasValue)
+            {
+                return;
+            }
+            
+            var playerScores = ctx.GameplayManager.DominoTracker.GetPlayerScores();
+            ctx.GameplayManager.GameOver.GameIsOver(winnerClientId.Value, playerScores);
         }
     }
 }

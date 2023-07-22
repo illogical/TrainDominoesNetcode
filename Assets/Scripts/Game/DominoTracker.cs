@@ -192,6 +192,20 @@ namespace Assets.Scripts.Game
             Station = _turnStations[clientId];
         }
 
+        public ulong? CheckPlayerDominoesForWinner()
+        {
+            foreach (var playerDominoIds in playerDominoes.Dominoes)
+            {
+                if (playerDominoIds.Value.Count == 0)
+                {
+                    return playerDominoIds.Key;
+                }
+            }
+
+            return null;
+        }
+        
+
         public void MergeTurnTracksIntoStation()
         {
             int addedTracks = 0;

@@ -9,7 +9,8 @@ public class GameOverUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI winnerNameText;
     [SerializeField] private PlayerScoreTemplate playerScoreTemplate;
 
-    public Dictionary<ulong, int> _playerScores;
+    private Dictionary<ulong, int> _playerScores;
+
     // TODO: dynamically create list of players + scores
 
     private void Start()

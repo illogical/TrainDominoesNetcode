@@ -251,5 +251,26 @@ namespace Assets.Scripts.Game
                 _turnStations[clientId].Tracks = Station.CloneTracks();
             }
         }
+
+        public Dictionary<ulong, int> GetPlayerScores()
+        {
+            var playerScores = new Dictionary<ulong, int>();
+
+            foreach (var dominoesByPlayer in playerDominoes.Dominoes)
+            {
+                // each player
+                int playerTotal = 0;
+                ulong playerClientId = dominoesByPlayer.Key;
+                
+                for (int j = 0; j < dominoesByPlayer.Value.Count; j++)
+                {
+                    DominoEntity dominoInfo = GetDominoByID(dominoesByPlayer.Value[j]);
+                    playerTotal += dominoInfo.TopScore + dominoInfo.BottomScore;
+                }
+                playerScores.Add(playerClientId, playerTotal);
+            }
+
+            return playerScores;
+        }
     }
 }

@@ -186,8 +186,9 @@ public class GameSession : NetworkBehaviour
             if (winner.HasValue)
             {
                 // we have a winner!
-                gameplayManager.TurnManager.SetGameWinner(winner.Value);
-                EndGameClientRpc(winner.Value);   // send winner to all clients
+                gameplayManager.TurnManager.SetGameWinner(winner.Value); // redundant to the client call?
+                JsonContainer playerScoresContainer = new JsonContainer(gameplayManager.DominoTracker.SumPlayerScores());
+                EndGameClientRpc(winner.Value, playerScoresContainer);   // send winner and scores to all clients
                 return;
             }
 
@@ -224,7 +225,8 @@ public class GameSession : NetworkBehaviour
         {
             // we have a winner!
             gameplayManager.TurnManager.SetGameWinner(senderClientId);
-            EndGameClientRpc(senderClientId);   // send winner to all clients
+            JsonContainer playerScoresContainer = new JsonContainer(gameplayManager.DominoTracker.SumPlayerScores());
+            EndGameClientRpc(senderClientId, playerScoresContainer);   // send winner and scores to all clients
             return;
         }
 
@@ -411,10 +413,11 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void EndGameClientRpc(ulong winnerClientId)
+    private void EndGameClientRpc(ulong winnerClientId, JsonContainer playerScores)
     {
         Debug.Log("EndGameClientRpc");
         gameplayManager.TurnManager.SetGameWinner(winnerClientId);  // make sure this is set on all players, not just the server.
+        gameplayManager.TurnManager.SetRoundScores(playerScores.GetDeserializedPlayerScores()); // all clients need the player scores to display them
         gameplayManager.PlayerWonGame(winnerClientId);
     }
 

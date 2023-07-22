@@ -266,7 +266,11 @@ namespace Assets.Scripts.Game
             }
         }
 
-        public Dictionary<ulong, int> GetPlayerScores()
+        /// <summary>
+        /// Used by the server to calculate the number of dots on all the remaining players' dominoes
+        /// </summary>
+        /// <returns>Score by player's clientId</returns>
+        public Dictionary<ulong, int> SumPlayerScores()
         {
             var playerScores = new Dictionary<ulong, int>();
 

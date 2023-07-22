@@ -11,7 +11,8 @@ public class TurnManager
     private Dictionary<ulong, TurnState> _playerTurnStatuses;
     private bool _isGroupTurn = true;
     private ulong? winnerClientId;
-
+    private Dictionary<ulong, int> _playerScores;
+    
     public TurnManager()
     {
         _currentTurn = 0;
@@ -73,6 +74,8 @@ public class TurnManager
     }
 
     public void SetGameWinner(ulong clientId) => winnerClientId = clientId;
+    public void SetRoundScores(Dictionary<ulong, int> playerScores) => _playerScores = playerScores;
+    public Dictionary<ulong, int> GetRoundScores() => _playerScores;
     public ulong? GetGameWinnerClientId() => winnerClientId;
     public TurnState GetPlayerTurnState(ulong clientId) => _playerTurnStatuses[clientId];
     public ulong? CurrentPlayerId => _allPlayers[CurrentTurn];

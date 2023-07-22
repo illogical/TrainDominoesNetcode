@@ -1,6 +1,7 @@
 using Assets.Scripts.Game;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class GameplayManager : MonoBehaviour
@@ -14,8 +15,6 @@ public class GameplayManager : MonoBehaviour
     public DominoTracker DominoTracker;
     [HideInInspector]
     public TurnManager TurnManager;
-    [HideInInspector]
-    public GameOverManager GameOver;
 
     public event EventHandler<int> DominoClicked;
     public event EventHandler<int> PlayerDominoSelected;
@@ -31,7 +30,6 @@ public class GameplayManager : MonoBehaviour
     {
         TurnManager = new TurnManager();
         DominoTracker = new DominoTracker();
-        GameOver = new GameOverManager(gameOverUI);
     }
 
     public void ClientSelectPlayerDomino(int newSelectedDominoId, int? currentlySelectedDominoId)
@@ -223,6 +221,13 @@ public class GameplayManager : MonoBehaviour
         }
         
         layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(allTrackDominoIds.ToArray()));
+    }
+
+    public void GameIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores)
+    {
+        Debug.Log($"{playerScores.Count} playerScores provided for a total of {playerScores.Sum(p => p.Value)}");
+        // the player who has 0 is the winner but we also know who just ended their turn and played their last domino
+        gameOverUI.Show(winnerClientId.ToString(), playerScores);
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();

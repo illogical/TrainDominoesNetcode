@@ -33,8 +33,9 @@ namespace Assets.Scripts.Game.States
                 return;
             }
             
-            var playerScores = ctx.GameplayManager.DominoTracker.GetPlayerScores();
-            ctx.GameplayManager.GameOver.GameIsOver(winnerClientId.Value, playerScores);
+            // use the scores that each client has stored in their TurnManager
+            var playerScores = ctx.GameplayManager.TurnManager.GetRoundScores();
+            ctx.GameplayManager.GameIsOver(winnerClientId.Value, playerScores);
         }
     }
 }

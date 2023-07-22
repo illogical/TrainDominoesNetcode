@@ -7,4 +7,5 @@ public class PlayerScoreTemplate : MonoBehaviour
 {
     [SerializeField] public TextMeshProUGUI PlayerNameText;
     [SerializeField] public TextMeshProUGUI PlayerScoreText;
+    [SerializeField] public TextMeshProUGUI PlayerTotalText;
 }

@@ -6,15 +6,18 @@ namespace Assets.Scripts.Game
     public class RoundManager
     {
         private List<Round> _rounds;
+        private Dictionary<ulong, int> _playerScoreTotals;
 
         public RoundManager()
         {
             _rounds = new List<Round>();
+            _playerScoreTotals = new Dictionary<ulong, int>();
             StartNewRound();
         }
 
         public int GetRoundNumber() => _rounds.Count;
         public Dictionary<ulong, int> GetRoundScores() => _rounds[_rounds.Count - 1].GetRoundScores();
+        public Dictionary<ulong, int> GetPlayerTotalScores() => _playerScoreTotals;
 
         public void StartNewRound()
         {
@@ -24,11 +27,12 @@ namespace Assets.Scripts.Game
         public void EndRound(Dictionary<ulong, int> playerScores)
         {
             _rounds[_rounds.Count - 1].SetRoundScores(playerScores);
+            UpdatePlayerTotalGameScores();
         }
 
-        public Dictionary<ulong, int> UpdatePlayerTotalGameScores()
+        private Dictionary<ulong, int> UpdatePlayerTotalGameScores()
         {
-            var playerTotals = new Dictionary<ulong, int>();
+            _playerScoreTotals.Clear();
 
             for (int i = 0; i < _rounds.Count; i++)
             {
@@ -36,12 +40,12 @@ namespace Assets.Scripts.Game
                 var roundScores = round.GetRoundScores();
                 foreach(ulong clientId in roundScores.Keys)
                 {
-                    playerTotals.TryAdd(clientId, 0);
-                    playerTotals[clientId] += roundScores[clientId];
+                    _playerScoreTotals.TryAdd(clientId, 0);
+                    _playerScoreTotals[clientId] += roundScores[clientId];
                 }
             }
             
-            return playerTotals;
+            return _playerScoreTotals;
         }
     }
 }

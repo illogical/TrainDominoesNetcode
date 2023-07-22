@@ -223,11 +223,11 @@ public class GameplayManager : MonoBehaviour
         layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(allTrackDominoIds.ToArray()));
     }
 
-    public void GameIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores)
+    public void GameIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
     {
         Debug.Log($"{playerScores.Count} playerScores provided for a total of {playerScores.Sum(p => p.Value)}");
         // the player who has 0 is the winner but we also know who just ended their turn and played their last domino
-        gameOverUI.Show(winnerClientId.ToString(), playerScores);
+        gameOverUI.Show(winnerClientId.ToString(), playerScores, playerTotals);
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();

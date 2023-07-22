@@ -187,12 +187,7 @@ public class GameSession : NetworkBehaviour
             {
                 // we have a winner!
 
-                var playerScores = gameplayManager.DominoTracker.SumPlayerScores();
-                gameplayManager.RoundManager.EndRound(playerScores);
-                //gameplayManager.TurnManager.SetGameWinner(winner.Value); // redundant to the client call?
-                
-                JsonContainer playerScoresContainer = new JsonContainer(playerScores);
-                EndRoundClientRpc(winner.Value, playerScoresContainer);   // send winner and scores to all clients
+                EndRoundServerRpc(winner.Value);
                 return;
             }
 
@@ -228,13 +223,8 @@ public class GameSession : NetworkBehaviour
         if (gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).Count == 0)
         {
             // we have a winner!
-            
-            var playerScores = gameplayManager.DominoTracker.SumPlayerScores();
-            gameplayManager.RoundManager.EndRound(playerScores);
-            gameplayManager.TurnManager.SetGameWinner(senderClientId);
-            
-            JsonContainer playerScoresContainer = new JsonContainer(playerScores);
-            EndRoundClientRpc(senderClientId, playerScoresContainer);   // send winner and scores to all clients
+
+            EndRoundServerRpc(senderClientId);
             return;
         }
 
@@ -295,7 +285,6 @@ public class GameSession : NetworkBehaviour
                 return;
             }
         }
-        
 
         // decide if this was a player domino, station domino, or engine domino
         if (gameplayManager.DominoTracker.IsPlayerDomino(senderClientId, dominoId))
@@ -339,7 +328,7 @@ public class GameSession : NetworkBehaviour
             }
 
             // TODO: check train status for this track. DominoManager is likely currently tracking it
-            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnState(senderClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(senderClientId)
+            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnState(winnderClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(winnderClientId)
             
             Track track = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId).GetTrackByDominoId(dominoId);
             if (track.PlayerId != null && track.PlayerId != senderClientId)
@@ -418,6 +407,17 @@ public class GameSession : NetworkBehaviour
         }
 
         gameplayManager.CompleteGroupTurn();
+    }
+
+    [ServerRpc]
+    private void EndRoundServerRpc(ulong winnderClientId)
+    {
+        var playerScores = gameplayManager.DominoTracker.SumPlayerScores();
+        gameplayManager.RoundManager.EndRound(playerScores);
+        gameplayManager.TurnManager.SetGameWinner(winnderClientId);
+            
+        JsonContainer playerScoresContainer = new JsonContainer(playerScores);
+        EndRoundClientRpc(winnderClientId, playerScoresContainer);   // send winner and scores to all clients
     }
 
     [ClientRpc]

@@ -34,7 +34,7 @@ namespace Assets.Scripts.Game.States
             }
             
             // use the scores that each client has stored in their TurnManager
-            var playerScores = ctx.GameplayManager.TurnManager.GetRoundScores();
+            var playerScores = ctx.GameplayManager.RoundManager.GetRoundScores();
             ctx.GameplayManager.GameIsOver(winnerClientId.Value, playerScores);
         }
     }

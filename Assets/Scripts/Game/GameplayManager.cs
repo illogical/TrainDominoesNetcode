@@ -11,10 +11,9 @@ public class GameplayManager : MonoBehaviour
     [SerializeField] public InputManager InputManager;
     [SerializeField] private GameOverUI gameOverUI;
     
-    [HideInInspector]
-    public DominoTracker DominoTracker;
-    [HideInInspector]
-    public TurnManager TurnManager;
+    [HideInInspector] public DominoTracker DominoTracker;
+    [HideInInspector] public TurnManager TurnManager;
+    [HideInInspector] public RoundManager RoundManager;
 
     public event EventHandler<int> DominoClicked;
     public event EventHandler<int> PlayerDominoSelected;
@@ -30,6 +29,7 @@ public class GameplayManager : MonoBehaviour
     {
         TurnManager = new TurnManager();
         DominoTracker = new DominoTracker();
+        RoundManager = new RoundManager();
     }
 
     public void ClientSelectPlayerDomino(int newSelectedDominoId, int? currentlySelectedDominoId)

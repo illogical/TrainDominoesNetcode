@@ -309,6 +309,13 @@ public class GameSession : NetworkBehaviour
                 return;
             }
 
+            if (gameplayManager.DominoTracker.Station.Tracks.Count == 8)
+            {
+                // a station is full
+                Debug.Log("Station is full");
+                return;
+            }
+
             // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
             var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
             gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.SelectedDomino.Value,

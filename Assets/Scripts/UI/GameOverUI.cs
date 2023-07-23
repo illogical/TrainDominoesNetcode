@@ -12,6 +12,7 @@ public class GameOverUI : MonoBehaviour
     [SerializeField] private Transform playerScoreTemplateParent;
 
     private Dictionary<ulong, int> _playerScores;
+    private Dictionary<ulong, PlayerScoreTemplate> _playerScoreTemplates = new Dictionary<ulong, PlayerScoreTemplate>();    
 
     // TODO: dynamically create list of players + scores
 
@@ -38,11 +39,19 @@ public class GameOverUI : MonoBehaviour
 
     private void DisplayScores(Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
     {
-        // TODO: how to clear these to prepare for the next round? Might need to track which player each belongs to (to update later)
         foreach (var playerId in playerScores.Keys)
         {
-            PlayerScoreTemplate scoreTemplate = Instantiate(playerScoreTemplate, playerScoreTemplateParent);
-            scoreTemplate.gameObject.SetActive(true);
+            PlayerScoreTemplate scoreTemplate;
+            if (!_playerScoreTemplates.ContainsKey(playerId))
+            {
+                scoreTemplate = Instantiate(playerScoreTemplate, playerScoreTemplateParent);
+                _playerScoreTemplates.Add(playerId, scoreTemplate);
+                scoreTemplate.gameObject.SetActive(true);
+            }
+            else
+            {
+                scoreTemplate = _playerScoreTemplates[playerId];
+            }
 
             scoreTemplate.PlayerNameText.text = playerId.ToString();
             scoreTemplate.PlayerScoreText.text = playerScores[playerId].ToString();

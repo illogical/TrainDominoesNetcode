@@ -290,5 +290,18 @@ namespace Assets.Scripts.Game
 
             return playerScores;
         }
+
+        public void Reset()
+        {
+            SelectedDomino = null;
+            Station = new Station();
+            _turnStations.Clear();
+            playerDominoes.Dominoes.Clear();
+            
+            AllDominoes.Clear();
+            availableDominoes.Clear();
+            engineIndices.Clear();
+            CreateDominoSet();
+        }
     }
 }

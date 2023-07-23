@@ -7,17 +7,20 @@ public class InputManager : MonoBehaviour
     public event EventHandler<int> DominoClicked;
     public event EventHandler DrawButtonClicked;
     public event EventHandler EndTurnClicked;
+    public event EventHandler ReadyButtonClicked;
 
     public Camera MainCamera;
     [Space]
     [SerializeField] private Button DrawButton;
     [SerializeField] private Button EndTurnButton;
+    [SerializeField] private Button ReadyButton;
 
 
     private void Start()
     {
         DrawButton.onClick.AddListener(OnDrawButtonClicked);
         EndTurnButton.onClick.AddListener(OnEndTurnButtonClicked);
+        ReadyButton.onClick.AddListener(OnReadyButtonClicked);
     }
 
     void Update()
@@ -33,6 +36,12 @@ public class InputManager : MonoBehaviour
     private void OnEndTurnButtonClicked()
     {
         EndTurnClicked?.Invoke(this, EventArgs.Empty);
+    }
+    
+    private void OnReadyButtonClicked()
+    {
+        ReadyButton.interactable = false;
+        ReadyButtonClicked?.Invoke(this, EventArgs.Empty);
     }
 
     private void GetMouseClick()

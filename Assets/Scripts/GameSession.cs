@@ -165,6 +165,8 @@ public class GameSession : NetworkBehaviour
         {
             // this is the last player to end their turn
 
+            readyPlayers.Clear();
+
             // sync all player stations
             gameplayManager.DominoTracker.MergeTurnTracksIntoStation();
             // get all new dominoes across players
@@ -427,6 +429,39 @@ public class GameSession : NetworkBehaviour
         gameplayManager.TurnManager.SetGameWinner(winnerClientId);  // make sure this is set on all players, not just the server.
         gameplayManager.RoundManager.EndRound(playerScores.GetDeserializedPlayerScores()); // all clients need the player scores to display them
         gameplayManager.PlayerWonGame(winnerClientId);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    internal void PlayerReadyForNextRoundServerRpc(ServerRpcParams serverRpcParams = default)
+    {
+        ulong senderClientId = serverRpcParams.Receive.SenderClientId;
+        readyPlayers.Add(senderClientId);
+        
+        if(readyPlayers.Count == NetworkManager.Singleton.ConnectedClientsIds.Count)
+        {
+            Debug.Log("All players are ready for the next round.");
+            readyPlayers.Clear();
+
+            PrepareForNewRoundServerRpc();
+            
+            // tell clients to start the next round
+            AllPlayersReadyForNextRoundClientRpc();
+        }
+    }
+
+    [ServerRpc]
+    private void PrepareForNewRoundServerRpc()
+    {
+        gameplayManager.TurnManager.Reset();
+        gameplayManager.DominoTracker.Reset();
+        gameplayManager.GetNewEngineDomino();
+        gameplayManager.RoundManager.StartNewRound();
+    }
+
+    [ClientRpc]
+    private void AllPlayersReadyForNextRoundClientRpc()
+    {
+        gameplayManager.SetAllPlayersReadyForNextRound();
     }
 
     private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams

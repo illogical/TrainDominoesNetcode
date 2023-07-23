@@ -10,7 +10,7 @@ public class TurnManager
     private List<ulong> _allPlayers = new List<ulong>();  // these are in the order that they ended the group turn
     private Dictionary<ulong, TurnState> _playerTurnStatuses;
     private bool _isGroupTurn = true;
-    private ulong? winnerClientId;
+    private ulong? _winnerClientId;
 
     public TurnManager()
     {
@@ -72,8 +72,16 @@ public class TurnManager
         return _playerTurnStatuses[clientId];
     }
 
-    public void SetGameWinner(ulong clientId) => winnerClientId = clientId;
-    public ulong? GetGameWinnerClientId() => winnerClientId;
+    public void Reset()
+    {
+        _currentTurn = 0;
+        _winnerClientId = null;
+        _isGroupTurn = true;
+        _playerTurnStatuses.Clear();
+    }
+
+    public void SetGameWinner(ulong clientId) => _winnerClientId = clientId;
+    public ulong? GetGameWinnerClientId() => _winnerClientId;
     public TurnState GetPlayerTurnState(ulong clientId) => _playerTurnStatuses[clientId];
     public ulong? CurrentPlayerId => _allPlayers[CurrentTurn];
     public int CurrentTurn => _currentTurn % _allPlayers.Count;

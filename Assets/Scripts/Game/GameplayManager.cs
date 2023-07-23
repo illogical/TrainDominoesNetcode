@@ -24,6 +24,7 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler PlayerTurnEnded;
     public event EventHandler GroupTurnEnded;
     public event EventHandler AwaitTurn;
+    public event EventHandler AllPlayersReadyForNextRound;
 
     private void Awake()
     {
@@ -31,6 +32,13 @@ public class GameplayManager : MonoBehaviour
         DominoTracker = new DominoTracker();
         RoundManager = new RoundManager();
     }
+    
+    internal void CompleteGroupTurn() => GroupTurnEnded?.Invoke(this, EventArgs.Empty);
+    internal void StartPlayerTurn(ulong clientId) => PlayerTurnStarted?.Invoke(this, clientId);
+    internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
+    internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
+    internal void SetAllPlayersReadyForNextRound() => AllPlayersReadyForNextRound?.Invoke(this, EventArgs.Empty);
+    internal void PlayerWonGame(ulong winnerClientId) => PlayerHasWonGame?.Invoke(this, winnerClientId);
 
     public void ClientSelectPlayerDomino(int newSelectedDominoId, int? currentlySelectedDominoId)
     {
@@ -136,12 +144,6 @@ public class GameplayManager : MonoBehaviour
         layoutManager.PlaceEngine(engineDomino);
     }
 
-    internal void CompleteGroupTurn() => GroupTurnEnded?.Invoke(this, EventArgs.Empty);
-    internal void StartPlayerTurn(ulong clientId) => PlayerTurnStarted?.Invoke(this, clientId);
-    internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
-    internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
-    internal void PlayerWonGame(ulong winnerClientId) => PlayerHasWonGame?.Invoke(this, winnerClientId);
-
     public void ServerSelectPlayerDomino(int dominoId)
     {
         if (!DominoTracker.SelectedDomino.HasValue)
@@ -228,6 +230,12 @@ public class GameplayManager : MonoBehaviour
         Debug.Log($"{playerScores.Count} playerScores provided for a total of {playerScores.Sum(p => p.Value)}");
         // the player who has 0 is the winner but we also know who just ended their turn and played their last domino
         gameOverUI.Show(winnerClientId.ToString(), playerScores, playerTotals);
+    }
+
+    public void ClientResetForNextRound()
+    {
+        gameOverUI.Hide();
+        meshManager.ResetDominoMeshes();
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();

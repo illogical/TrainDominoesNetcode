@@ -1,3 +1,5 @@
+using System;
+
 namespace Assets.Scripts.Game.States
 {
     public class GameOverState : GameStateBase
@@ -7,8 +9,8 @@ namespace Assets.Scripts.Game.States
 
         public override void EnterState()
         {
-            // TODO: calculate scores
-            // TODO: display UI for starting a new game, starting over, or exiting
+            ctx.GameplayManager.InputManager.ReadyButtonClicked += InputManager_ReadyButtonClicked;
+            
             ShowGameOverUI();
         }
 
@@ -19,6 +21,7 @@ namespace Assets.Scripts.Game.States
 
         public override void LeaveState()
         {
+            ctx.GameplayManager.InputManager.ReadyButtonClicked -= InputManager_ReadyButtonClicked;
             // TODO: button for players to start a new game
             // TODO: wait for all players to click button to start new game
             // TODO: Alert other players how many other players have requested to play again
@@ -37,6 +40,11 @@ namespace Assets.Scripts.Game.States
             var playerScores = ctx.GameplayManager.RoundManager.GetRoundScores();
             var playerTotals = ctx.GameplayManager.RoundManager.GetPlayerTotalScores();
             ctx.GameplayManager.GameIsOver(winnerClientId.Value, playerScores, playerTotals);
+        }
+        
+        private void InputManager_ReadyButtonClicked(object sender, EventArgs e)
+        {
+            //ctx.SwitchState(new RoundStartingState(ctx));
         }
     }
 }

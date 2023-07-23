@@ -54,6 +54,17 @@ public class MeshManager : MonoBehaviour
     public GameObject CreatePlayerDominoFromInfo(DominoEntity info, Vector3 position, PurposeType purpose) => 
         CreateDominoFromInfo(playerDominoPrefab, info, position, purpose);
 
+    public void ResetDominoMeshes()
+    {
+        foreach (int dominoId in dominoObjects.Keys)
+        {
+            // murder all of the dominoes from this last round
+            Destroy(dominoObjects[dominoId].gameObject);
+        }
+        
+        dominoObjects.Clear();
+    }
+
     private GameObject CreateDominoFromInfo(GameObject prefab, DominoEntity info, Vector3 position, PurposeType purpose)
     {
         var newDomino = Instantiate(prefab, position, dominoRotation);

@@ -95,7 +95,7 @@ namespace Assets.Scripts.Game.States
         
         private void GameplayManager_PlayerHasWonGame(object sender, ulong winnerClientId)
         {
-            ctx.SwitchState(ctx.GameOverState);
+            ctx.SwitchState(ctx.RoundOverState);
         }
     }
 }

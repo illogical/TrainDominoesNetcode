@@ -756,7 +756,7 @@ MonoBehaviour:
   MainCamera: {fileID: 330585545}
   DrawButton: {fileID: 1676960533}
   EndTurnButton: {fileID: 920903223}
-  ReadyButton: {fileID: 1095266221}
+  RoundReadyButton: {fileID: 1095266221}
 --- !u!1 &663592774
 GameObject:
   m_ObjectHideFlags: 0

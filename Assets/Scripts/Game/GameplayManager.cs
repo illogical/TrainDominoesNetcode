@@ -236,6 +236,7 @@ public class GameplayManager : MonoBehaviour
     {
         gameOverUI.Hide();
         meshManager.ResetDominoMeshes();
+        InputManager.SetRoundReadyButtonEnabled(true);
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();

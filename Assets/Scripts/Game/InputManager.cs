@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class InputManager : MonoBehaviour
@@ -13,14 +14,14 @@ public class InputManager : MonoBehaviour
     [Space]
     [SerializeField] private Button DrawButton;
     [SerializeField] private Button EndTurnButton;
-    [SerializeField] private Button ReadyButton;
+    [SerializeField] private Button RoundReadyButton;
 
 
     private void Start()
     {
         DrawButton.onClick.AddListener(OnDrawButtonClicked);
         EndTurnButton.onClick.AddListener(OnEndTurnButtonClicked);
-        ReadyButton.onClick.AddListener(OnReadyButtonClicked);
+        RoundReadyButton.onClick.AddListener(OnReadyButtonClicked);
     }
 
     void Update()
@@ -40,7 +41,7 @@ public class InputManager : MonoBehaviour
     
     private void OnReadyButtonClicked()
     {
-        ReadyButton.interactable = false;
+        RoundReadyButton.interactable = false;
         ReadyButtonClicked?.Invoke(this, EventArgs.Empty);
     }
 
@@ -75,5 +76,6 @@ public class InputManager : MonoBehaviour
 
     public void SetDrawButtonEnabled(bool enabled) => DrawButton.interactable = enabled;
     public void SetEndTurnButtonEnabled(bool enabled) => EndTurnButton.interactable = enabled;
+    public void SetRoundReadyButtonEnabled(bool enabled) => RoundReadyButton.interactable = enabled;
 
 }

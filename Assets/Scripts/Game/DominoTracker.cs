@@ -41,7 +41,7 @@ namespace Assets.Scripts.Game
                     if (i == j)
                     {
                         // track index for each double
-                        engineIndices.Add(index);
+                        engineIndices.Insert(0, index);
                     }
 
                     index++;

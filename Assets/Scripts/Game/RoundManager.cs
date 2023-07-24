@@ -1,10 +1,14 @@
 using System.Collections.Generic;
+using System.Linq;
 using Assets.Scripts.Models;
+using UnityEngine;
 
 namespace Assets.Scripts.Game
 {
     public class RoundManager
     {
+        private const int _maxRounds = 12;
+        
         private List<Round> _rounds;
         private Dictionary<ulong, int> _playerScoreTotals;
 
@@ -16,6 +20,7 @@ namespace Assets.Scripts.Game
         }
 
         public int GetRoundNumber() => _rounds.Count;
+        public bool IsLastRound => _rounds.Count >= _maxRounds;
         public Dictionary<ulong, int> GetRoundScores() => _rounds[_rounds.Count - 1].GetRoundScores();
         public Dictionary<ulong, int> GetPlayerTotalScores() => _playerScoreTotals;
 
@@ -46,6 +51,17 @@ namespace Assets.Scripts.Game
             }
             
             return _playerScoreTotals;
+        }
+
+        public List<ulong> GetGameWinners()
+        {
+            var highestScore = _playerScoreTotals.Values.Max(t => t);
+            var winners = _playerScoreTotals
+                .Where(t => t.Value == highestScore)
+                .Select(t => t.Key)
+                .ToList();
+
+            return winners;
         }
     }
 }

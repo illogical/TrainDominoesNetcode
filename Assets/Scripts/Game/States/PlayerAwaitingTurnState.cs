@@ -17,7 +17,7 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
 
             ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
-            ctx.GameplayManager.PlayerHasWonGame += GameplayManager_PlayerHasWonGame;
+            ctx.GameplayManager.PlayerHasWonRound += GameplayManagerPlayerHasWonRound;
         }
 
         public override void UpdateState()
@@ -28,7 +28,7 @@ namespace Assets.Scripts.Game.States
         public override void LeaveState()
         {
             ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
-            ctx.GameplayManager.PlayerHasWonGame -= GameplayManager_PlayerHasWonGame;
+            ctx.GameplayManager.PlayerHasWonRound -= GameplayManagerPlayerHasWonRound;
         }
 
         private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
@@ -36,7 +36,7 @@ namespace Assets.Scripts.Game.States
             ctx.SwitchState(ctx.PlayerTurnStartedState);
         }
         
-        private void GameplayManager_PlayerHasWonGame(object sender, ulong winnerClientId)
+        private void GameplayManagerPlayerHasWonRound(object sender, ulong winnerClientId)
         {
             ctx.SwitchState(ctx.GameOverState);
         }

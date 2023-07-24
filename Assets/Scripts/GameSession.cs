@@ -337,7 +337,7 @@ public class GameSession : NetworkBehaviour
             }
 
             // TODO: check train status for this track. DominoManager is likely currently tracking it
-            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnState(winnderClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(winnderClientId)
+            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnState(winnerClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(winnerClientId)
             
             Track track = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId).GetTrackByDominoId(dominoId);
             if (track.PlayerId != null && track.PlayerId != senderClientId)
@@ -419,14 +419,22 @@ public class GameSession : NetworkBehaviour
     }
 
     [ServerRpc]
-    private void EndRoundServerRpc(ulong winnderClientId)
+    private void EndRoundServerRpc(ulong winnerClientId)
     {
         var playerScores = gameplayManager.DominoTracker.SumPlayerScores();
         gameplayManager.RoundManager.EndRound(playerScores);
-        gameplayManager.TurnManager.SetGameWinner(winnderClientId);
-            
+        gameplayManager.TurnManager.SetGameWinner(winnerClientId);
+        
         JsonContainer playerScoresContainer = new JsonContainer(playerScores);
-        EndRoundClientRpc(winnderClientId, playerScoresContainer);   // send winner and scores to all clients
+        
+        if (gameplayManager.RoundManager.IsLastRound)
+        {
+            // this was the last round
+            EndGameServerRpc(playerScoresContainer);
+            return;
+        }
+
+        EndRoundClientRpc(winnerClientId, playerScoresContainer);   // send winner and scores to all clients
     }
 
     [ClientRpc]
@@ -435,7 +443,7 @@ public class GameSession : NetworkBehaviour
         Debug.Log("EndRoundClientRpc");
         gameplayManager.TurnManager.SetGameWinner(winnerClientId);  // make sure this is set on all players, not just the server.
         gameplayManager.RoundManager.EndRound(playerScores.GetDeserializedPlayerScores()); // all clients need the player scores to display them
-        gameplayManager.PlayerWonGame(winnerClientId);
+        gameplayManager.PlayerWonRound(winnerClientId);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -469,6 +477,23 @@ public class GameSession : NetworkBehaviour
     private void AllPlayersReadyForNextRoundClientRpc()
     {
         gameplayManager.SetAllPlayersReadyForNextRound();
+    }
+    
+    [ServerRpc]
+    private void EndGameServerRpc(JsonContainer playerScores)
+    {
+        // get the game winner
+        // TODO: handle when there is a tie
+        var gameWinnerClientId = gameplayManager.RoundManager.GetGameWinners()[0];
+
+        EndGameClientRpc(gameWinnerClientId, playerScores);   // send winner and scores to all clients
+    }
+    
+    [ClientRpc]
+    private void EndGameClientRpc(ulong gameWinnerClientId, JsonContainer playerScores)
+    {
+        // TODO: display GameOverUI (not RoundOverUI)
+        Debug.Log("Game over");
     }
 
     private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams

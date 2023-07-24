@@ -9,6 +9,7 @@ public class GameplayManager : MonoBehaviour
     [SerializeField] private MeshManager meshManager;
     [SerializeField] private LayoutManager layoutManager;
     [SerializeField] public InputManager InputManager;
+    
     [SerializeField] private GameOverUI gameOverUI;
     
     [HideInInspector] public DominoTracker DominoTracker;
@@ -20,7 +21,7 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler<int> EngineDominoSelected;
     public event EventHandler<int> TrackDominoSelected;
     public event EventHandler<ulong> PlayerTurnStarted;
-    public event EventHandler<ulong> PlayerHasWonGame;
+    public event EventHandler<ulong> PlayerHasWonRound;
     public event EventHandler PlayerTurnEnded;
     public event EventHandler GroupTurnEnded;
     public event EventHandler AwaitTurn;
@@ -38,7 +39,7 @@ public class GameplayManager : MonoBehaviour
     internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
     internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
     internal void SetAllPlayersReadyForNextRound() => AllPlayersReadyForNextRound?.Invoke(this, EventArgs.Empty);
-    internal void PlayerWonGame(ulong winnerClientId) => PlayerHasWonGame?.Invoke(this, winnerClientId);
+    internal void PlayerWonRound(ulong winnerClientId) => PlayerHasWonRound?.Invoke(this, winnerClientId);
 
     public void ClientSelectPlayerDomino(int newSelectedDominoId, int? currentlySelectedDominoId)
     {

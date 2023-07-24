@@ -39,7 +39,7 @@ namespace Assets.Scripts.Game.States
             // use the scores that each client has stored in their TurnManager
             var playerScores = ctx.GameplayManager.RoundManager.GetRoundScores();
             var playerTotals = ctx.GameplayManager.RoundManager.GetPlayerTotalScores();
-            ctx.GameplayManager.GameIsOver(winnerClientId.Value, playerScores, playerTotals);
+            // TODO: ctx.GameplayManager.GameIsOver(winnerClientId.Value, playerScores, playerTotals);
         }
         
         private void InputManager_ReadyButtonClicked(object sender, EventArgs e)

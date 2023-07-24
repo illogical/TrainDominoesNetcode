@@ -10,7 +10,7 @@ public class RoundOverState : GameStateBase
         ctx.GameplayManager.InputManager.ReadyButtonClicked += InputManager_ReaadyButtonClicked;
         ctx.GameplayManager.AllPlayersReadyForNextRound += GameplayManager_AllPlayersReadyForNextRound;
             
-        ShowGameOverUI();
+        ShowRoundOverUI();
     }
 
 
@@ -25,8 +25,7 @@ public class RoundOverState : GameStateBase
         ctx.GameplayManager.AllPlayersReadyForNextRound -= GameplayManager_AllPlayersReadyForNextRound;
     }
     
-    // TODO: make different game over UI from round end UI
-    private void ShowGameOverUI()
+    private void ShowRoundOverUI()
     {
         ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetGameWinnerClientId();
         if (!winnerClientId.HasValue)
@@ -37,7 +36,7 @@ public class RoundOverState : GameStateBase
         // use the scores that each client has stored in their TurnManager
         var playerScores = ctx.GameplayManager.RoundManager.GetRoundScores();
         var playerTotals = ctx.GameplayManager.RoundManager.GetPlayerTotalScores();
-        ctx.GameplayManager.GameIsOver(winnerClientId.Value, playerScores, playerTotals);
+        ctx.GameplayManager.RoundIsOver(winnerClientId.Value, playerScores, playerTotals);
     }
     
     private void InputManager_ReaadyButtonClicked(object sender, EventArgs e)

@@ -10,6 +10,7 @@ public class GameplayManager : MonoBehaviour
     [SerializeField] private LayoutManager layoutManager;
     [SerializeField] public InputManager InputManager;
     
+    [SerializeField] private RoundOverUI roundOverUI;
     [SerializeField] private GameOverUI gameOverUI;
     
     [HideInInspector] public DominoTracker DominoTracker;
@@ -226,16 +227,16 @@ public class GameplayManager : MonoBehaviour
         layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(allTrackDominoIds.ToArray()));
     }
 
-    public void GameIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
+    public void RoundIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
     {
         Debug.Log($"{playerScores.Count} playerScores provided for a total of {playerScores.Sum(p => p.Value)}");
         // the player who has 0 is the winner but we also know who just ended their turn and played their last domino
-        gameOverUI.Show(winnerClientId.ToString(), playerScores, playerTotals);
+        roundOverUI.Show(winnerClientId.ToString(), playerScores, playerTotals);
     }
 
     public void ClientResetForNextRound()
     {
-        gameOverUI.Hide();
+        roundOverUI.Hide();
         meshManager.ResetDominoMeshes();
         InputManager.SetRoundReadyButtonEnabled(true);
     }

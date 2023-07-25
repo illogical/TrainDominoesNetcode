@@ -423,7 +423,7 @@ public class GameSession : NetworkBehaviour
     {
         var playerScores = gameplayManager.DominoTracker.SumPlayerScores();
         gameplayManager.RoundManager.EndRound(playerScores);
-        gameplayManager.TurnManager.SetGameWinner(winnerClientId);
+        gameplayManager.TurnManager.SetRoundWinner(winnerClientId);
         
         JsonContainer playerScoresContainer = new JsonContainer(playerScores);
         
@@ -441,7 +441,7 @@ public class GameSession : NetworkBehaviour
     private void EndRoundClientRpc(ulong winnerClientId, JsonContainer playerScores)
     {
         Debug.Log("EndRoundClientRpc");
-        gameplayManager.TurnManager.SetGameWinner(winnerClientId);  // make sure this is set on all players, not just the server.
+        gameplayManager.TurnManager.SetRoundWinner(winnerClientId);  // make sure this is set on all players, not just the server.
         gameplayManager.RoundManager.EndRound(playerScores.GetDeserializedPlayerScores()); // all clients need the player scores to display them
         gameplayManager.PlayerWonRound(winnerClientId);
     }
@@ -494,7 +494,13 @@ public class GameSession : NetworkBehaviour
     {
         // TODO: display GameOverUI (not RoundOverUI)
         Debug.Log("Game over");
+
+        gameplayManager.TurnManager.SetGameWinner(gameWinnerClientId);  // make sure this is set on all players, not just the server.
+        gameplayManager.RoundManager.EndRound(playerScores.GetDeserializedPlayerScores()); // all clients need the player scores to display them
+        gameplayManager.PlayerWonGame(gameWinnerClientId);
     }
+    
+    // TODO: private void AllPlayersReadyForNewGameServerRpc()
 
     private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams
         { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };

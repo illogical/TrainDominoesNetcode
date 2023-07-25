@@ -23,6 +23,7 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler<int> TrackDominoSelected;
     public event EventHandler<ulong> PlayerTurnStarted;
     public event EventHandler<ulong> PlayerHasWonRound;
+    public event EventHandler<ulong> PlayerHasWonGame;
     public event EventHandler PlayerTurnEnded;
     public event EventHandler GroupTurnEnded;
     public event EventHandler AwaitTurn;
@@ -41,6 +42,7 @@ public class GameplayManager : MonoBehaviour
     internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
     internal void SetAllPlayersReadyForNextRound() => AllPlayersReadyForNextRound?.Invoke(this, EventArgs.Empty);
     internal void PlayerWonRound(ulong winnerClientId) => PlayerHasWonRound?.Invoke(this, winnerClientId);
+    internal void PlayerWonGame(ulong winnerClientId) => PlayerHasWonGame?.Invoke(this, winnerClientId);
 
     public void ClientSelectPlayerDomino(int newSelectedDominoId, int? currentlySelectedDominoId)
     {
@@ -239,6 +241,12 @@ public class GameplayManager : MonoBehaviour
         roundOverUI.Hide();
         meshManager.ResetDominoMeshes();
         InputManager.SetRoundReadyButtonEnabled(true);
+    }
+
+    public void GameIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
+    {
+        Debug.Log($"{playerScores.Count} playerScores provided for a total of {playerScores.Sum(p => p.Value)}");
+        gameOverUI.Show(winnerClientId.ToString(), playerScores, playerTotals);
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();

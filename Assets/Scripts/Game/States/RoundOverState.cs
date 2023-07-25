@@ -27,7 +27,7 @@ public class RoundOverState : GameStateBase
     
     private void ShowRoundOverUI()
     {
-        ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetGameWinnerClientId();
+        ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetRoundWinnerClientId();
         if (!winnerClientId.HasValue)
         {
             return;

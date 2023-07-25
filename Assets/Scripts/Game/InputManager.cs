@@ -15,6 +15,7 @@ public class InputManager : MonoBehaviour
     [SerializeField] private Button DrawButton;
     [SerializeField] private Button EndTurnButton;
     [SerializeField] private Button RoundReadyButton;
+    [SerializeField] private Button RestartReadyButton;
 
 
     private void Start()
@@ -22,6 +23,7 @@ public class InputManager : MonoBehaviour
         DrawButton.onClick.AddListener(OnDrawButtonClicked);
         EndTurnButton.onClick.AddListener(OnEndTurnButtonClicked);
         RoundReadyButton.onClick.AddListener(OnReadyButtonClicked);
+        RestartReadyButton.onClick.AddListener(OnReadyButtonClicked);
     }
 
     void Update()
@@ -42,6 +44,7 @@ public class InputManager : MonoBehaviour
     private void OnReadyButtonClicked()
     {
         RoundReadyButton.interactable = false;
+        RestartReadyButton.interactable = false;
         ReadyButtonClicked?.Invoke(this, EventArgs.Empty);
     }
 
@@ -77,5 +80,6 @@ public class InputManager : MonoBehaviour
     public void SetDrawButtonEnabled(bool enabled) => DrawButton.interactable = enabled;
     public void SetEndTurnButtonEnabled(bool enabled) => EndTurnButton.interactable = enabled;
     public void SetRoundReadyButtonEnabled(bool enabled) => RoundReadyButton.interactable = enabled;
+    public void SetRestartReadyButtonEnabled(bool enabled) => RestartReadyButton.interactable = enabled;
 
 }

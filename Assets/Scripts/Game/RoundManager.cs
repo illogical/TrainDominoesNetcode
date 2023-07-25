@@ -55,9 +55,9 @@ namespace Assets.Scripts.Game
 
         public List<ulong> GetGameWinners()
         {
-            var highestScore = _playerScoreTotals.Values.Max(t => t);
+            var lowestScore = _playerScoreTotals.Values.Min(t => t);
             var winners = _playerScoreTotals
-                .Where(t => t.Value == highestScore)
+                .Where(t => t.Value == lowestScore)
                 .Select(t => t.Key)
                 .ToList();
 

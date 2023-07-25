@@ -215,9 +215,7 @@ public class GameplayManager : MonoBehaviour
     
     internal void ClientUpdateStation(List<List<int>> trackDominoIds, int[] addDominoIds)
     {
-        // TODO: slide in the new dominoes into place
         // TODO: additional animation for new dominoes
-
         // TODO: start from position above top of screen or right side
 
         List<int> allTrackDominoIds = new List<int>();

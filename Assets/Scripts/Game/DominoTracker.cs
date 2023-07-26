@@ -63,6 +63,7 @@ namespace Assets.Scripts.Game
         public DominoEntity GetDominoByID(int dominoId) => AllDominoes[dominoId];
         public DominoEntity GetEngineDomino() => AllDominoes[engineIndices[engineIndex]];
         public int GetEngineDominoID() => engineIndices[engineIndex];
+        public void SetEngineIndex(int index) => engineIndex = index;
         public List<int> GetPlayerDominoes(ulong clientId) => playerDominoes.GetPlayerDominoes(clientId);
         public bool IsPlayerDomino(ulong clientId, int dominoId) => playerDominoes.Dominoes[clientId].Contains(dominoId);
         public bool IsEngine(int dominoId) => engineIndices[engineIndex] == dominoId;

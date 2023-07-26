@@ -19,6 +19,27 @@ namespace Assets.Scripts.Game
             StartNewRound();
         }
 
+        /// <summary>
+        /// Used to skip rounds to test the game over logic
+        /// </summary>
+        /// <param name="roundCount"></param>
+        public RoundManager(int roundCount)
+        {
+            _rounds = new List<Round>();
+            _playerScoreTotals = new Dictionary<ulong, int>();
+            
+            if (roundCount > 12)
+            {
+                Debug.LogError("Error: Cannot skip more than 12 rounds");
+                return;
+            }
+            
+            for (int i = 0; i < roundCount; i++)
+            {
+                StartNewRound();
+            }
+        }
+
         public int GetRoundNumber() => _rounds.Count;
         public bool IsLastRound => _rounds.Count >= _maxRounds;
         public Dictionary<ulong, int> GetRoundScores() => _rounds[_rounds.Count - 1].GetRoundScores();

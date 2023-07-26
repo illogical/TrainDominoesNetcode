@@ -12,6 +12,7 @@ public class GameplayManager : MonoBehaviour
     
     [SerializeField] private RoundOverUI roundOverUI;
     [SerializeField] private GameOverUI gameOverUI;
+    [SerializeField] private DevMode devMode;
     
     [HideInInspector] public DominoTracker DominoTracker;
     [HideInInspector] public TurnManager TurnManager;
@@ -33,7 +34,8 @@ public class GameplayManager : MonoBehaviour
     {
         TurnManager = new TurnManager();
         DominoTracker = new DominoTracker();
-        RoundManager = new RoundManager();
+        DominoTracker.SetEngineIndex(devMode.StartAtRound - 1);
+        RoundManager = devMode.StartAtRound == 1 ? new RoundManager() : new RoundManager(devMode.StartAtRound);
     }
     
     internal void CompleteGroupTurn() => GroupTurnEnded?.Invoke(this, EventArgs.Empty);
@@ -67,7 +69,7 @@ public class GameplayManager : MonoBehaviour
 
     public void CreateDominoSet() => DominoTracker.CreateDominoSet();
 
-
+    
     public int GetDominoCountPerPlayer(int playerCount)
     {
         // Up to 4 players take 15 dominoes each, 5 or 6 take 12 each, 7 or 8 take 10 each.
@@ -97,7 +99,9 @@ public class GameplayManager : MonoBehaviour
 
     public int[] DrawPlayerDominoes(ulong clientId)
     {
-        return DominoTracker.PickUpDominoes(clientId, 2);
+        // TODO: take GetDominoCountPerPlayer(playerCount) into account
+        //      GetDominoCountPerPlayer(int playerCount);
+        return DominoTracker.PickUpDominoes(clientId, devMode.DominoStartCount);
     }
 
     public int DrawPlayerDomino(ulong clientId)

@@ -9,6 +9,7 @@ public class InputManager : MonoBehaviour
     public event EventHandler DrawButtonClicked;
     public event EventHandler EndTurnClicked;
     public event EventHandler ReadyButtonClicked;
+    public event EventHandler NewGameButtonClicked;
 
     public Camera MainCamera;
     [Space]
@@ -16,7 +17,8 @@ public class InputManager : MonoBehaviour
     [SerializeField] private Button EndTurnButton;
     [SerializeField] private Button RoundReadyButton;
     [SerializeField] private Button RestartReadyButton;
-
+    [SerializeField] private Button NewGameButton;
+    [SerializeField] private Button QuitButton;
 
     private void Start()
     {
@@ -24,6 +26,9 @@ public class InputManager : MonoBehaviour
         EndTurnButton.onClick.AddListener(OnEndTurnButtonClicked);
         RoundReadyButton.onClick.AddListener(OnReadyButtonClicked);
         RestartReadyButton.onClick.AddListener(OnReadyButtonClicked);
+        NewGameButton.onClick.AddListener(OnNewGameButtonClicked);
+        
+        QuitButton.onClick.AddListener(() => Application.Quit());
     }
 
     void Update()
@@ -46,6 +51,11 @@ public class InputManager : MonoBehaviour
         RoundReadyButton.interactable = false;
         RestartReadyButton.interactable = false;
         ReadyButtonClicked?.Invoke(this, EventArgs.Empty);
+    }
+    
+    private void OnNewGameButtonClicked()
+    {
+        NewGameButtonClicked?.Invoke(this, EventArgs.Empty);
     }
 
     private void GetMouseClick()

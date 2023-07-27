@@ -9,8 +9,8 @@ namespace Assets.Scripts.Game.States
 
         public override void EnterState()
         {
-            ctx.GameplayManager.InputManager.ReadyButtonClicked += InputManager_ReadyButtonClicked;
-            
+            ctx.GameplayManager.InputManager.NewGameButtonClicked += InputManager_NewGameButtonClicked;
+
             ShowGameOverUI();
         }
 
@@ -21,7 +21,7 @@ namespace Assets.Scripts.Game.States
 
         public override void LeaveState()
         {
-            ctx.GameplayManager.InputManager.ReadyButtonClicked -= InputManager_ReadyButtonClicked;
+            ctx.GameplayManager.InputManager.NewGameButtonClicked -= InputManager_NewGameButtonClicked;
             // TODO: button for players to start a new game
             // TODO: wait for all players to click button to start new game
             // TODO: Alert other players how many other players have requested to play again
@@ -43,10 +43,9 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.GameIsOver(winnerClientId.Value, playerScores, playerTotals);
         }
 
-        private void InputManager_ReadyButtonClicked(object sender, EventArgs e)
+        private void InputManager_NewGameButtonClicked(object sender, EventArgs e)
         {
-            //ctx.SwitchState(new GameStartedState(ctx));
+            ctx.SwitchState(new GameStartedState(ctx));
         }
-        
     }
 }

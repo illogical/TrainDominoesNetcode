@@ -819,8 +819,8 @@ MonoBehaviour:
   EndTurnButton: {fileID: 920903223}
   RoundReadyButton: {fileID: 1168015515}
   RestartReadyButton: {fileID: 1095266221}
-  NewGameButton: {fileID: 0}
-  QuitButton: {fileID: 0}
+  NewGameButton: {fileID: 1095266221}
+  QuitButton: {fileID: 1981211153}
 --- !u!114 &425682250
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4569,6 +4569,18 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9ed2a051c32b4fe47a5e4fb95c20b03f, type: 3}
+--- !u!114 &1981211153 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2912235837377324236, guid: cef22fd2fdfe5f14c8f0b62b9ddb280e,
+    type: 3}
+  m_PrefabInstance: {fileID: 935628512}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &1982665215 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 224296548220470038, guid: 9ed2a051c32b4fe47a5e4fb95c20b03f,

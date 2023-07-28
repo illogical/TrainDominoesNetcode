@@ -24,6 +24,7 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.AwaitTurn += GameplayManager_AwaitTurn;
             ctx.GameplayManager.PlayerTurnEnded += GameplayManager_PlayerTurnEnded;
             ctx.GameplayManager.PlayerHasWonRound += GameplayManagerPlayerHasWonRound;
+            ctx.GameplayManager.PlayerHasWonGame += GameplayManager_PlayerHasWonGame;
 
             // cannot end turn until the dominoes are drawn
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);

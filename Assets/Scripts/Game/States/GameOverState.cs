@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Assets.Scripts.Game.States
 {
@@ -30,9 +31,10 @@ namespace Assets.Scripts.Game.States
 
         private void ShowGameOverUI()
         {
-            ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetRoundWinnerClientId();
+            ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetGameWinnerClientId();
             if (!winnerClientId.HasValue)
             {
+                Debug.LogError("Why is there no winner?");
                 return;
             }
             

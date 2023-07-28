@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Assets.Scripts.Game.States
 {
@@ -12,8 +8,8 @@ namespace Assets.Scripts.Game.States
     public class PlayerTurnStartedState : GameStateBase
     {
         public PlayerTurnStartedState(GameStateContext gameContext) : base(gameContext) { }
-        public override string Name => nameof(PlayerTurnStartedState); 
-        
+        public override string Name => nameof(PlayerTurnStartedState);
+
         public override void EnterState()
         {
             ctx.GameplayManager.InputManager.DominoClicked += InputManager_DominoClicked;
@@ -21,6 +17,7 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.InputManager.EndTurnClicked += InputManager_EndTurnClicked;
 
             ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
+            ctx.GameplayManager.PlayerAddedDomino += GameplayManager_PlayerAddedDomino;
             ctx.GameplayManager.AwaitTurn += GameplayManager_AwaitTurn;
             ctx.GameplayManager.PlayerTurnEnded += GameplayManager_PlayerTurnEnded;
             ctx.GameplayManager.PlayerHasWonRound += GameplayManagerPlayerHasWonRound;
@@ -46,6 +43,7 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.InputManager.EndTurnClicked -= InputManager_EndTurnClicked;
 
             ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
+            ctx.GameplayManager.PlayerAddedDomino -= GameplayManager_PlayerAddedDomino;
             ctx.GameplayManager.AwaitTurn -= GameplayManager_AwaitTurn;
             ctx.GameplayManager.PlayerTurnEnded -= GameplayManager_PlayerTurnEnded;
             ctx.GameplayManager.PlayerHasWonRound -= GameplayManagerPlayerHasWonRound;
@@ -62,6 +60,12 @@ namespace Assets.Scripts.Game.States
         private void InputManager_DrawButtonClicked(object sender, EventArgs e)
         {
             ctx.GameSession.DrawDominoesServerRpc();
+            ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
+            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
+        }
+        
+        private void GameplayManager_PlayerAddedDomino(object sender, int selectedDominoId)
+        {
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
         }

@@ -9,11 +9,11 @@ public class GameplayManager : MonoBehaviour
     [SerializeField] private MeshManager meshManager;
     [SerializeField] private LayoutManager layoutManager;
     [SerializeField] public InputManager InputManager;
-    
+
     [SerializeField] private RoundOverUI roundOverUI;
     [SerializeField] private GameOverUI gameOverUI;
     [SerializeField] private DevMode devMode;
-    
+
     [HideInInspector] public DominoTracker DominoTracker;
     [HideInInspector] public TurnManager TurnManager;
     [HideInInspector] public RoundManager RoundManager;
@@ -23,6 +23,8 @@ public class GameplayManager : MonoBehaviour
     public event EventHandler<int> EngineDominoSelected;
     public event EventHandler<int> TrackDominoSelected;
     public event EventHandler<ulong> PlayerTurnStarted;
+    public event EventHandler<int> PlayerAddedDomino; // pass selected dominoId
+    public event EventHandler<int> PlayerAddedTrack; // pass selected dominoId
     public event EventHandler<ulong> PlayerHasWonRound;
     public event EventHandler<ulong> PlayerHasWonGame;
     public event EventHandler PlayerTurnEnded;
@@ -37,7 +39,7 @@ public class GameplayManager : MonoBehaviour
         DominoTracker.SetEngineIndex(devMode.StartAtRound - 1);
         RoundManager = devMode.StartAtRound == 1 ? new RoundManager() : new RoundManager(devMode.StartAtRound);
     }
-    
+
     internal void CompleteGroupTurn() => GroupTurnEnded?.Invoke(this, EventArgs.Empty);
     internal void StartPlayerTurn(ulong clientId) => PlayerTurnStarted?.Invoke(this, clientId);
     internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
@@ -69,12 +71,18 @@ public class GameplayManager : MonoBehaviour
 
     public void CreateDominoSet() => DominoTracker.CreateDominoSet();
 
-    
+
     public int GetDominoCountPerPlayer(int playerCount)
     {
         // Up to 4 players take 15 dominoes each, 5 or 6 take 12 each, 7 or 8 take 10 each.
-        if (playerCount <= 4) { return 15; }
-        else if (playerCount <= 6) { return 12; }
+        if (playerCount <= 4)
+        {
+            return 15;
+        }
+        else if (playerCount <= 6)
+        {
+            return 12;
+        }
         else return 10;
     }
 
@@ -88,9 +96,10 @@ public class GameplayManager : MonoBehaviour
             if (dominoMesh == null)
             {
                 // create the mesh
-                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Table);
+                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId),
+                    new Vector3(0, 1, 0), PurposeType.Table);
             }
-            
+
             dominoTransforms.Add(dominoId, dominoMesh.transform);
         }
 
@@ -106,7 +115,7 @@ public class GameplayManager : MonoBehaviour
 
     public int DrawPlayerDomino(ulong clientId)
     {
-        return DominoTracker.PickUpDomino(clientId); 
+        return DominoTracker.PickUpDomino(clientId);
     }
 
     public DominoEntity GetNewEngineDomino()
@@ -126,11 +135,12 @@ public class GameplayManager : MonoBehaviour
         {
             // use the mesh if it already exists, otherwise create it
             var dominoMesh = meshManager.GetDominoMeshById(dominoId);
-            if(dominoMesh == null)
+            if (dominoMesh == null)
             {
-                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId), new Vector3(0, 1, 0), PurposeType.Player);
-                
+                dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId),
+                    new Vector3(0, 1, 0), PurposeType.Player);
             }
+
             playerDominoes.Add(dominoMesh);
         }
 
@@ -174,19 +184,26 @@ public class GameplayManager : MonoBehaviour
         GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
 
         Debug.Log(tracksWithDomininoIds.Count + " tracks");
-        Debug.Log(tracksWithDomininoIds[0].Count + " dominos on first track");
+        
+        PlayerAddedDomino?.Invoke(this, selectedDominoId);
+        PlayerAddedTrack?.Invoke(this, selectedDominoId);
 
         // move empties to move the lines and animate the selected box moving to the track
-        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, selectedDominoId, tracksWithDomininoIds, meshManager, trackSlideDuration));
+        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, selectedDominoId,
+            tracksWithDomininoIds, meshManager, trackSlideDuration));
     }
 
-    public void ClientAddSelectedDominoToTrack(int selectedDominoId, int trackIndex, List<List<int>> tracksWithDominoIds)
+    public void ClientAddSelectedDominoToTrack(int selectedDominoId, int trackIndex,
+        List<List<int>> tracksWithDominoIds)
     {
         float trackSlideDuration = 0.3f;
         GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
+        
+        PlayerAddedDomino?.Invoke(this, selectedDominoId);
 
         // move empties to move the lines and animate the selected box moving to the track
-        StartCoroutine(layoutManager.AddDominoAndUpdateTrackPositions(currentObj.transform, tracksWithDominoIds, meshManager, trackIndex, trackSlideDuration));
+        StartCoroutine(layoutManager.AddDominoAndUpdateTrackPositions(currentObj.transform, tracksWithDominoIds,
+            meshManager, trackIndex, trackSlideDuration));
     }
 
     public bool ServerCompareDominoToEngine(int dominoId)
@@ -207,16 +224,16 @@ public class GameplayManager : MonoBehaviour
         //return trackScoreToCompare == selectedDomino.BottomScore
         //|| trackScoreToCompare == selectedDomino.TopScore;
         return trackDomino.TopScore == selectedDomino.BottomScore
-        || trackDomino.BottomScore == selectedDomino.TopScore
-        || trackDomino.TopScore == selectedDomino.TopScore
-        || trackDomino.BottomScore == selectedDomino.BottomScore;
+               || trackDomino.BottomScore == selectedDomino.TopScore
+               || trackDomino.TopScore == selectedDomino.TopScore
+               || trackDomino.BottomScore == selectedDomino.BottomScore;
     }
 
     internal void ClientAddNewDominoForPlayer(Dictionary<int, Transform> playerDominoes, int dominoId)
     {
         layoutManager.AddNewDominoForPlayer(playerDominoes, dominoId);
     }
-    
+
     internal void ClientUpdateStation(List<List<int>> trackDominoIds, int[] addDominoIds)
     {
         // TODO: additional animation for new dominoes
@@ -227,11 +244,12 @@ public class GameplayManager : MonoBehaviour
         {
             allTrackDominoIds.AddRange(track);
         }
-        
+
         layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(allTrackDominoIds.ToArray()));
     }
 
-    public void RoundIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
+    public void RoundIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores,
+        Dictionary<ulong, int> playerTotals)
     {
         Debug.Log($"{playerScores.Count} playerScores provided for a total of {playerScores.Sum(p => p.Value)}");
         // the player who has 0 is the winner but we also know who just ended their turn and played their last domino
@@ -245,14 +263,15 @@ public class GameplayManager : MonoBehaviour
         InputManager.SetRoundReadyButtonEnabled(true);
     }
 
-    public void GameIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
+    public void GameIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores,
+        Dictionary<ulong, int> playerTotals)
     {
         Debug.Log($"{playerScores.Count} playerScores provided for a total of {playerScores.Sum(p => p.Value)}");
         gameOverUI.Show(winnerClientId.ToString(), playerScores, playerTotals);
     }
 
     public int[] GetUpdatedDominoesForAllPlayers() => DominoTracker.GetDominoesFromTurnStations();
-    
+
     public int[] GetUpdatedDominoes(ulong clientId) => DominoTracker.Station.GetNewDominoesByComparingToStation(
         DominoTracker.GetTurnStationByClientId(clientId));
 

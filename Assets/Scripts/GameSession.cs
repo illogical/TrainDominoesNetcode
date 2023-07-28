@@ -303,6 +303,8 @@ public class GameSession : NetworkBehaviour
                 return;
             }
             
+            // player wants to add the selected domino to this track
+            
             if (gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).HasPlayerAddedTrack)
             {
                 // a track has already been added this turn

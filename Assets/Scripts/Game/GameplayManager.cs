@@ -9,6 +9,7 @@ public class GameplayManager : MonoBehaviour
     [SerializeField] private MeshManager meshManager;
     [SerializeField] private LayoutManager layoutManager;
     [SerializeField] public InputManager InputManager;
+    [SerializeField] public SoundManager SoundManager;
 
     [SerializeField] private RoundOverUI roundOverUI;
     [SerializeField] private GameOverUI gameOverUI;

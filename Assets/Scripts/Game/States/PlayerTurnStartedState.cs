@@ -53,6 +53,7 @@ namespace Assets.Scripts.Game.States
         private void InputManager_DominoClicked(object sender, int dominoId)
         {
             // the server decides which type of domino was clicked
+            ctx.GameplayManager.SoundManager.PlayRandomClickSound();
             ctx.GameSession.SelectDominoServerRpc(dominoId);
         }
 

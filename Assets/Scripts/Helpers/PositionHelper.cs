@@ -205,6 +205,7 @@ namespace Assets.Scripts.Helpers
             }
         }
 
+        // TODO: SpreadByMargin() - use this isntead of spreading dominoes across entire width of the screen
         public static List<float> SpreadByMargin(float objectLength, int objectCount, float margin)
         {
             var positions = new List<float>();
@@ -240,6 +241,84 @@ namespace Assets.Scripts.Helpers
                 positions.Add(GetCenterPositionByIndex(i, distanceFromEachOther, centerOffSet));
             }
             return positions;
+        }
+        
+        /// <summary>
+        /// Loyouts a list of game objects into a line. The line's center will be at the provided starting position.
+        /// </summary>
+        /// <param name="startPosition">The center of the line</param>
+        /// <param name="objects">Objects of any length/width that will be placed in a line</param>
+        /// <param name="camera">Current camera</param>
+        /// <param name="margin">Distance between each object in the line</param>
+        /// <param name="horizontal"></param>
+        public static void LayoutInLine(Vector3 startPosition, List<GameObject> objects, Camera camera, float margin = 0, bool horizontal = true)
+        {
+            float lineCenterOffset = GetLineCenterOffset(startPosition, objects, margin, horizontal);
+            float currentLinePosition = 0;
+            float lineLength = GetLineLength(objects, margin, horizontal);
+
+            // TODO: this is getting closer. Seems to be off by the size of 1 domino (when there are 6 or 8 dominoes) but more when 4 dominoes :(
+            float distance = CalculateDesiredDistance(lineLength, camera) + camera.transform.position.z;
+
+            for (int i = 0; i < objects.Count(); i++)
+            {
+                Vector3 objectSize = GetObjectDimensions(objects[i]);
+                
+                if (horizontal)
+                {
+                    currentLinePosition += objectSize.x + margin; // TODO: add startPosition offset
+                    objects[i].transform.position = new Vector3(currentLinePosition - lineCenterOffset, objects[i].transform.position.y, distance);
+                }
+                else
+                {
+                    currentLinePosition += objectSize.y + margin;
+                    objects[i].transform.position = new Vector3(objects[i].transform.position.x, currentLinePosition - lineCenterOffset, distance);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// This will work with a line. Pass in all dimensions and it will decide which is the longest and zoom to it
+        /// </summary>
+        /// <returns></returns>
+        private static float CalculateDesiredDistance(float longestSide, Camera camera)
+        {
+            float horizontalFoV = 2f * Mathf.Atan(Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad / 2f) * camera.aspect) * Mathf.Rad2Deg;
+            float distance = longestSide / (2f * Mathf.Tan(horizontalFoV * Mathf.Deg2Rad / 2f));
+            return distance;
+        }
+
+        private static float GetLineCenterOffset(Vector3 startPosition, List<GameObject> lineObjects, float margin, bool horizontal = true)
+        {
+            float lineCenterOffset = 0;
+            float marginTotal = (lineObjects.Count() - 1) * margin;
+            float lineLength = GetLineLength(lineObjects, margin, horizontal);
+
+            if (horizontal)
+            {
+                lineCenterOffset = startPosition.x;
+            }
+            else
+            {
+                lineCenterOffset = startPosition.y;
+            }
+            
+            float averageSize = lineLength / lineObjects.Count();
+            lineCenterOffset += marginTotal + averageSize / 2 + lineLength / 2;
+
+            return lineCenterOffset;
+        }
+
+        private static float GetLineLength(List<GameObject> lineObjects, float margin, bool horizontal = true)
+        {
+            if (horizontal)
+            {
+                return lineObjects.Sum(o => GetObjectDimensions(o).x) + margin * (lineObjects.Count - 1);
+            }
+            else
+            {
+                return lineObjects.Sum(o => GetObjectDimensions(o).y) + margin * (lineObjects.Count - 1);
+            }
         }
     }
 }

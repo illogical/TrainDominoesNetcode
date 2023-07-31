@@ -12,16 +12,11 @@ namespace Assets.Scripts.Game.States
 
         public override void EnterState()
         {
+            // TODO: track the added domino 
+            
             ctx.GameplayManager.InputManager.DominoClicked += InputManager_DominoClicked;
-            ctx.GameplayManager.InputManager.DrawButtonClicked += InputManager_DrawButtonClicked;
-            ctx.GameplayManager.InputManager.EndTurnClicked += InputManager_EndTurnClicked;
-
-            ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
+            ctx.GameplayManager.InputManager.DrawButtonClicked += InputManager_DrawButtonClicked;            
             ctx.GameplayManager.PlayerAddedDomino += GameplayManager_PlayerAddedDomino;
-            ctx.GameplayManager.AwaitTurn += GameplayManager_AwaitTurn;
-            ctx.GameplayManager.PlayerTurnEnded += GameplayManager_PlayerTurnEnded;
-            ctx.GameplayManager.PlayerHasWonRound += GameplayManagerPlayerHasWonRound;
-            ctx.GameplayManager.PlayerHasWonGame += GameplayManager_PlayerHasWonGame;
 
             // cannot end turn until the dominoes are drawn
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
@@ -39,15 +34,8 @@ namespace Assets.Scripts.Game.States
         public override void LeaveState()
         {
             ctx.GameplayManager.InputManager.DominoClicked -= InputManager_DominoClicked;
-            ctx.GameplayManager.InputManager.DrawButtonClicked -= InputManager_DrawButtonClicked;
-            ctx.GameplayManager.InputManager.EndTurnClicked -= InputManager_EndTurnClicked;
-
-            ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
+            ctx.GameplayManager.InputManager.DrawButtonClicked -= InputManager_DrawButtonClicked;            
             ctx.GameplayManager.PlayerAddedDomino -= GameplayManager_PlayerAddedDomino;
-            ctx.GameplayManager.AwaitTurn -= GameplayManager_AwaitTurn;
-            ctx.GameplayManager.PlayerTurnEnded -= GameplayManager_PlayerTurnEnded;
-            ctx.GameplayManager.PlayerHasWonRound -= GameplayManagerPlayerHasWonRound;
-            ctx.GameplayManager.PlayerHasWonGame -= GameplayManager_PlayerHasWonGame;
         }
 
         private void InputManager_DominoClicked(object sender, int dominoId)
@@ -67,47 +55,7 @@ namespace Assets.Scripts.Game.States
         
         private void GameplayManager_PlayerAddedDomino(object sender, int selectedDominoId)
         {
-            ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
-            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
-        }
-
-        private void InputManager_EndTurnClicked(object sender, EventArgs e)
-        {
-            ctx.GameSession.EndTurnServerRpc();
-            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
-        }
-
-        private void GameplayManager_PlayerTurnEnded(object sender, EventArgs e)
-        {
-            // when a player ends their turn, why would it matter if a track had been laid?
-
-            //ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
-            ctx.SwitchState(ctx.PlayerAwaitingTurnState);
-        }
-
-        /// <summary>
-        /// After the group turn, this is the first player's turn
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="clientId"></param>
-        private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
-        {
-            ctx.SwitchState(ctx.PlayerTurnStartedState);
-        }
-
-        private void GameplayManager_AwaitTurn(object sender, EventArgs e)
-        {
-            ctx.SwitchState(ctx.PlayerAwaitingTurnState);
-        }
-        
-        private void GameplayManagerPlayerHasWonRound(object sender, ulong winnerClientId)
-        {
-            ctx.SwitchState(ctx.RoundOverState);
-        }
-        
-        private void GameplayManager_PlayerHasWonGame(object sender, ulong e)
-        {
-            ctx.SwitchState(ctx.GameOverState);
+            ctx.SwitchState(ctx.PlayerMadeMoveState);
         }
     }
 }

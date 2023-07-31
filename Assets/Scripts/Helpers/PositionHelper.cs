@@ -243,14 +243,6 @@ namespace Assets.Scripts.Helpers
             return positions;
         }
         
-        /// <summary>
-        /// Loyouts a list of game objects into a line. The line's center will be at the provided starting position.
-        /// </summary>
-        /// <param name="startPosition">The center of the line</param>
-        /// <param name="objects">Objects of any length/width that will be placed in a line</param>
-        /// <param name="camera">Current camera</param>
-        /// <param name="margin">Distance between each object in the line</param>
-        /// <param name="horizontal"></param>
         public static void LayoutInLine(Vector3 startPosition, List<GameObject> objects, Camera camera, float margin = 0, bool horizontal = true)
         {
             var positions = GetCenteredHorizontalLinePositions(startPosition, objects, camera, margin, horizontal);
@@ -261,22 +253,29 @@ namespace Assets.Scripts.Helpers
             }
         }
         
+        /// <summary>
+        /// Loyouts a list of game objects into a line. The line's center will be at the provided starting position.
+        /// </summary>
+        /// <param name="startPosition">The center of the line</param>
+        /// <param name="objects">Objects of any length/width that will be placed in a line</param>
+        /// <param name="camera">Current camera</param>
+        /// <param name="margin">Distance between each object in the line</param>
+        /// <param name="horizontal">Is this line horizontal?</param>
         public static List<Vector3> GetCenteredHorizontalLinePositions(Vector3 startPosition, List<GameObject> objects, Camera camera, float margin = 0, bool horizontal = true)
         {
             var positions = new List<Vector3>();
             
             float lineCenterOffset = GetLineCenterOffset(startPosition, objects, margin, horizontal);
             float lineLength = GetLineLength(objects, margin, horizontal);
-            float distance = CalculateDesiredDistance(lineLength, camera) + camera.transform.position.z;
+            float distance = CalculateViewDistanceByWidth(lineLength, camera) + camera.transform.position.z;
+            Vector3 objectSize = GetObjectDimensions(objects[0]);
             
             float currentLinePosition = 0;
             for (int i = 0; i < objects.Count(); i++)
             {
-                Vector3 objectSize = GetObjectDimensions(objects[i]);
-                
                 if (horizontal)
                 {
-                    currentLinePosition += objectSize.x + margin;
+                    currentLinePosition += objectSize.x + margin;   // TODO: test margins (might need to skip the last margin)
                     positions.Add(new Vector3(currentLinePosition - lineCenterOffset, objects[i].transform.position.y, distance));
                 }
                 else
@@ -293,10 +292,10 @@ namespace Assets.Scripts.Helpers
         /// This will work with a line. Pass in all dimensions and it will decide which is the longest and zoom to it
         /// </summary>
         /// <returns></returns>
-        private static float CalculateDesiredDistance(float longestSide, Camera camera)
+        private static float CalculateViewDistanceByWidth(float width, Camera camera)
         {
             float horizontalFoV = 2f * Mathf.Atan(Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad / 2f) * camera.aspect) * Mathf.Rad2Deg;
-            float distance = longestSide / (2f * Mathf.Tan(horizontalFoV * Mathf.Deg2Rad / 2f));
+            float distance = width / (2f * Mathf.Tan(horizontalFoV * Mathf.Deg2Rad / 2f));
             return distance;
         }
 

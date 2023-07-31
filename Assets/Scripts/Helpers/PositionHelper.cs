@@ -253,28 +253,40 @@ namespace Assets.Scripts.Helpers
         /// <param name="horizontal"></param>
         public static void LayoutInLine(Vector3 startPosition, List<GameObject> objects, Camera camera, float margin = 0, bool horizontal = true)
         {
+            var positions = GetCenteredHorizontalLinePositions(startPosition, objects, camera, margin, horizontal);
+
+            for (int i = 0; i < objects.Count(); i++)
+            {
+                objects[i].transform.position = positions[i];
+            }
+        }
+        
+        public static List<Vector3> GetCenteredHorizontalLinePositions(Vector3 startPosition, List<GameObject> objects, Camera camera, float margin = 0, bool horizontal = true)
+        {
+            var positions = new List<Vector3>();
+            
             float lineCenterOffset = GetLineCenterOffset(startPosition, objects, margin, horizontal);
-            float currentLinePosition = 0;
             float lineLength = GetLineLength(objects, margin, horizontal);
-
-            // TODO: this is getting closer. Seems to be off by the size of 1 domino (when there are 6 or 8 dominoes) but more when 4 dominoes :(
             float distance = CalculateDesiredDistance(lineLength, camera) + camera.transform.position.z;
-
+            
+            float currentLinePosition = 0;
             for (int i = 0; i < objects.Count(); i++)
             {
                 Vector3 objectSize = GetObjectDimensions(objects[i]);
                 
                 if (horizontal)
                 {
-                    currentLinePosition += objectSize.x + margin; // TODO: add startPosition offset
-                    objects[i].transform.position = new Vector3(currentLinePosition - lineCenterOffset, objects[i].transform.position.y, distance);
+                    currentLinePosition += objectSize.x + margin;
+                    positions.Add(new Vector3(currentLinePosition - lineCenterOffset, objects[i].transform.position.y, distance));
                 }
                 else
                 {
                     currentLinePosition += objectSize.y + margin;
-                    objects[i].transform.position = new Vector3(objects[i].transform.position.x, currentLinePosition - lineCenterOffset, distance);
+                    positions.Add(new Vector3(objects[i].transform.position.x, currentLinePosition - lineCenterOffset, distance));
                 }
             }
+
+            return positions;
         }
         
         /// <summary>
@@ -290,19 +302,10 @@ namespace Assets.Scripts.Helpers
 
         private static float GetLineCenterOffset(Vector3 startPosition, List<GameObject> lineObjects, float margin, bool horizontal = true)
         {
-            float lineCenterOffset = 0;
             float marginTotal = (lineObjects.Count() - 1) * margin;
             float lineLength = GetLineLength(lineObjects, margin, horizontal);
+            float lineCenterOffset = horizontal ? startPosition.x : startPosition.y;
 
-            if (horizontal)
-            {
-                lineCenterOffset = startPosition.x;
-            }
-            else
-            {
-                lineCenterOffset = startPosition.y;
-            }
-            
             float averageSize = lineLength / lineObjects.Count();
             lineCenterOffset += marginTotal + averageSize / 2 + lineLength / 2;
 

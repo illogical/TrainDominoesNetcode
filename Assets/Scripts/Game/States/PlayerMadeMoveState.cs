@@ -2,6 +2,9 @@ using System;
 
 namespace Assets.Scripts.Game.States
 {
+    /// <summary>
+    /// This state only applies to standard player turns (not the group turn).
+    /// </summary>
     public class PlayerMadeMoveState : EndTurnStateBase
     {
         public PlayerMadeMoveState(GameStateContext gameContext) : base(gameContext) { }
@@ -14,11 +17,6 @@ namespace Assets.Scripts.Game.States
 
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
-        }
-
-        public override void UpdateState()
-        {
-        
         }
 
         public override void LeaveState()

@@ -19,11 +19,6 @@ namespace Assets.Scripts.Game.States
             ctx.SwitchState(ctx.PlayerTurnStartedState);
         }
 
-        public override void UpdateState()
-        {
-            
-        }
-
         public override void LeaveState()
         {
 

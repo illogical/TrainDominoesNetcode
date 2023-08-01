@@ -6,8 +6,7 @@ namespace Assets.Scripts.Game.States
     {
         public GameSession GameSession { get; private set; }
         public GameplayManager GameplayManager { get; private set; }
-
-
+        
         public PregameState PregameState;
         public GameStartedState GameStartedState;
         public PlayerTurnStartedState PlayerTurnStartedState;

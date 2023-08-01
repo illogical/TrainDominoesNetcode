@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Assets.Scripts.Game.States
+﻿namespace Assets.Scripts.Game.States
 {
     public class PlayerAwaitingTurnState : EndTurnStateBase
     {
@@ -18,11 +12,6 @@ namespace Assets.Scripts.Game.States
             
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
-        }
-
-        public override void UpdateState()
-        {
-
         }
 
         public override void LeaveState()

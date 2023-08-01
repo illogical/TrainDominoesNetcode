@@ -15,11 +15,6 @@ namespace Assets.Scripts.Game.States
             ShowGameOverUI();
         }
 
-        public override void UpdateState()
-        {
-
-        }
-
         public override void LeaveState()
         {
             ctx.GameplayManager.InputManager.NewGameButtonClicked -= InputManager_NewGameButtonClicked;

@@ -24,11 +24,15 @@ namespace Assets.Scripts.Game.States
         /// </summary>
         /// <param name="gameStateContext"></param>
         public abstract void EnterState();
+
         /// <summary>
-        /// Main game loop during this state
+        /// Optional main game loop during this state
         /// </summary>
         /// <param name="gameStateContext"></param>
-        public abstract void UpdateState();
+        public virtual void UpdateState()
+        {
+            
+        }
         /// <summary>
         /// Cleanup before switching to the next state
         /// </summary>

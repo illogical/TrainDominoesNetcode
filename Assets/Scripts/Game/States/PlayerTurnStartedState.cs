@@ -30,11 +30,6 @@ namespace Assets.Scripts.Game.States
             //ctx.GameSession.DrawInitialDominoesServerRpc();
         }
 
-        public override void UpdateState()
-        {
-
-        }
-
         public override void LeaveState()
         {
             ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
@@ -72,8 +67,7 @@ namespace Assets.Scripts.Game.States
         
         private void GameplayManager_PlayerAddedDomino(object sender, int selectedDominoId)
         {
-            // TODO: this needs solved. How to prevent this state end when group turn? Needs to be server-side
-            if (ctx.GameplayManager.TurnManager.IsGroupTurn) // TODO: is IsGroupTurn accurate on all clients?
+            if (ctx.GameplayManager.TurnManager.IsGroupTurn) // IsGroupTurn was specifically sync'd across clients
             {
                 Debug.Log("It is the group turn so carry on.");
                 // during the group turn, allow the player to keep adding dominoes

@@ -21,11 +21,6 @@ namespace Assets.Scripts.Game.States
             ctx.GameplayManager.PlayerHasWonGame += GameplayManager_PlayerHasWonGame;
         }
 
-        public override void UpdateState()
-        {
-
-        }
-
         public override void LeaveState()
         {
             ctx.GameplayManager.AwaitTurn -= GameplayManager_AwaitTurn;

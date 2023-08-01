@@ -6,18 +6,18 @@ using System.Threading.Tasks;
 
 namespace Assets.Scripts.Game.States
 {
-    public class PlayerAwaitingTurnState : GameStateBase
+    public class PlayerAwaitingTurnState : EndTurnStateBase
     {
         public PlayerAwaitingTurnState(GameStateContext gameContext) : base(gameContext) { }
         public override string Name => nameof(PlayerAwaitingTurnState);
 
         public override void EnterState()
         {
+            base.EnterState();
+            ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
+            
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
-
-            ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
-            ctx.GameplayManager.PlayerHasWonRound += GameplayManagerPlayerHasWonRound;
         }
 
         public override void UpdateState()
@@ -28,17 +28,12 @@ namespace Assets.Scripts.Game.States
         public override void LeaveState()
         {
             ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
-            ctx.GameplayManager.PlayerHasWonRound -= GameplayManagerPlayerHasWonRound;
+            base.LeaveState();
         }
 
         private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
         {
             ctx.SwitchState(ctx.PlayerTurnStartedState);
-        }
-        
-        private void GameplayManagerPlayerHasWonRound(object sender, ulong winnerClientId)
-        {
-            ctx.SwitchState(ctx.GameOverState);
         }
     }
 }

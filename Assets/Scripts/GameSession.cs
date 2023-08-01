@@ -179,7 +179,7 @@ public class GameSession : NetworkBehaviour
             // TODO: may want to handle animations for new tracks differently?
             UpdateStationsClientRpc(stationContainer, addedDominoes);
 
-            gameplayManager.TurnManager.CompleteGroupTurn();
+            gameplayManager.TurnManager.CompleteGroupTurn(); // only the server knows this right now
             
             // TODO: what to do if more than one person can use all dominoes (super edge case)
             
@@ -194,7 +194,7 @@ public class GameSession : NetworkBehaviour
             }
 
             // TODO: how to wait until animations complete before swapping turns?
-            PlayerReadyClientRpc(gameplayManager.TurnManager.CurrentPlayerId.Value);
+            EndGroupTurnClientRpc(gameplayManager.TurnManager.CurrentPlayerId.Value);
         }
     }
 
@@ -400,9 +400,10 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void PlayerReadyClientRpc(ulong clientIdForTurn)
+    private void EndGroupTurnClientRpc(ulong clientIdForTurn)
     {
         Debug.Log("Group turn complete");
+        gameplayManager.TurnManager.CompleteGroupTurn(); // sync the clients
 
         if (clientIdForTurn == NetworkManager.Singleton.LocalClientId)
         {

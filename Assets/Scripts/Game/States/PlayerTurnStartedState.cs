@@ -1,21 +1,25 @@
 ﻿using System;
+using UnityEngine;
 
 namespace Assets.Scripts.Game.States
 {
     /// <summary>
     /// The player's turn just began. A domino has not been selected yet.
     /// </summary>
-    public class PlayerTurnStartedState : GameStateBase
+    public class PlayerTurnStartedState : EndTurnStateBase
     {
         public PlayerTurnStartedState(GameStateContext gameContext) : base(gameContext) { }
         public override string Name => nameof(PlayerTurnStartedState);
 
         public override void EnterState()
         {
+            base.EnterState();
             // TODO: track the added domino 
             
+            ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
             ctx.GameplayManager.InputManager.DominoClicked += InputManager_DominoClicked;
-            ctx.GameplayManager.InputManager.DrawButtonClicked += InputManager_DrawButtonClicked;            
+            ctx.GameplayManager.InputManager.DrawButtonClicked += InputManager_DrawButtonClicked; 
+            ctx.GameplayManager.InputManager.EndTurnClicked += InputManager_EndTurnClicked;
             ctx.GameplayManager.PlayerAddedDomino += GameplayManager_PlayerAddedDomino;
 
             // cannot end turn until the dominoes are drawn
@@ -33,9 +37,22 @@ namespace Assets.Scripts.Game.States
 
         public override void LeaveState()
         {
+            ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
             ctx.GameplayManager.InputManager.DominoClicked -= InputManager_DominoClicked;
-            ctx.GameplayManager.InputManager.DrawButtonClicked -= InputManager_DrawButtonClicked;            
+            ctx.GameplayManager.InputManager.DrawButtonClicked -= InputManager_DrawButtonClicked;  
+            ctx.GameplayManager.InputManager.EndTurnClicked -= InputManager_EndTurnClicked;
             ctx.GameplayManager.PlayerAddedDomino -= GameplayManager_PlayerAddedDomino;
+            base.LeaveState();
+        }
+        
+        /// <summary>
+        /// After the group turn, this is the first player's turn
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="clientId"></param>
+        private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
+        {
+            ctx.SwitchState(ctx.PlayerTurnStartedState);
         }
 
         private void InputManager_DominoClicked(object sender, int dominoId)
@@ -55,7 +72,20 @@ namespace Assets.Scripts.Game.States
         
         private void GameplayManager_PlayerAddedDomino(object sender, int selectedDominoId)
         {
+            // TODO: this needs solved. How to prevent this state end when group turn? Needs to be server-side
+            if (ctx.GameplayManager.TurnManager.IsGroupTurn) // TODO: is IsGroupTurn accurate on all clients?
+            {
+                Debug.Log("It is the group turn so carry on.");
+                // during the group turn, allow the player to keep adding dominoes
+                return;
+            }
             ctx.SwitchState(ctx.PlayerMadeMoveState);
+        }
+        
+        private void InputManager_EndTurnClicked(object sender, EventArgs e)
+        {
+            ctx.GameSession.EndTurnServerRpc(); // keep in mind this does not happen immediately
+            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
         }
     }
 }

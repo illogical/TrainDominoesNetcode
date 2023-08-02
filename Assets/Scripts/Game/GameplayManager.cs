@@ -129,6 +129,22 @@ public class GameplayManager : MonoBehaviour
         return DominoTracker.GetEngineDomino();
     }
 
+    public void FlipDominoIfNeeded(int dominoId, int destinationDominoId)
+    {
+        DominoEntity selectedDominoInfo = DominoTracker.GetDominoByID(dominoId);
+        DominoEntity engineDominoInfo = DominoTracker.GetDominoByID(destinationDominoId);
+        
+        if (!DominoTracker.IsDominoFlipNeeded(selectedDominoInfo, engineDominoInfo))
+        {
+            // no need to flip
+            return;
+        }
+
+        // TODO: Flip animation
+        selectedDominoInfo.Flipped = true;
+        meshManager.UpdateDomino(selectedDominoInfo);
+    }
+
     public void ClientDisplayInitialPlayerDominoes(int[] dominoIds)
     {
         var playerDominoes = new List<GameObject>();
@@ -209,25 +225,24 @@ public class GameplayManager : MonoBehaviour
 
     public bool ServerCompareDominoToEngine(int dominoId)
     {
+        if (devMode.IgnoreDominoComparisons)
+        {
+            return true;
+        }
+        
         var engineDomino = DominoTracker.GetEngineDomino();
-        return CompareDominoes(dominoId, engineDomino.ID);
+        return DominoTracker.CompareDominoes(dominoId, engineDomino.ID);
     }
-
-    private bool CompareDominoes(int playerSelectedDominoId, int otherDominoId)
+    
+    public bool ServerCompareDominoToTrackDomino(int dominoId, int trackDominoId)
     {
-        var trackDomino = DominoTracker.GetDominoByID(otherDominoId);
-        var selectedDomino = DominoTracker.GetDominoByID(playerSelectedDominoId);
-
-        // take into account flipped track dominoes
-        var trackScoreToCompare = trackDomino.Flipped ? trackDomino.BottomScore : trackDomino.TopScore;
-
-        // TODO: fix this after the domino knows if it wants to be flipped
-        //return trackScoreToCompare == selectedDomino.BottomScore
-        //|| trackScoreToCompare == selectedDomino.TopScore;
-        return trackDomino.TopScore == selectedDomino.BottomScore
-               || trackDomino.BottomScore == selectedDomino.TopScore
-               || trackDomino.TopScore == selectedDomino.TopScore
-               || trackDomino.BottomScore == selectedDomino.BottomScore;
+        if (devMode.IgnoreDominoComparisons)
+        {
+            return true;
+        }
+        
+        var trackDomino = DominoTracker.GetDominoByID(trackDominoId);
+        return DominoTracker.CompareDominoes(dominoId, trackDomino.ID);
     }
 
     internal void ClientAddNewDominoForPlayer(Dictionary<int, Transform> playerDominoes, int dominoId)

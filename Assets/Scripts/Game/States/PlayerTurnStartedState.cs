@@ -69,7 +69,6 @@ namespace Assets.Scripts.Game.States
         {
             if (ctx.GameplayManager.TurnManager.IsGroupTurn) // IsGroupTurn was specifically sync'd across clients
             {
-                Debug.Log("It is the group turn so carry on.");
                 // during the group turn, allow the player to keep adding dominoes
                 return;
             }

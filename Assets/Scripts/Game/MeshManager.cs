@@ -77,4 +77,11 @@ public class MeshManager : MonoBehaviour
 
         return newDomino;
     }
+    
+    public void UpdateDomino(DominoEntity dominoInfo)
+    {
+        GameObject dominoObj = GetDominoMeshById(dominoInfo.ID);
+        var dom = dominoObj.GetComponent<DominoEntityUI>();
+        dom.SetDominoInfo(dominoInfo);
+    }
 }

@@ -835,8 +835,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9dffb16ac85a4e6d911d7aa1b554287, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  StartAtRound: 12
-  DominoStartCount: 3
+  IgnoreDominoComparisons: 1
+  StartAtRound: 2
+  DominoStartCount: 12
 --- !u!1 &663592774
 GameObject:
   m_ObjectHideFlags: 0

@@ -16,8 +16,11 @@ public class DominoEntityUI : MonoBehaviour
     {
         this.dominoEntity = dominoEntity;
 
-        topText.SetText(dominoEntity.TopScore.ToString());
-        bottomText.SetText(dominoEntity.BottomScore.ToString());
+        string topScore = dominoEntity.Flipped ? dominoEntity.BottomScore.ToString() : dominoEntity.TopScore.ToString();
+        string bottomScore = dominoEntity.Flipped ? dominoEntity.TopScore.ToString() : dominoEntity.BottomScore.ToString();
+        
+        topText.SetText(topScore);
+        bottomText.SetText(bottomScore);
     }
 
     public void OnTopScoreChanged(int oldValue, int newValue)

@@ -172,11 +172,6 @@ namespace Assets.Scripts.Game
             }
         }
 
-        //public Track AddToNewTrack(int dominoId) => station.AddTrack(dominoId);
-
-        //public Track AddToTrack(int dominoId, int trackIndex) => station.AddDominoToTrack(dominoId, trackIndex);
-
-
         private DominoEntity createDomino(int topScore, int bottomScore, int index)
         {
             return new DominoEntity()
@@ -185,6 +180,42 @@ namespace Assets.Scripts.Game
                 BottomScore = bottomScore,
                 ID = index
             };
+        }
+        
+        public bool CompareDominoes(int playerSelectedDominoId, int otherDominoId)
+        {
+            var trackDomino = GetDominoByID(otherDominoId);
+            var selectedDomino = GetDominoByID(playerSelectedDominoId);
+
+            // take into account flipped track dominoes
+            var trackScoreToCompare = trackDomino.Flipped ? trackDomino.BottomScore : trackDomino.TopScore;
+
+            // TODO: fix this after the domino knows if it wants to be flipped
+            //return trackScoreToCompare == selectedDomino.BottomScore
+            //|| trackScoreToCompare == selectedDomino.TopScore;
+            return trackDomino.TopScore == selectedDomino.BottomScore
+                   || trackDomino.BottomScore == selectedDomino.TopScore
+                   || trackDomino.TopScore == selectedDomino.TopScore
+                   || trackDomino.BottomScore == selectedDomino.BottomScore;
+        }
+    
+        /// <summary>
+        /// Always use TopScore of an unflipped playerDomino domino and the BottomScore of an unflipped destination.
+        /// </summary>
+        /// <param name="playerDomino">The player's selected domino from their hand.</param>
+        /// <param name="destinationDomino">Another domino.</param>
+        /// <returns></returns>
+        public bool IsDominoFlipNeeded(DominoEntity playerDomino, DominoEntity destinationDomino)
+        {
+            // bottom score by default
+            var destinationScore = destinationDomino.Flipped
+                ? destinationDomino.TopScore : destinationDomino.BottomScore;
+
+
+            var playerScore = playerDomino.Flipped
+                ? playerDomino.BottomScore : playerDomino.TopScore;
+
+            return destinationScore != playerScore;
         }
 
         public void UpdateStationToPlayerTurnStation(ulong clientId)

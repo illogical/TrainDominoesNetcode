@@ -318,13 +318,22 @@ public class GameSession : NetworkBehaviour
                 return;
             }
 
+            int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
+            
+            // compare the selected domino to the engine domino
+            if (!gameplayManager.ServerCompareDominoToEngine(selectedDominoId))
+            {
+                // selected domino does not match the engine domino 
+                return;
+            }
+
+            gameplayManager.FlipDominoIfNeeded(selectedDominoId, gameplayManager.DominoTracker.GetEngineDominoID());
             // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
             var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
             gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.SelectedDomino.Value,
                 playerTurnStation.Tracks.Count);
             gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerAddedTrack();
-
-            int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
+            
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
             JsonContainer stationContainer = new JsonContainer(playerTurnStation);
@@ -349,16 +358,23 @@ public class GameSession : NetworkBehaviour
             }
 
             // track domino was clicked
-
-            // TODO: compare the domino to the last domino on the track
-
-            var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
+            
+            int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
+            Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
             int trackIndex = playerTurnStation.GetTrackIndexByDominoId(dominoId).Value;
+            var trackDominoId = playerTurnStation.GetTrackByIndex(trackIndex).GetEndDominoId();
+
+            // compare the domino to the last domino on the track
+            if (!gameplayManager.ServerCompareDominoToTrackDomino(selectedDominoId, trackDominoId))
+            {
+                // selected domino does not match the domino at the end of the selected/clicked track
+                return;
+            }
+            
+            gameplayManager.FlipDominoIfNeeded(selectedDominoId, trackDominoId);
             gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.SelectedDomino.Value,
                 trackIndex);
             gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerMadeMove();
-            
-            int selectedDominoId = gameplayManager.DominoTracker.SelectedDomino.Value;
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
             // get the track index and pass it to the client to move the domino to the track

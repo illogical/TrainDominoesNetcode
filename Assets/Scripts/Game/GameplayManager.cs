@@ -21,11 +21,12 @@ public class GameplayManager : MonoBehaviour
 
     public event EventHandler<int> DominoClicked;
     public event EventHandler<int> PlayerDominoSelected;
-    public event EventHandler<int> EngineDominoSelected;
-    public event EventHandler<int> TrackDominoSelected;
+    public event EventHandler<int> EngineDominoSelected; 
+    public event EventHandler<int> TrackDominoSelected; // pass selected dominoId
     public event EventHandler<ulong> PlayerTurnStarted;
     public event EventHandler<int> PlayerAddedDomino; // pass selected dominoId
     public event EventHandler<int> PlayerAddedTrack; // pass selected dominoId
+    public event EventHandler<int> PlayerReversedMove; // pass selected dominoId
     public event EventHandler<ulong> PlayerHasWonRound;
     public event EventHandler<ulong> PlayerHasWonGame;
     public event EventHandler PlayerTurnEnded;
@@ -46,6 +47,7 @@ public class GameplayManager : MonoBehaviour
     internal void EndPlayerTurn() => PlayerTurnEnded?.Invoke(this, EventArgs.Empty);
     internal void StartAwaitingTurn() => AwaitTurn?.Invoke(this, EventArgs.Empty);
     internal void SetAllPlayersReadyForNextRound() => AllPlayersReadyForNextRound?.Invoke(this, EventArgs.Empty);
+    internal void PlayerHasReversedMove(int returnedDominoId) => PlayerReversedMove?.Invoke(this, returnedDominoId);
     internal void PlayerWonRound(ulong winnerClientId) => PlayerHasWonRound?.Invoke(this, winnerClientId);
     internal void PlayerWonGame(ulong winnerClientId) => PlayerHasWonGame?.Invoke(this, winnerClientId);
 

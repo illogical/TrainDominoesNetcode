@@ -172,6 +172,12 @@ namespace Assets.Scripts.Game
             }
         }
 
+        public void ReturnDomino(ulong clientId, int dominoId)
+        {
+            GetTurnStationByClientId(clientId).RemoveDominoFromTrack(dominoId);
+            AddPlayerDomino(clientId, dominoId);
+        }
+
         private DominoEntity createDomino(int topScore, int bottomScore, int index)
         {
             return new DominoEntity()

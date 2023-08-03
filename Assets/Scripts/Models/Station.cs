@@ -158,5 +158,21 @@ namespace Assets.Scripts.Models
             }
             return clonedTracks;
         }
+
+        /// <summary>
+        /// Removes a domino from its track and will remove the track if it is empty.
+        /// </summary>
+        /// <param name="dominoId">Domino being returned to the player</param>
+        public void RemoveDominoFromTrack(int dominoId)
+        {
+            var affectedTrack = GetTrackByDominoId(dominoId);
+            affectedTrack.DominoIds.Remove(dominoId);
+            
+            if(affectedTrack.DominoIds.Count == 0)
+            {
+                // This is an empty track so remove it
+                Tracks.Remove(affectedTrack);
+            }
+        }
     }
 }

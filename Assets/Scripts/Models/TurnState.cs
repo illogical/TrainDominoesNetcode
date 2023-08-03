@@ -5,8 +5,8 @@
         public bool HasMadeMove { get; private set; }
         public bool HasLaidFirstTrack { get; private set; }
         public bool HasPlayerAddedTrack { get; private set; }
+        public int? PlayedDominoId { get; private set; }
 
-        
         public TurnState()
         {
             HasLaidFirstTrack = false;
@@ -17,18 +17,20 @@
         {
             HasMadeMove = false;
             HasPlayerAddedTrack = false;
+            PlayedDominoId = null;
         }
 
-        public void PlayerAddedTrack()
+        public void PlayerAddedTrack(int affectedDominoId)
         {
             HasLaidFirstTrack = true;
             HasPlayerAddedTrack = true;
-            PlayerMadeMove();
+            PlayerMadeMove(affectedDominoId);
         }
     
-        public void PlayerMadeMove()
+        public void PlayerMadeMove(int affectedDominoId)
         {
             HasMadeMove = true;
+            PlayedDominoId = affectedDominoId;
         }
     }
 }

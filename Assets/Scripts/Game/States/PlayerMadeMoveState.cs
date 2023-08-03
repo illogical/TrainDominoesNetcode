@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Assets.Scripts.Game.States
 {
@@ -14,6 +15,7 @@ namespace Assets.Scripts.Game.States
             base.EnterState();
             ctx.GameplayManager.InputManager.DominoClicked += InputManager_DominoClicked;
             ctx.GameplayManager.InputManager.EndTurnClicked += InputManager_EndTurnClicked;
+            ctx.GameplayManager.PlayerReversedMove += GameplayManager_PlayerReversedMove;
 
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
@@ -23,7 +25,8 @@ namespace Assets.Scripts.Game.States
         {
             ctx.GameplayManager.InputManager.DominoClicked -= InputManager_DominoClicked;
             ctx.GameplayManager.InputManager.EndTurnClicked -= InputManager_EndTurnClicked;
-            
+            ctx.GameplayManager.PlayerReversedMove -= GameplayManager_PlayerReversedMove;
+
             base.LeaveState();
         }
 
@@ -33,7 +36,12 @@ namespace Assets.Scripts.Game.States
         
             // the server decides which type of domino was clicked
             //ctx.GameplayManager.SoundManager.PlayRandomClickSound();
-            //ctx.GameSession.SelectDominoServerRpc(dominoId);
+            ctx.GameSession.SelectDominoServerRpc(dominoId);
+        }
+        
+        private void GameplayManager_PlayerReversedMove(object sender, int returnedDominoId)
+        {
+            Debug.Log("PlayerReversedMove");
         }
     
         private void InputManager_EndTurnClicked(object sender, EventArgs e)

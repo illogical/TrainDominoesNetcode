@@ -42,7 +42,7 @@ namespace Assets.Scripts.Game.States
         private void GameplayManager_AllPlayersReadyForNextRound(object sender, EventArgs e)
         {
             ctx.GameplayManager.DominoTracker.Reset();
-            ctx.GameplayManager.TurnManager.Reset();
+            ctx.GameplayManager.TurnManager.ResetForNextRound();
 
             // TODO: Ideally animate dominoes leaving then destroy them
             // destroy all meshes

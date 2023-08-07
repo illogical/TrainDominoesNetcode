@@ -8,7 +8,7 @@ public class TurnManager
     private int _currentTurn;
 
     private List<ulong> _allPlayers = new List<ulong>();  // these are in the order that they ended the group turn
-    private Dictionary<ulong, TurnState> _playerTurnStatuses;
+    private Dictionary<ulong, TurnStatus> _playerTurnStatuses;
     private bool _isGroupTurn = true;
     private ulong? _roundWinnerClientId;
     private ulong? _gameWinnerClientId;
@@ -16,7 +16,7 @@ public class TurnManager
     public TurnManager()
     {
         _currentTurn = 0;
-        _playerTurnStatuses = new Dictionary<ulong, TurnState>();
+        _playerTurnStatuses = new Dictionary<ulong, TurnStatus>();
 
         ResetPlayerTurnStates();
     }
@@ -30,7 +30,7 @@ public class TurnManager
 
         if (!_playerTurnStatuses.ContainsKey(clientId))
         {
-            _playerTurnStatuses.Add(clientId, new TurnState());
+            _playerTurnStatuses.Add(clientId, new TurnStatus());
         }
     }
     
@@ -63,22 +63,27 @@ public class TurnManager
         _currentTurn++;
     }
 
-    public TurnState GetPlayerTurnStatus(ulong clientId)
-    {
-        if (!_playerTurnStatuses.ContainsKey(clientId))
-        {
-            _playerTurnStatuses.Add(clientId, new TurnState());
-        }
-        
-        return _playerTurnStatuses[clientId];
-    }
-
-    public void Reset()
+    public void ResetForNextRound()
     {
         _currentTurn = 0;
         _roundWinnerClientId = null;
         _isGroupTurn = true;
         _playerTurnStatuses.Clear();
+    }
+    
+    public void ResetTurn(ulong clientId)
+    {
+        _playerTurnStatuses[clientId].ResetTurnStatus();
+    }
+    
+    public TurnStatus GetPlayerTurnStatus(ulong clientId)
+    {
+        if (!_playerTurnStatuses.ContainsKey(clientId))
+        {
+            _playerTurnStatuses.Add(clientId, new TurnStatus());
+        }
+        
+        return _playerTurnStatuses[clientId];
     }
 
     public void SetRoundWinner(ulong clientId) => _roundWinnerClientId = clientId;
@@ -86,7 +91,6 @@ public class TurnManager
     
     public void SetGameWinner(ulong clientId) => _gameWinnerClientId = clientId;
     public ulong? GetGameWinnerClientId() => _gameWinnerClientId;
-    public TurnState GetPlayerTurnState(ulong clientId) => _playerTurnStatuses[clientId];
     public ulong? CurrentPlayerId => _allPlayers[CurrentTurn];
     public int CurrentTurn => _currentTurn % _allPlayers.Count;
     public bool IsPlayerCurrentTurn(ulong clientId) => CurrentPlayerId == clientId;

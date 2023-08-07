@@ -219,7 +219,17 @@ public class LayoutManager : MonoBehaviour
         // fly in and rotate
         StartCoroutine(SlideAndRotateToCenterThenAddToBottom(playerDominoes, incomingDominoId, () => Debug.Log("Intro animation complete")));
     }
-
+    
+    public void ReturnDominoToPlayer(Dictionary<int, Transform> playerDominoes, int incomingDominoId)
+    {
+        // TODO: lift domino from track (closer to camera)
+        // TODO: move horizontally to its final x position
+        // TODO: slide vertically back into the hand
+        // TODO: make space in the hand for the domino to return to
+        
+        // rotate then fly in
+        StartCoroutine(SlideAndRotateToCenterThenAddToBottom(playerDominoes, incomingDominoId, () => Debug.Log("Return domino animation complete")));
+    }
 
     private IEnumerator SlideAndRotateToCenterThenAddToBottom(Dictionary<int, Transform> playerDominoes, int incomingDominoId, Action afterComplete = null)
     {

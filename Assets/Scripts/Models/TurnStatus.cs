@@ -1,13 +1,13 @@
 ﻿namespace Assets.Scripts.Models
 {
-    public class TurnState
+    public class TurnStatus
     {
         public bool HasMadeMove { get; private set; }
         public bool HasLaidFirstTrack { get; private set; }
         public bool HasPlayerAddedTrack { get; private set; }
         public int? PlayedDominoId { get; private set; }
 
-        public TurnState()
+        public TurnStatus()
         {
             HasLaidFirstTrack = false;
             ResetTurnStatus();

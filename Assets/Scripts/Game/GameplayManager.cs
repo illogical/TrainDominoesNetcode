@@ -224,6 +224,23 @@ public class GameplayManager : MonoBehaviour
         StartCoroutine(layoutManager.AddDominoAndUpdateTrackPositions(currentObj.transform, tracksWithDominoIds,
             meshManager, trackIndex, trackSlideDuration));
     }
+    
+    public void ClientRemoveDominoFromTrack(int returnedDominoId, int[] playerDominoes,
+        List<List<int>> tracksWithDominoIds)
+    {
+        // TODO: new animation that is a reverse of adding a domino to a track
+        
+        float trackSlideDuration = 0.3f;
+        GameObject currentObj = meshManager.GetDominoMeshById(returnedDominoId);
+
+        var dominoEntities = DominoTracker.GetDominoesByIDs(playerDominoes);
+        var playerDominoMeshes = meshManager.GetDominoMeshesByIds(dominoEntities);
+        
+        // TODO: update track positions
+        
+        // TODO: need the official list of player dominoes for the client to provide them here
+        layoutManager.ReturnDominoToPlayer(playerDominoMeshes, returnedDominoId);
+    }
 
     public bool ServerCompareDominoToEngine(int dominoId)
     {

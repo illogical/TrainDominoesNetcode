@@ -283,13 +283,13 @@ public class GameSession : NetworkBehaviour
             }
             
             // player might want to undo their selection by clicking on the domino that the player had added
-            TurnState turnState = gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId);
-            if (turnState.PlayedDominoId.HasValue && turnState.PlayedDominoId.Value == dominoId)
+            TurnStatus turnStatus = gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId);
+            if (turnStatus.PlayedDominoId.HasValue && turnStatus.PlayedDominoId.Value == dominoId)
             {
                 // player wants to undo their move and try something else
-                UndoMoveClientRpc(dominoId, SendToClientSender(serverRpcParams));
+                UndoMoveServerRpc(dominoId);
                 gameplayManager.DominoTracker.ReturnDomino(senderClientId, dominoId);
-                turnState.ResetTurnStatus();
+                turnStatus.ResetTurnStatus();
 
                 return;
             }
@@ -358,7 +358,7 @@ public class GameSession : NetworkBehaviour
             }
 
             // TODO: check train status for this track. DominoManager is likely currently tracking it
-            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnState(winnerClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(winnerClientId)
+            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnStatus(winnerClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(winnerClientId)
             
             Track track = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId).GetTrackByDominoId(dominoId);
             if (track.PlayerId != null && track.PlayerId != senderClientId)
@@ -422,12 +422,32 @@ public class GameSession : NetworkBehaviour
         gameplayManager.ClientAddSelectedDominoToTrack(selectedDominoId, trackIndex,
             tracksWithDominoIds.GetDeserializedTrackDominoIds());
     }
+    
+    [ServerRpc(RequireOwnership = false)]
+    public void UndoMoveServerRpc(int returnedDominoId, ServerRpcParams serverRpcParams = default)
+    {
+        ulong senderClientId = serverRpcParams.Receive.SenderClientId;
+        gameplayManager.DominoTracker.ReturnDomino(senderClientId, returnedDominoId);
+        gameplayManager.TurnManager.ResetTurn(senderClientId);
+
+        List<int> playerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId);
+        //JsonContainer playerDominoContainer = new JsonContainer(playerDominoes);
+        
+        Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
+        JsonContainer stationContainer = new JsonContainer(playerTurnStation);
+        
+        // TODO: need the updated station to pass to the client to trigger the animation
+
+        UndoMoveClientRpc(returnedDominoId, playerDominoes.ToArray(), stationContainer, SendToClientSender(serverRpcParams));
+    }
 
     [ClientRpc]
-    private void UndoMoveClientRpc(int requestedDominoId, ClientRpcParams clientRpcParams = default)
+    private void UndoMoveClientRpc(int requestedDominoId, int[] playerDominoIds, JsonContainer tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
     {
         // TODO: Animation to put the domino back in the player's hand
-        // TODO: clientrpc to play new animation (ideally in the state machine
+        //tracksWithDominoIds.GetDeserializedTrackDominoIds();
+        gameplayManager.ClientRemoveDominoFromTrack(requestedDominoId, playerDominoIds, tracksWithDominoIds.GetDeserializedTrackDominoIds());
+        
         gameplayManager.PlayerHasReversedMove(requestedDominoId);
     }
 
@@ -502,7 +522,7 @@ public class GameSession : NetworkBehaviour
     [ServerRpc]
     private void PrepareForNewRoundServerRpc()
     {
-        gameplayManager.TurnManager.Reset();
+        gameplayManager.TurnManager.ResetForNextRound();
         gameplayManager.DominoTracker.Reset();
         gameplayManager.GetNewEngineDomino();
         gameplayManager.RoundManager.StartNewRound();
@@ -550,4 +570,5 @@ public class GameSession : NetworkBehaviour
 
         // TODO: handle player removal (this list is also tracked on the DominoPlayer object)
     }
+
 }

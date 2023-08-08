@@ -5,6 +5,7 @@ using JetBrains.Annotations;
 
 namespace Assets.Scripts.Models
 {
+    [Serializable]
     public class Station
     {
         // a station has 8 tracks

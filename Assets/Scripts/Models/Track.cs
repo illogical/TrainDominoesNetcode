@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Assets.Scripts.Models
 {
+    [Serializable]
     public class Track
     {
         public ulong? PlayerId { get; set; }  // each player gets only 1 track. When null then anyone can use this track
@@ -21,8 +22,7 @@ namespace Assets.Scripts.Models
         
         public Track(int dominoId, ulong? owner = null, bool hasTrain = false)
         {
-            DominoIds = new List<int>();
-            DominoIds.Add(dominoId);
+            DominoIds = new List<int> { dominoId };
 
             PlayerId = owner;
             HasTrain = hasTrain;
@@ -33,8 +33,8 @@ namespace Assets.Scripts.Models
             DominoIds.Add(dominoId);
         }
 
+        public bool IsAvailable() => HasTrain == false && !PlayerId.HasValue;
         public bool ContainsDomino(int dominoId) => DominoIds.Contains(dominoId);
-
         public int GetEndDominoId() => DominoIds[DominoIds.Count - 1];
     }
 }

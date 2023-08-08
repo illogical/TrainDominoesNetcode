@@ -2,7 +2,9 @@ using Assets.Scripts.Game.States;
 using Assets.Scripts.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Assets.Scripts.Game;
+using Newtonsoft.Json;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -288,9 +290,6 @@ public class GameSession : NetworkBehaviour
             {
                 // player wants to undo their move and try something else
                 UndoMoveServerRpc(dominoId);
-                gameplayManager.DominoTracker.ReturnDomino(senderClientId, dominoId);
-                turnStatus.ResetTurnStatus();
-
                 return;
             }
 
@@ -423,31 +422,39 @@ public class GameSession : NetworkBehaviour
             tracksWithDominoIds.GetDeserializedTrackDominoIds());
     }
     
-    [ServerRpc(RequireOwnership = false)]
+    [ServerRpc]
     public void UndoMoveServerRpc(int returnedDominoId, ServerRpcParams serverRpcParams = default)
     {
         ulong senderClientId = serverRpcParams.Receive.SenderClientId;
         gameplayManager.DominoTracker.ReturnDomino(senderClientId, returnedDominoId);
         gameplayManager.TurnManager.ResetTurn(senderClientId);
 
-        List<int> playerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId);
-        //JsonContainer playerDominoContainer = new JsonContainer(playerDominoes);
-        
         Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
-        JsonContainer stationContainer = new JsonContainer(playerTurnStation);
+        List<int> playerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId);
+        PlayedDominoes  playedDominoes = new PlayedDominoes(
+            playerDominoes.ToArray(), 
+            playerTurnStation);
+        //JsonContainer playerDominoContainer = new JsonContainer(playerDominoes);
+
+        byte[] playedDominoesDTO = new NetworkSerializer<PlayedDominoes>().Serialize(playedDominoes);
         
         // TODO: need the updated station to pass to the client to trigger the animation
 
-        UndoMoveClientRpc(returnedDominoId, playerDominoes.ToArray(), stationContainer, SendToClientSender(serverRpcParams));
+        UndoMoveClientRpc(returnedDominoId, playedDominoesDTO, SendToClientSender(serverRpcParams));
     }
 
     [ClientRpc]
-    private void UndoMoveClientRpc(int requestedDominoId, int[] playerDominoIds, JsonContainer tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
+    //private void UndoMoveClientRpc(int requestedDominoId, int[] playerDominoIds, JsonContainer tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
+
+    private void UndoMoveClientRpc(int requestedDominoId, byte[] playedDominoes, ClientRpcParams clientRpcParams = default)
     {
-        // TODO: Animation to put the domino back in the player's hand
-        //tracksWithDominoIds.GetDeserializedTrackDominoIds();
-        gameplayManager.ClientRemoveDominoFromTrack(requestedDominoId, playerDominoIds, tracksWithDominoIds.GetDeserializedTrackDominoIds());
+        // TODO: easier serialization of player dominoes and TurnStation (created a JsonGenericContainer to try out)
+        // TODO: based on idea for breaking up more logic into the state machine:
+        //     update 
         
+        // TODO: Animation to put the domino back in the player's hand
+        PlayedDominoes playedDominoesDTO = new NetworkSerializer<PlayedDominoes>().Deserialize(playedDominoes);
+        gameplayManager.ClientRemoveDominoFromTrack(requestedDominoId, playedDominoesDTO.PlayerDominoIds, playedDominoesDTO.Station);
         gameplayManager.PlayerHasReversedMove(requestedDominoId);
     }
 

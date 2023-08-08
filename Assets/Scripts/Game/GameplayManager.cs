@@ -2,6 +2,7 @@ using Assets.Scripts.Game;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Assets.Scripts.Models;
 using UnityEngine;
 
 public class GameplayManager : MonoBehaviour
@@ -226,7 +227,7 @@ public class GameplayManager : MonoBehaviour
     }
     
     public void ClientRemoveDominoFromTrack(int returnedDominoId, int[] playerDominoes,
-        List<List<int>> tracksWithDominoIds)
+        Station station)
     {
         // TODO: new animation that is a reverse of adding a domino to a track
         

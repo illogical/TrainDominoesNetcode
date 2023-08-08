@@ -228,7 +228,7 @@ public class LayoutManager : MonoBehaviour
         // TODO: make space in the hand for the domino to return to
         
         // rotate then fly in
-        StartCoroutine(SlideAndRotateToCenterThenAddToBottom(playerDominoes, incomingDominoId, () => Debug.Log("Return domino animation complete")));
+        StartCoroutine(SlideAndRotateToCenterThenReturnToBottom(playerDominoes, incomingDominoId, () => Debug.Log("Return domino animation complete")));
     }
 
     private IEnumerator SlideAndRotateToCenterThenAddToBottom(Dictionary<int, Transform> playerDominoes, int incomingDominoId, Action afterComplete = null)
@@ -253,6 +253,38 @@ public class LayoutManager : MonoBehaviour
                 SelectionEase
                 )
             );
+
+        yield return new WaitForSeconds(showDuration);
+
+        yield return StartCoroutine(UpdateHorizontalPositionsWithDepth(playerDominoes, incomingDominoId, depth * 0.9f));
+
+        if (afterComplete != null)
+        {
+            afterComplete();
+        }
+    }
+    
+    private IEnumerator SlideAndRotateToCenterThenReturnToBottom(Dictionary<int, Transform> playerDominoes, int incomingDominoId, Action afterComplete = null)
+    {
+        float showDuration = 0.25f; // seconds that the box is displayed in the center before moving into its bottom position
+        float beginAnimationDelay = 0f;   // delay before beginning this animation
+        float rotationDelay = 0.2f;        // additional delay before rotation animation begins
+        float slideAnimationDuration = 0.25f;
+        float rotationAnimationDuration = 0.15f;
+        float depth = -0.015f; // z position
+
+        var newDominoTransform = playerDominoes[incomingDominoId];
+
+        StartCoroutine(SlideToPosition(newDominoTransform, new Vector3(0, 0, depth), slideAnimationDuration, beginAnimationDelay));
+        yield return StartCoroutine(
+            AnimationHelper.RotateOverSeconds(
+                newDominoTransform.transform,
+                Quaternion.Euler(-90, 0, 180),
+                rotationAnimationDuration,
+                beginAnimationDelay + rotationDelay,
+                SelectionEase
+            )
+        );
 
         yield return new WaitForSeconds(showDuration);
 

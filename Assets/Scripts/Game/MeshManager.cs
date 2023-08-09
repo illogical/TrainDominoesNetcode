@@ -2,6 +2,7 @@ using Assets.Scripts.Game;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class MeshManager : MonoBehaviour
@@ -24,7 +25,18 @@ public class MeshManager : MonoBehaviour
         return dominoObjects[id];
     }
 
-    public Dictionary<int, Transform> GetDominoMeshesByIds(DominoEntity[] dominoEntities)
+    public Dictionary<int, Transform> GetDominoTransformsByIds(int[] dominoIds)
+    {
+        var dominoTransforms = new Dictionary<int, Transform>();
+        foreach (int domino in dominoIds)
+        {
+            dominoTransforms.Add(domino, GetDominoMeshById(domino).transform);
+        }
+
+        return dominoTransforms;
+    }
+
+    public Dictionary<int, Transform> GetDominoMeshesByEntities(DominoEntity[] dominoEntities)
     {
         var playerDominoes = new Dictionary<int, Transform>();
         foreach (var domino in dominoEntities)

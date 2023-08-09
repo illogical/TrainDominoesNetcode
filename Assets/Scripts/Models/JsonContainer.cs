@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using Unity.Netcode;
 
 namespace Assets.Scripts.Models
@@ -18,7 +14,7 @@ namespace Assets.Scripts.Models
 
         public JsonContainer(Station station)
         {
-            Json = Newtonsoft.Json.JsonConvert.SerializeObject(station.GetDominoIdByTracks());
+            Json = Newtonsoft.Json.JsonConvert.SerializeObject(station.GetDominoIdsByTracks());
         }
 
         public JsonContainer(List<List<int>> trackDominoIds)

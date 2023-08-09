@@ -90,16 +90,24 @@ namespace Assets.Scripts.Models
             return null;
         }
 
-        public List<List<int>> GetDominoIdByTracks()
+        public List<List<int>> GetDominoIdsByTracks()
         {
             var tracks = new List<List<int>>();
-
             foreach (var track in Tracks)
             {
                 tracks.Add(track.DominoIds);
             }
-
             return tracks;
+        }
+
+        public List<int> GetAllStationDominoIds()
+        {
+            var allDominoes = new List<int>();
+            foreach (var track in Tracks)
+            {
+                allDominoes.AddRange(track.DominoIds);
+            }
+            return allDominoes;
         }
 
         public Track GetTrackByDominoId(int dominoId)

@@ -169,7 +169,7 @@ public class GameplayManager : MonoBehaviour
 
     public void ClientDisplayPlayerDominoes(int[] dominoIds, int newDominoId)
     {
-        var meshes = meshManager.GetDominoMeshesByIds(DominoTracker.GetDominoesByIDs(dominoIds));
+        var meshes = meshManager.GetDominoMeshesByEntities(DominoTracker.GetDominoesByIDs(dominoIds));
 
         layoutManager.AddNewDominoForPlayer(meshes, newDominoId);
     }
@@ -229,18 +229,16 @@ public class GameplayManager : MonoBehaviour
     public void ClientRemoveDominoFromTrack(int returnedDominoId, int[] playerDominoes,
         Station station)
     {
-        // TODO: new animation that is a reverse of adding a domino to a track
-        
-        float trackSlideDuration = 0.3f;
-        GameObject currentObj = meshManager.GetDominoMeshById(returnedDominoId);
-
-        var dominoEntities = DominoTracker.GetDominoesByIDs(playerDominoes);
-        var playerDominoMeshes = meshManager.GetDominoMeshesByIds(dominoEntities);
+        var playerDominoIds = DominoTracker.GetDominoesByIDs(playerDominoes);
+        var playerDominoMeshes = meshManager.GetDominoMeshesByEntities(playerDominoIds);
         
         // TODO: update track positions
+        List<List<int>> trackDominoIds = station.GetDominoIdsByTracks();
+        var trackDominoMeshes = meshManager.GetDominoTransformsByIds(station.GetAllStationDominoIds().ToArray());
         
         // TODO: need the official list of player dominoes for the client to provide them here
         layoutManager.ReturnDominoToPlayer(playerDominoMeshes, returnedDominoId);
+        layoutManager.UpdateStationPositions(trackDominoIds, trackDominoMeshes);
     }
 
     public bool ServerCompareDominoToEngine(int dominoId)

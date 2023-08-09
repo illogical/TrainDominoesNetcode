@@ -41,12 +41,6 @@ namespace Assets.Scripts.Game.States
         
         private void GameplayManager_PlayerReversedMove(object sender, int returnedDominoId)
         {
-            Debug.Log("PlayerReversedMove");
-            
-            // TODO: a new animation needs to be the reverse of adding a domino to a track
-            // TODO: the server will need to provide the new station layout so this will need called from the ServerRpc
-            //          ctx.GameplayManager.ClientRemoveDominoFromTrack(returnedDominoId);
-            
             // server should have already reset this player's turn on the server
             // animation was triggered by the server calling a ClientRpc
             

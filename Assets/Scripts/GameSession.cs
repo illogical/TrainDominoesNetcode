@@ -292,11 +292,11 @@ public class GameSession : NetworkBehaviour
                 UndoMoveServerRpc(dominoId);
                 return;
             }
-
-            if (gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).HasMadeMove)
-            {
-                return;
-            }
+        }
+        
+        if (gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).HasMadeMove)
+        {
+            return;
         }
 
         // decide if this was a player domino, station domino, or engine domino
@@ -350,12 +350,6 @@ public class GameSession : NetworkBehaviour
         }
         else
         {
-            if (!selectedDominoId.HasValue)
-            {
-                Debug.Log("A track has already been added.");
-                return;
-            }
-
             // TODO: check train status for this track. DominoManager is likely currently tracking it
             // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnStatus(winnerClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(winnerClientId)
             
@@ -370,6 +364,22 @@ public class GameSession : NetworkBehaviour
             Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
             int trackIndex = playerTurnStation.GetTrackIndexByDominoId(dominoId).Value;
             var trackDominoId = playerTurnStation.GetTrackByIndex(trackIndex).GetEndDominoId();
+
+            if (gameplayManager.TurnManager.IsGroupTurn && !selectedDominoId.HasValue)
+            {
+                // group turn and the player clicked a track domino
+            
+                // make sure it was the last domino that was clicked
+                if (dominoId == gameplayManager
+                        .DominoTracker
+                        .GetTurnStationByClientId(senderClientId)
+                        .GetTrackByDominoId(dominoId)
+                        .GetEndDominoId())
+                {
+                    UndoMoveServerRpc(dominoId);
+                }
+                return;
+            }
 
             // compare the domino to the last domino on the track
             if (!gameplayManager.ServerCompareDominoToTrackDomino(selectedDominoId.Value, trackDominoId))
@@ -387,7 +397,7 @@ public class GameSession : NetworkBehaviour
             // get the track index and pass it to the client to move the domino to the track
             JsonContainer stationContainer = new JsonContainer(playerTurnStation);
             SelectTrackDominoClientRpc(selectedDominoId.Value, trackIndex, stationContainer,
-                SendToClientSender(serverRpcParams));
+            SendToClientSender(serverRpcParams));
         }
     }
 

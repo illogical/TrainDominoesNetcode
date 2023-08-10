@@ -292,13 +292,13 @@ public class GameSession : NetworkBehaviour
                 UndoMoveServerRpc(dominoId);
                 return;
             }
+                    
+            if (gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).HasMadeMove)
+            {
+                return;
+            }
         }
         
-        if (gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).HasMadeMove)
-        {
-            return;
-        }
-
         // decide if this was a player domino, station domino, or engine domino
         if (gameplayManager.DominoTracker.IsPlayerDomino(senderClientId, dominoId))
         {
@@ -336,7 +336,9 @@ public class GameSession : NetworkBehaviour
                 return;
             }
 
-            gameplayManager.FlipDominoIfNeeded(selectedDominoId.Value, gameplayManager.DominoTracker.GetEngineDominoID());
+            bool flipped = gameplayManager.FlipDominoIfNeeded(selectedDominoId.Value,
+                gameplayManager.DominoTracker.GetEngineDominoID());
+            
             // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
             var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
             gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.SelectedDomino.Value,
@@ -346,7 +348,7 @@ public class GameSession : NetworkBehaviour
             gameplayManager.DominoTracker.SetSelectedDomino(null);
 
             JsonContainer stationContainer = new JsonContainer(playerTurnStation);
-            SelectEngineDominoClientRpc(selectedDominoId.Value, stationContainer, SendToClientSender(serverRpcParams));
+            SelectEngineDominoClientRpc(selectedDominoId.Value, flipped, stationContainer, SendToClientSender(serverRpcParams));
         }
         else
         {
@@ -360,45 +362,54 @@ public class GameSession : NetworkBehaviour
                 return;
             }
 
-            // track domino was clicked
-            Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
-            int trackIndex = playerTurnStation.GetTrackIndexByDominoId(dominoId).Value;
-            var trackDominoId = playerTurnStation.GetTrackByIndex(trackIndex).GetEndDominoId();
-
-            if (gameplayManager.TurnManager.IsGroupTurn && !selectedDominoId.HasValue)
-            {
-                // group turn and the player clicked a track domino
-            
-                // make sure it was the last domino that was clicked
-                if (dominoId == gameplayManager
-                        .DominoTracker
-                        .GetTurnStationByClientId(senderClientId)
-                        .GetTrackByDominoId(dominoId)
-                        .GetEndDominoId())
-                {
-                    UndoMoveServerRpc(dominoId);
-                }
-                return;
-            }
-
-            // compare the domino to the last domino on the track
-            if (!gameplayManager.ServerCompareDominoToTrackDomino(selectedDominoId.Value, trackDominoId))
-            {
-                // selected domino does not match the domino at the end of the selected/clicked track
-                return;
-            }
-            
-            gameplayManager.FlipDominoIfNeeded(selectedDominoId.Value, trackDominoId);
-            gameplayManager.DominoTracker.PlayDomino(senderClientId, selectedDominoId.Value,
-                trackIndex);
-            gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerMadeMove(selectedDominoId.Value);
-            gameplayManager.DominoTracker.SetSelectedDomino(null);
-
-            // get the track index and pass it to the client to move the domino to the track
-            JsonContainer stationContainer = new JsonContainer(playerTurnStation);
-            SelectTrackDominoClientRpc(selectedDominoId.Value, trackIndex, stationContainer,
-            SendToClientSender(serverRpcParams));
+            SelectTrackDominoServerRpc(senderClientId, dominoId, serverRpcParams);
         }
+    }
+
+    [ServerRpc]
+    private void SelectTrackDominoServerRpc(ulong senderClientId, int clickedDomino, ServerRpcParams serverRpcParams)
+    {
+        // track domino was clicked
+        Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
+        int trackIndex = playerTurnStation.GetTrackIndexByDominoId(clickedDomino).Value;
+        var trackDominoId = playerTurnStation.GetTrackByIndex(trackIndex).GetEndDominoId();
+        int? selectedDominoId = gameplayManager.DominoTracker.SelectedDomino;
+
+        if (gameplayManager.TurnManager.IsGroupTurn && !selectedDominoId.HasValue)
+        {
+            // group turn and the player clicked a track domino
+            
+            // make sure it was the last domino that was clicked
+            if (clickedDomino == gameplayManager
+                    .DominoTracker
+                    .GetTurnStationByClientId(senderClientId)
+                    .GetTrackByDominoId(clickedDomino)
+                    .GetEndDominoId())
+            {
+                UndoMoveServerRpc(clickedDomino);
+            }
+            return;
+        }
+
+        // compare the domino to the last domino on the track
+        if (!gameplayManager.ServerCompareDominoToTrackDomino(selectedDominoId.Value, trackDominoId))
+        {
+            // selected domino does not match the domino at the end of the selected/clicked track
+            return;
+        }
+
+        bool flipped = gameplayManager.FlipDominoIfNeeded(selectedDominoId.Value, clickedDomino);
+        Debug.Log($"Flipped={flipped}");
+        
+        gameplayManager.DominoTracker.PlayDomino(senderClientId, selectedDominoId.Value,
+            trackIndex);
+        gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerMadeMove(selectedDominoId.Value);
+        gameplayManager.DominoTracker.SetSelectedDomino(null);
+
+        // get the track index and pass it to the client to move the domino to the track
+        JsonContainer stationContainer = new JsonContainer(playerTurnStation);
+        SelectTrackDominoClientRpc(selectedDominoId.Value, flipped, trackIndex, stationContainer,
+            SendToClientSender(serverRpcParams));
     }
 
 
@@ -413,22 +424,22 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void SelectEngineDominoClientRpc(int selectedDominoId, JsonContainer tracksWithDominoIds,
+    private void SelectEngineDominoClientRpc(int selectedDominoId, bool isFlipped, JsonContainer tracksWithDominoIds,
         ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Engine domino clicked");
 
-        gameplayManager.ClientAddSelectedToNewTrack(selectedDominoId,
+        gameplayManager.ClientAddSelectedToNewTrack(selectedDominoId, isFlipped,
             tracksWithDominoIds.GetDeserializedTrackDominoIds());
     }
 
     [ClientRpc]
-    private void SelectTrackDominoClientRpc(int selectedDominoId, int trackIndex, JsonContainer tracksWithDominoIds,
+    private void SelectTrackDominoClientRpc(int selectedDominoId, bool isFlipped, int trackIndex, JsonContainer tracksWithDominoIds,
         ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Track domino clicked");
 
-        gameplayManager.ClientAddSelectedDominoToTrack(selectedDominoId, trackIndex,
+        gameplayManager.ClientAddSelectedDominoToTrack(selectedDominoId, isFlipped, trackIndex,
             tracksWithDominoIds.GetDeserializedTrackDominoIds());
     }
     
@@ -574,7 +585,7 @@ public class GameSession : NetworkBehaviour
     
     // TODO: private void AllPlayersReadyForNewGameServerRpc()
 
-    private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams) => new ClientRpcParams
+    private ClientRpcParams SendToClientSender(ServerRpcParams serverRpcParams = default) => new ClientRpcParams
         { Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId } } };
 
     private ClientRpcParams SendToClient(ulong targetClientId) => new ClientRpcParams

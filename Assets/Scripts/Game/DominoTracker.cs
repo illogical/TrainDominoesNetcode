@@ -214,9 +214,17 @@ namespace Assets.Scripts.Game
         public bool IsDominoFlipNeeded(DominoEntity playerDomino, DominoEntity destinationDomino)
         {
             // bottom score by default
+            
+            // needed when in dev mode
+            if (!CompareDominoes(playerDomino.ID, destinationDomino.ID))
+            {
+                // neither side matches so don't bother flipping
+                return false;
+            }
+            
+            // destination domino could be flipped as well
             var destinationScore = destinationDomino.Flipped
                 ? destinationDomino.TopScore : destinationDomino.BottomScore;
-
 
             var playerScore = playerDomino.Flipped
                 ? playerDomino.BottomScore : playerDomino.TopScore;

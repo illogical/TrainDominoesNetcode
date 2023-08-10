@@ -132,19 +132,20 @@ public class GameplayManager : MonoBehaviour
         return DominoTracker.GetEngineDomino();
     }
 
-    public void FlipDominoIfNeeded(int dominoId, int destinationDominoId)
+    public bool FlipDominoIfNeeded(int dominoId, int destinationDominoId)
     {
         DominoEntity selectedDominoInfo = DominoTracker.GetDominoByID(dominoId);
         DominoEntity engineDominoInfo = DominoTracker.GetDominoByID(destinationDominoId);
-        
-        if (!DominoTracker.IsDominoFlipNeeded(selectedDominoInfo, engineDominoInfo))
-        {
-            // no need to flip
-            return;
-        }
 
-        // TODO: Flip animation
-        selectedDominoInfo.Flipped = true;
+        bool isFlipped = DominoTracker.IsDominoFlipNeeded(selectedDominoInfo, engineDominoInfo);
+        selectedDominoInfo.Flipped = isFlipped;
+        return isFlipped;
+    }
+
+    internal void ClientFlipDominoMesh(int dominoId, bool isFlipped)
+    {
+        DominoEntity selectedDominoInfo = DominoTracker.GetDominoByID(dominoId);
+        selectedDominoInfo.Flipped = isFlipped;
         meshManager.UpdateDomino(selectedDominoInfo);
     }
 
@@ -198,7 +199,7 @@ public class GameplayManager : MonoBehaviour
         }
     }
 
-    public void ClientAddSelectedToNewTrack(int selectedDominoId, List<List<int>> tracksWithDomininoIds)
+    public void ClientAddSelectedToNewTrack(int selectedDominoId, bool isFlipped, List<List<int>> tracksWithDomininoIds)
     {
         float trackSlideDuration = 0.3f;
         GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
@@ -208,16 +209,20 @@ public class GameplayManager : MonoBehaviour
         PlayerAddedDomino?.Invoke(this, selectedDominoId);
         PlayerAddedTrack?.Invoke(this, selectedDominoId);
 
+        ClientFlipDominoMesh(selectedDominoId, isFlipped);
+
         // move empties to move the lines and animate the selected box moving to the track
         StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, selectedDominoId,
             tracksWithDomininoIds, meshManager, trackSlideDuration));
     }
 
-    public void ClientAddSelectedDominoToTrack(int selectedDominoId, int trackIndex,
+    public void ClientAddSelectedDominoToTrack(int selectedDominoId, bool isFlipped, int trackIndex,
         List<List<int>> tracksWithDominoIds)
     {
         float trackSlideDuration = 0.3f;
         GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
+        // TODO: flip domino here
+        ClientFlipDominoMesh(selectedDominoId, isFlipped);
         
         PlayerAddedDomino?.Invoke(this, selectedDominoId);
 

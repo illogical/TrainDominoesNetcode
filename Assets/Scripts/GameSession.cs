@@ -2,9 +2,7 @@ using Assets.Scripts.Game.States;
 using Assets.Scripts.Models;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Assets.Scripts.Game;
-using Newtonsoft.Json;
+using Assets.Scripts.Models.DTO;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -126,7 +124,7 @@ public class GameSession : NetworkBehaviour
         }
         else
         {
-            EndPlayerTurnServerRpc(serverRpcParams);
+            EndIndividualTurnServerRpc(serverRpcParams);
         }
     }
 
@@ -176,10 +174,12 @@ public class GameSession : NetworkBehaviour
             // now sync main station back to all players' TurnStation
             gameplayManager.DominoTracker.SyncMainStationWithPlayerTurnStations();
             
-
-            JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
+            TurnEndDTO turnEndDto = new TurnEndDTO(gameplayManager.DominoTracker.Station,
+                gameplayManager.DominoTracker.GetDominoFlipStatuses(gameplayManager.DominoTracker.Station),
+                addedDominoes);
+            byte[] turnEndBytes = new NetworkSerializer<TurnEndDTO>().Serialize(turnEndDto);
             // TODO: may want to handle animations for new tracks differently?
-            UpdateStationsClientRpc(stationContainer, addedDominoes);
+            UpdateStationsClientRpc(turnEndBytes);
 
             gameplayManager.TurnManager.CompleteGroupTurn(); // only the server knows this right now
             
@@ -201,7 +201,7 @@ public class GameSession : NetworkBehaviour
     }
 
     [ServerRpc]
-    private void EndPlayerTurnServerRpc(ServerRpcParams serverRpcParams = default)
+    private void EndIndividualTurnServerRpc(ServerRpcParams serverRpcParams = default)
     {
         ulong senderClientId = serverRpcParams.Receive.SenderClientId;
             
@@ -231,9 +231,13 @@ public class GameSession : NetworkBehaviour
             EndRoundServerRpc(senderClientId);
             return;
         }
-
-        JsonContainer stationContainer = new JsonContainer(gameplayManager.DominoTracker.Station);
-        UpdateStationsClientRpc(stationContainer, addedDominoes);
+        
+        TurnEndDTO turnEndDto = new TurnEndDTO(gameplayManager.DominoTracker.Station,
+            gameplayManager.DominoTracker.GetDominoFlipStatuses(gameplayManager.DominoTracker.Station),
+            addedDominoes);
+        byte[] turnEndBytes = new NetworkSerializer<TurnEndDTO>().Serialize(turnEndDto);
+        
+        UpdateStationsClientRpc(turnEndBytes);
 
         EndTurnClientRpc(SendToClientSender(serverRpcParams));
 
@@ -250,14 +254,16 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void UpdateStationsClientRpc(JsonContainer tracksWithDominoIds, int[] addDominoIds)
+    private void UpdateStationsClientRpc(byte[] turnEndDto)
     {
-        Debug.Log($"Recieved {addDominoIds.Length} new dominoes");
-
+        // Sync all clients with the main station
+        
         // TODO: will need to ignore this on the player whose turn it is. Server may want to specifically send to all other clients
 
+        TurnEndDTO turnEnd = new NetworkSerializer<TurnEndDTO>().Deserialize(turnEndDto);
+
         // update MeshManager placement based upon the newly added dominoes
-        gameplayManager.ClientUpdateStation(tracksWithDominoIds.GetDeserializedTrackDominoIds(), addDominoIds);
+        gameplayManager.ClientUpdateStation(turnEnd.MainStation.GetDominoIdsByTracks(), turnEnd.AddedDominoes);
     }
 
     [ClientRpc]
@@ -275,6 +281,7 @@ public class GameSession : NetworkBehaviour
         int? selectedDominoId = gameplayManager.DominoTracker.SelectedDomino;
 
         // TODO: how to break up this logic in the state machine? Trying to stick to client-side logic in the state machine
+        
         // extra validation when this isn't the group turn
         if (!gameplayManager.TurnManager.IsGroupTurn)
         {
@@ -289,7 +296,7 @@ public class GameSession : NetworkBehaviour
             if (turnStatus.PlayedDominoId.HasValue && turnStatus.PlayedDominoId.Value == dominoId)
             {
                 // player wants to undo their move and try something else
-                UndoMoveServerRpc(dominoId);
+                UndoMoveServerRpc(dominoId, serverRpcParams);
                 return;
             }
                     
@@ -315,45 +322,13 @@ public class GameSession : NetworkBehaviour
             }
             
             // player wants to add the selected domino to this track
-            
-            if (gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).HasPlayerAddedTrack)
-            {
-                // a track has already been added this turn
-                return;
-            }
 
-            if (gameplayManager.DominoTracker.Station.Tracks.Count == 8)
-            {
-                // a station is full
-                Debug.Log("Station is full");
-                return;
-            }
-
-            // compare the selected domino to the engine domino
-            if (!gameplayManager.ServerCompareDominoToEngine(selectedDominoId.Value))
-            {
-                // selected domino does not match the engine domino 
-                return;
-            }
-
-            bool flipped = gameplayManager.FlipDominoIfNeeded(selectedDominoId.Value,
-                gameplayManager.DominoTracker.GetEngineDominoID());
-            
-            // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
-            var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
-            gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.SelectedDomino.Value,
-                playerTurnStation.Tracks.Count);
-            gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerAddedTrack(selectedDominoId.Value);
-            
-            gameplayManager.DominoTracker.SetSelectedDomino(null);
-
-            JsonContainer stationContainer = new JsonContainer(playerTurnStation);
-            SelectEngineDominoClientRpc(selectedDominoId.Value, flipped, stationContainer, SendToClientSender(serverRpcParams));
+            SelectEngineDominoServerRpc(senderClientId, serverRpcParams);
         }
         else
         {
             // TODO: check train status for this track. DominoManager is likely currently tracking it
-            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnStatus(winnerClientId).HasLaidFirstTrack or gameplayManager.DominoTracker.Station.GetTrackByNetId(winnerClientId)
+            // TODO: account for !gameplayManager.TurnManager.GetPlayerTurnStatus(winnerClientId).HasLaidFirstTrack
             
             Track track = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId).GetTrackByDominoId(dominoId);
             if (track.PlayerId != null && track.PlayerId != senderClientId)
@@ -362,14 +337,55 @@ public class GameSession : NetworkBehaviour
                 return;
             }
 
+            // track domino was clicked
+            
             SelectTrackDominoServerRpc(senderClientId, dominoId, serverRpcParams);
         }
     }
 
     [ServerRpc]
+    private void SelectEngineDominoServerRpc(ulong senderClientId, ServerRpcParams serverRpcParams)
+    {
+        if (gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).HasPlayerAddedTrack)
+        {
+            // a track has already been added this turn
+            return;
+        }
+
+        if (gameplayManager.DominoTracker.Station.Tracks.Count == 8)
+        {
+            // a station is full
+            Debug.Log("Station is full");
+            return;
+        }
+
+        int? selectedDominoId = gameplayManager.DominoTracker.SelectedDomino;
+        
+        // compare the selected domino to the engine domino
+        if (!gameplayManager.ServerCompareDominoToEngine(selectedDominoId.Value))
+        {
+            // selected domino does not match the engine domino 
+            return;
+        }
+
+        bool flipped = gameplayManager.FlipDominoIfNeeded(selectedDominoId.Value,
+            gameplayManager.DominoTracker.GetEngineDominoID());
+            
+        // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
+        var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
+        gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.SelectedDomino.Value,
+            playerTurnStation.Tracks.Count);
+        gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerAddedTrack(selectedDominoId.Value);
+            
+        gameplayManager.DominoTracker.SetSelectedDomino(null);
+
+        JsonContainer stationContainer = new JsonContainer(playerTurnStation);
+        SelectEngineDominoClientRpc(selectedDominoId.Value, flipped, stationContainer, SendToClientSender(serverRpcParams));
+    }
+
+    [ServerRpc]
     private void SelectTrackDominoServerRpc(ulong senderClientId, int clickedDomino, ServerRpcParams serverRpcParams)
     {
-        // track domino was clicked
         Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
         int trackIndex = playerTurnStation.GetTrackIndexByDominoId(clickedDomino).Value;
         var trackDominoId = playerTurnStation.GetTrackByIndex(trackIndex).GetEndDominoId();
@@ -386,7 +402,7 @@ public class GameSession : NetworkBehaviour
                     .GetTrackByDominoId(clickedDomino)
                     .GetEndDominoId())
             {
-                UndoMoveServerRpc(clickedDomino);
+                UndoMoveServerRpc(clickedDomino, serverRpcParams);
             }
             return;
         }
@@ -444,7 +460,7 @@ public class GameSession : NetworkBehaviour
     }
     
     [ServerRpc]
-    public void UndoMoveServerRpc(int returnedDominoId, ServerRpcParams serverRpcParams = default)
+    public void UndoMoveServerRpc(int returnedDominoId, ServerRpcParams serverRpcParams)
     {
         ulong senderClientId = serverRpcParams.Receive.SenderClientId;
         gameplayManager.DominoTracker.ReturnDomino(senderClientId, returnedDominoId);
@@ -465,15 +481,8 @@ public class GameSession : NetworkBehaviour
     }
 
     [ClientRpc]
-    //private void UndoMoveClientRpc(int requestedDominoId, int[] playerDominoIds, JsonContainer tracksWithDominoIds, ClientRpcParams clientRpcParams = default)
-
     private void UndoMoveClientRpc(int requestedDominoId, byte[] playedDominoes, ClientRpcParams clientRpcParams = default)
     {
-        // TODO: easier serialization of player dominoes and TurnStation (created a JsonGenericContainer to try out)
-        // TODO: based on idea for breaking up more logic into the state machine:
-        //     update 
-        
-        // TODO: Animation to put the domino back in the player's hand
         PlayedDominoes playedDominoesDTO = new NetworkSerializer<PlayedDominoes>().Deserialize(playedDominoes);
         gameplayManager.ClientRemoveDominoFromTrack(requestedDominoId, playedDominoesDTO.PlayerDominoIds, playedDominoesDTO.Station);
         gameplayManager.PlayerHasReversedMove(requestedDominoId);

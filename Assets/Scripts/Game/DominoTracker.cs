@@ -78,6 +78,16 @@ namespace Assets.Scripts.Game
             return _turnStations[clientId];
         }
 
+        public Dictionary<int, bool> GetDominoFlipStatuses(Station station)
+        {
+            var dominoFlipStatuses = new Dictionary<int, bool>();
+            foreach (int dominoId in station.GetAllStationDominoIds())
+            {
+                dominoFlipStatuses.Add(dominoId, GetDominoByID(dominoId).Flipped);
+            }
+            return dominoFlipStatuses;
+        }
+
         /// <summary>
         /// Used for picking up a player's dominoes at the start of a game
         /// </summary>

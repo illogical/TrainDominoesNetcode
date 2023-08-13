@@ -278,7 +278,7 @@ public class GameSession : NetworkBehaviour
     {
         // TODO: the server needs to decide if the domino can be played. Is it a valid domino to play? Is it a valid track to play on?
         ulong senderClientId = serverRpcParams.Receive.SenderClientId;
-        int? selectedDominoId = gameplayManager.DominoTracker.SelectedDomino;
+        int? selectedDominoId = gameplayManager.DominoTracker.GetSelectedDominoId(senderClientId);
 
         // TODO: how to break up this logic in the state machine? Trying to stick to client-side logic in the state machine
         
@@ -310,9 +310,9 @@ public class GameSession : NetworkBehaviour
         if (gameplayManager.DominoTracker.IsPlayerDomino(senderClientId, dominoId))
         {
             // tell client to select the domino
-            SelectPlayerDominoClientRpc(dominoId, gameplayManager.DominoTracker.SelectedDomino ?? -1,
+            SelectPlayerDominoClientRpc(dominoId, gameplayManager.DominoTracker.GetSelectedDominoId(senderClientId) ?? -1,
                 SendToClientSender(serverRpcParams));
-            gameplayManager.ServerSelectPlayerDomino(dominoId);
+            gameplayManager.ServerSelectPlayerDomino(senderClientId, dominoId);
         }
         else if (gameplayManager.DominoTracker.IsEngine(dominoId))
         {
@@ -359,7 +359,7 @@ public class GameSession : NetworkBehaviour
             return;
         }
 
-        int? selectedDominoId = gameplayManager.DominoTracker.SelectedDomino;
+        int? selectedDominoId = gameplayManager.DominoTracker.GetSelectedDominoId(senderClientId);
         
         // compare the selected domino to the engine domino
         if (!gameplayManager.ServerCompareDominoToEngine(selectedDominoId.Value))
@@ -373,11 +373,11 @@ public class GameSession : NetworkBehaviour
             
         // TODO: how is it decided that the domino is played on the engine? Is it the first domino played? Is it the highest double? Is it the highest double that is played first?
         var playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
-        gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.SelectedDomino.Value,
+        gameplayManager.DominoTracker.PlayDomino(senderClientId, gameplayManager.DominoTracker.GetSelectedDominoId(senderClientId).Value,
             playerTurnStation.Tracks.Count);
         gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerAddedTrack(selectedDominoId.Value);
             
-        gameplayManager.DominoTracker.SetSelectedDomino(null);
+        gameplayManager.DominoTracker.SetSelectedDomino(senderClientId, null);
 
         JsonContainer stationContainer = new JsonContainer(playerTurnStation);
         SelectEngineDominoClientRpc(selectedDominoId.Value, flipped, stationContainer, SendToClientSender(serverRpcParams));
@@ -389,7 +389,7 @@ public class GameSession : NetworkBehaviour
         Station playerTurnStation = gameplayManager.DominoTracker.GetTurnStationByClientId(senderClientId);
         int trackIndex = playerTurnStation.GetTrackIndexByDominoId(clickedDomino).Value;
         var trackDominoId = playerTurnStation.GetTrackByIndex(trackIndex).GetEndDominoId();
-        int? selectedDominoId = gameplayManager.DominoTracker.SelectedDomino;
+        int? selectedDominoId = gameplayManager.DominoTracker.GetSelectedDominoId(senderClientId);
 
         if (gameplayManager.TurnManager.IsGroupTurn && !selectedDominoId.HasValue)
         {
@@ -420,7 +420,7 @@ public class GameSession : NetworkBehaviour
         gameplayManager.DominoTracker.PlayDomino(senderClientId, selectedDominoId.Value,
             trackIndex);
         gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerMadeMove(selectedDominoId.Value);
-        gameplayManager.DominoTracker.SetSelectedDomino(null);
+        gameplayManager.DominoTracker.SetSelectedDomino(senderClientId, null);
 
         // get the track index and pass it to the client to move the domino to the track
         JsonContainer stationContainer = new JsonContainer(playerTurnStation);

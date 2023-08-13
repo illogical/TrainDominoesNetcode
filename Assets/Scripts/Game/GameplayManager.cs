@@ -175,27 +175,25 @@ public class GameplayManager : MonoBehaviour
         layoutManager.AddNewDominoForPlayer(meshes, newDominoId);
     }
 
-    public int? GetSelectedDomino() => DominoTracker.SelectedDomino;
-
     internal void ClientCreateAndPlaceEngine(int dominoId)
     {
         GameObject engineDomino = meshManager.CreateEngineDomino(DominoTracker.GetDominoByID(dominoId), Vector3.zero);
         layoutManager.PlaceEngine(engineDomino);
     }
 
-    public void ServerSelectPlayerDomino(int dominoId)
+    public void ServerSelectPlayerDomino(ulong clientId, int dominoId)
     {
-        if (!DominoTracker.SelectedDomino.HasValue)
+        if (!DominoTracker.GetSelectedDominoId(clientId).HasValue)
         {
-            DominoTracker.SetSelectedDomino(dominoId);
+            DominoTracker.SetSelectedDomino(clientId, dominoId);
         }
-        else if (DominoTracker.SelectedDomino == dominoId)
+        else if (DominoTracker.GetSelectedDominoId(clientId) == dominoId)
         {
-            DominoTracker.SetSelectedDomino(null);
+            DominoTracker.SetSelectedDomino(clientId, null);
         }
         else
         {
-            DominoTracker.SetSelectedDomino(dominoId);
+            DominoTracker.SetSelectedDomino(clientId, dominoId);
         }
     }
 

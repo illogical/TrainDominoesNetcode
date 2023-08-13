@@ -7,13 +7,13 @@ namespace Assets.Scripts.Game
 {
     public class DominoTracker
     {
-        public int? SelectedDomino { get; private set; }
         public Dictionary<int, DominoEntity> AllDominoes = new Dictionary<int, DominoEntity>();     // all clients should have this dictionary
         public Station Station { get; private set; }
 
         private Dictionary<ulong, Station> _turnStations;   // track a station for each player and reconcile when the player ends their turn
 
         private PlayerDominoes playerDominoes = new PlayerDominoes();
+        public Dictionary<ulong, int?> _selectedDominoes;
         private List<int> availableDominoes = new List<int>();
         private List<int> engineIndices = new List<int>();
         private int engineIndex = -1;
@@ -23,6 +23,7 @@ namespace Assets.Scripts.Game
         public DominoTracker()
         {
             _turnStations = new Dictionary<ulong, Station>();
+            _selectedDominoes = new Dictionary<ulong, int?>();
         }
 
         /// <summary>
@@ -61,6 +62,7 @@ namespace Assets.Scripts.Game
         }
 
         public DominoEntity GetDominoByID(int dominoId) => AllDominoes[dominoId];
+        public int? GetSelectedDominoId(ulong clientId) => _selectedDominoes.ContainsKey(clientId) ? _selectedDominoes[clientId] : null;
         public DominoEntity GetEngineDomino() => AllDominoes[engineIndices[engineIndex]];
         public int GetEngineDominoID() => engineIndices[engineIndex];
         public void SetEngineIndex(int index) => engineIndex = index;
@@ -112,9 +114,12 @@ namespace Assets.Scripts.Game
             return newDomino.ID;
         }
 
-        public void SetSelectedDomino(int? dominoId)
+        public void SetSelectedDomino(ulong clientId, int? dominoId)
         {
-            SelectedDomino = dominoId;
+            if (!_selectedDominoes.TryAdd(clientId, dominoId))
+            {
+                _selectedDominoes[clientId] = dominoId;
+            }
         }
 
         public void AddPlayerDomino(ulong clientId, int dominoId)
@@ -349,7 +354,7 @@ namespace Assets.Scripts.Game
 
         public void Reset()
         {
-            SelectedDomino = null;
+            _selectedDominoes.Clear();
             Station = new Station();
             _turnStations.Clear();
             playerDominoes.Dominoes.Clear();

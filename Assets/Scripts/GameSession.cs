@@ -262,6 +262,8 @@ public class GameSession : NetworkBehaviour
 
         TurnEndDTO turnEnd = new NetworkSerializer<TurnEndDTO>().Deserialize(turnEndDto);
 
+        // sync the domino flip statuses
+        gameplayManager.ClientUpdateFlipStatuses(turnEnd.DominoFlipInfo);
         // update MeshManager placement based upon the newly added dominoes
         gameplayManager.ClientUpdateStation(turnEnd.MainStation.GetDominoIdsByTracks(), turnEnd.AddedDominoes);
     }

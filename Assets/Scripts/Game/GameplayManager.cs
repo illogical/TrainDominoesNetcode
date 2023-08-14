@@ -284,6 +284,15 @@ public class GameplayManager : MonoBehaviour
 
         layoutManager.UpdateStationPositions(trackDominoIds, ClientGetDominoTransforms(allTrackDominoIds.ToArray()));
     }
+    
+    public void ClientUpdateFlipStatuses(Dictionary<int, bool> turnEndDominoFlipInfo)
+    {
+        foreach (var dominoId in turnEndDominoFlipInfo.Keys)
+        {
+            DominoEntity dominoInfo = DominoTracker.GetDominoByID(dominoId);
+            dominoInfo.Flipped = turnEndDominoFlipInfo[dominoId];
+        }
+    }
 
     public void RoundIsOver(ulong winnerClientId, Dictionary<ulong, int> playerScores,
         Dictionary<ulong, int> playerTotals)

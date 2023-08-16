@@ -36,6 +36,8 @@ public class GameSession : NetworkBehaviour
         gameState = new GameStateContext(this, gameplayManager);
     }
 
+   
+
     public override void OnNetworkSpawn()
     {
         OnPlayerJoined?.Invoke(this, EventArgs.Empty);

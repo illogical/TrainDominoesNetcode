@@ -10,7 +10,7 @@ namespace Assets.Scripts.Models.DTO
         public int SelectedDominoId { get; set; }
         public int TrackIndex { get; set; }
         public bool IsFlipped { get; set; }
-        public List<int> PlayerDominoes { get; set; }
+        public int[] PlayerDominoes { get; set; }
         public Station PlayerTurnStation { get; set; }
     }
 }

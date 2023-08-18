@@ -389,7 +389,7 @@ public class GameSession : NetworkBehaviour
             IsFlipped = flipped,
             PlayerTurnStation = playerTurnStation,
             ClientId = senderClientId,
-            PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId),
+            PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).ToArray(),
             TrackIndex = -1 // new track will be added so ignore this
         };
 
@@ -442,7 +442,7 @@ public class GameSession : NetworkBehaviour
             IsFlipped = flipped,
             PlayerTurnStation = playerTurnStation,
             ClientId = senderClientId,
-            PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId),
+            PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).ToArray(),
             TrackIndex = trackIndex
         };
         
@@ -472,6 +472,7 @@ public class GameSession : NetworkBehaviour
         AddToTrackDTO dto = new NetworkSerializer<AddToTrackDTO>().Deserialize(addToTrackDto);
         gameplayManager.ClientAddSelectedToNewTrack(dto.SelectedDominoId, dto.IsFlipped,
             dto.PlayerTurnStation.GetDominoIdsByTracks());
+        gameplayManager.ClientRearrangePlayerDominoes(dto.PlayerDominoes);
     }
     
     [ClientRpc]
@@ -484,6 +485,7 @@ public class GameSession : NetworkBehaviour
         AddToTrackDTO dto = new NetworkSerializer<AddToTrackDTO>().Deserialize(addToTrackDto);
         gameplayManager.ClientAddSelectedDominoToTrack(dto.SelectedDominoId, dto.IsFlipped, dto.TrackIndex,
             dto.PlayerTurnStation.GetDominoIdsByTracks());
+        gameplayManager.ClientRearrangePlayerDominoes(dto.PlayerDominoes);
     }
     
     [ServerRpc]

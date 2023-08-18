@@ -213,8 +213,14 @@ public class GameplayManager : MonoBehaviour
         ClientFlipDominoMesh(selectedDominoId, isFlipped);
 
         // move empties to move the lines and animate the selected box moving to the track
-        StartCoroutine(layoutManager.AddNewDominoAndUpdateTrackPositions(currentObj.transform, selectedDominoId,
+        StartCoroutine(layoutManager.AddDominoToNewTrackAndUpdateTrackPositions(currentObj.transform, selectedDominoId,
             tracksWithDomininoIds, meshManager, trackSlideDuration));
+    }
+
+    public void ClientRearrangePlayerDominoes(int[] playerDominoIds)
+    {
+        var dominoTransforms = meshManager.GetDominoTransformsByIds(playerDominoIds);
+        StartCoroutine(layoutManager.UpdatePlayerPositions(dominoTransforms));
     }
 
     public void ClientAddSelectedDominoToTrack(int selectedDominoId, bool isFlipped, int trackIndex,
@@ -226,10 +232,9 @@ public class GameplayManager : MonoBehaviour
         ClientFlipDominoMesh(selectedDominoId, isFlipped);
         
         PlayerAddedDomino?.Invoke(this, selectedDominoId);
-
-        // move empties to move the lines and animate the selected box moving to the track
-        StartCoroutine(layoutManager.AddDominoAndUpdateTrackPositions(currentObj.transform, tracksWithDominoIds,
-            meshManager, trackIndex, trackSlideDuration));
+        
+        StartCoroutine(layoutManager.AddDominoToExistingTrack(currentObj.transform, tracksWithDominoIds,
+             trackIndex));
     }
     
     public void ClientRemoveDominoFromTrack(int returnedDominoId, int[] playerDominoes,

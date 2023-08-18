@@ -383,8 +383,18 @@ public class GameSession : NetworkBehaviour
             
         gameplayManager.DominoTracker.SetSelectedDomino(senderClientId, null);
 
-        JsonContainer stationContainer = new JsonContainer(playerTurnStation);
-        SelectEngineDominoClientRpc(selectedDominoId.Value, flipped, stationContainer, SendToClientSender(serverRpcParams));
+        AddToTrackDTO addToTrackDto = new AddToTrackDTO()
+        {
+            SelectedDominoId = selectedDominoId.Value,
+            IsFlipped = flipped,
+            PlayerTurnStation = playerTurnStation,
+            ClientId = senderClientId,
+            PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId),
+            TrackIndex = -1 // new track will be added so ignore this
+        };
+
+        byte[] dto = new NetworkSerializer<AddToTrackDTO>().Serialize(addToTrackDto);
+        SelectEngineDominoClientRpc(dto, SendToClientSender(serverRpcParams));
     }
 
     [ServerRpc]
@@ -426,10 +436,19 @@ public class GameSession : NetworkBehaviour
         gameplayManager.TurnManager.GetPlayerTurnStatus(senderClientId).PlayerMadeMove(selectedDominoId.Value);
         gameplayManager.DominoTracker.SetSelectedDomino(senderClientId, null);
 
+        AddToTrackDTO addToTrackDto = new AddToTrackDTO()
+        {
+            SelectedDominoId = selectedDominoId.Value,
+            IsFlipped = flipped,
+            PlayerTurnStation = playerTurnStation,
+            ClientId = senderClientId,
+            PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId),
+            TrackIndex = trackIndex
+        };
+        
         // get the track index and pass it to the client to move the domino to the track
-        JsonContainer stationContainer = new JsonContainer(playerTurnStation);
-        SelectTrackDominoClientRpc(selectedDominoId.Value, flipped, trackIndex, stationContainer,
-            SendToClientSender(serverRpcParams));
+        byte[] dto = new NetworkSerializer<AddToTrackDTO>().Serialize(addToTrackDto);
+        SelectTrackDominoClientRpc(dto, SendToClientSender(serverRpcParams));
     }
 
 
@@ -442,25 +461,29 @@ public class GameSession : NetworkBehaviour
 
         gameplayManager.ClientSelectPlayerDomino(newlySelectedDominoId, selectedDominoId);
     }
-
+    
     [ClientRpc]
-    private void SelectEngineDominoClientRpc(int selectedDominoId, bool isFlipped, JsonContainer tracksWithDominoIds,
-        ClientRpcParams clientRpcParams = default)
+    private void SelectEngineDominoClientRpc(byte[] addToTrackDto, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Engine domino clicked");
 
-        gameplayManager.ClientAddSelectedToNewTrack(selectedDominoId, isFlipped,
-            tracksWithDominoIds.GetDeserializedTrackDominoIds());
+        // TODO: evenly space player's dominoes. Will need player dominoIds to sync server to client
+        
+        AddToTrackDTO dto = new NetworkSerializer<AddToTrackDTO>().Deserialize(addToTrackDto);
+        gameplayManager.ClientAddSelectedToNewTrack(dto.SelectedDominoId, dto.IsFlipped,
+            dto.PlayerTurnStation.GetDominoIdsByTracks());
     }
-
+    
     [ClientRpc]
-    private void SelectTrackDominoClientRpc(int selectedDominoId, bool isFlipped, int trackIndex, JsonContainer tracksWithDominoIds,
-        ClientRpcParams clientRpcParams = default)
+    private void SelectTrackDominoClientRpc(byte[] addToTrackDto, ClientRpcParams clientRpcParams = default)
     {
         Debug.Log("Track domino clicked");
-
-        gameplayManager.ClientAddSelectedDominoToTrack(selectedDominoId, isFlipped, trackIndex,
-            tracksWithDominoIds.GetDeserializedTrackDominoIds());
+        
+        // TODO: evenly space player's dominoes. Will need player dominoIds to sync server to client      
+        
+        AddToTrackDTO dto = new NetworkSerializer<AddToTrackDTO>().Deserialize(addToTrackDto);
+        gameplayManager.ClientAddSelectedDominoToTrack(dto.SelectedDominoId, dto.IsFlipped, dto.TrackIndex,
+            dto.PlayerTurnStation.GetDominoIdsByTracks());
     }
     
     [ServerRpc]

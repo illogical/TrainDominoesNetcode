@@ -11,6 +11,8 @@ using UnityEngine;
 public class RelayTester : NetworkBehaviour
 {
     private const int MAX_PLAYERS = 8;
+    
+    // TODO: Don't forget to set the NetworkManager's Transport to Relay Unity Transport
 
     private void Start()
     {

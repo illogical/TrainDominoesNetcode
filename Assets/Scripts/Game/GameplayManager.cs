@@ -185,14 +185,17 @@ public class GameplayManager : MonoBehaviour
     {
         if (!DominoTracker.GetSelectedDominoId(clientId).HasValue)
         {
+            // first time a domino is being selected
             DominoTracker.SetSelectedDomino(clientId, dominoId);
         }
         else if (DominoTracker.GetSelectedDominoId(clientId) == dominoId)
         {
+            // same domino was clicked again. Deselect it.
             DominoTracker.SetSelectedDomino(clientId, null);
         }
         else
         {
+            // new domino is being selected
             DominoTracker.SetSelectedDomino(clientId, dominoId);
         }
     }

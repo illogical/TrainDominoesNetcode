@@ -8,9 +8,10 @@ using UnityEngine;
 public class MeshManager : MonoBehaviour
 {
     [SerializeField] private GameObject playerDominoPrefab = null;
-    [SerializeField] private GameObject tableDominoPrefab = null;
+    [SerializeField] private TrackEndMessage trackEndMessagePrefab = null;
 
-    private Dictionary<int, GameObject> dominoObjects = new Dictionary<int, GameObject>();   // TODO: now both clients know about each other's dominoes. Feels unsure.
+    private Dictionary<int, GameObject> dominoObjects = new Dictionary<int, GameObject>();
+    private Dictionary<ulong, TrackEndMessage> trackEndMessages = new Dictionary<ulong, TrackEndMessage>();
     private Quaternion dominoRotation = Quaternion.Euler(new Vector3(-90, 0, 180));
 
     private int engineDominoId = -1;
@@ -89,6 +90,18 @@ public class MeshManager : MonoBehaviour
 
         return newDomino;
     }
+
+    public GameObject SetTrackMessageForPlayer(ulong clientId, Vector3 position, string text)
+    {
+        if (!trackEndMessages.ContainsKey(clientId))
+        {
+            trackEndMessages.Add(clientId, Instantiate(trackEndMessagePrefab, position, dominoRotation));
+        }
+        trackEndMessages[clientId].SetText(text);
+
+        return trackEndMessages[clientId].gameObject;
+    }
+    public GameObject GetTrackMessageForPlayer(ulong clientId) => trackEndMessages[clientId].gameObject;
     
     public void UpdateDomino(DominoEntity dominoInfo)
     {

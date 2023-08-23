@@ -471,7 +471,7 @@ public class GameSession : NetworkBehaviour
         
         AddToTrackDTO dto = new NetworkSerializer<AddToTrackDTO>().Deserialize(addToTrackDto);
         gameplayManager.ClientAddSelectedToNewTrack(dto.SelectedDominoId, dto.IsFlipped,
-            dto.PlayerTurnStation.GetDominoIdsByTracks());
+            dto.PlayerTurnStation.GetDominoIdsByTracks(), dto.ClientId.ToString());
         gameplayManager.ClientRearrangePlayerDominoes(dto.PlayerDominoes);
     }
     

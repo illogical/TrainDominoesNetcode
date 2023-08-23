@@ -1,8 +1,5 @@
-using Assets.Scripts.Game;
-using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using JetBrains.Annotations;
 using UnityEngine;
 
 public class MeshManager : MonoBehaviour
@@ -11,7 +8,7 @@ public class MeshManager : MonoBehaviour
     [SerializeField] private TrackEndMessage trackEndMessagePrefab = null;
 
     private Dictionary<int, GameObject> dominoObjects = new Dictionary<int, GameObject>();
-    private Dictionary<ulong, TrackEndMessage> trackEndMessages = new Dictionary<ulong, TrackEndMessage>();
+    private Dictionary<int, TrackEndMessage> trackEndMessages = new Dictionary<int, TrackEndMessage>(); // stored per trackIndex
     private Quaternion dominoRotation = Quaternion.Euler(new Vector3(-90, 0, 180));
 
     private int engineDominoId = -1;
@@ -91,17 +88,24 @@ public class MeshManager : MonoBehaviour
         return newDomino;
     }
 
-    public GameObject SetTrackMessageForPlayer(ulong clientId, Vector3 position, string text)
+    public GameObject SetTrackMessageForTrack(int trackIndex, Vector3 initialPosition, string text)
     {
-        if (!trackEndMessages.ContainsKey(clientId))
+        // TODO: call this when a track is created. Use GetTrackMessageByTrackIndex to move it when a new domino is added
+        // TODO: handle when a domino is removed from a track
+        // TODO: handle destroying (or inactivates) the message if a track is removed
+        
+        if (!trackEndMessages.ContainsKey(trackIndex))
         {
-            trackEndMessages.Add(clientId, Instantiate(trackEndMessagePrefab, position, dominoRotation));
+            trackEndMessages.Add(trackIndex, Instantiate(trackEndMessagePrefab, initialPosition, Quaternion.identity));
         }
-        trackEndMessages[clientId].SetText(text);
+        trackEndMessages[trackIndex].SetText(text);
+        trackEndMessages[trackIndex].gameObject.SetActive(true); // in case it had been hidden
 
-        return trackEndMessages[clientId].gameObject;
+        return trackEndMessages[trackIndex].gameObject;
     }
-    public GameObject GetTrackMessageForPlayer(ulong clientId) => trackEndMessages[clientId].gameObject;
+    
+    [CanBeNull] public GameObject GetTrackMessageByTrackIndex(int trackIndex) => 
+        trackEndMessages.ContainsKey(trackIndex) ? trackEndMessages[trackIndex].gameObject : null;
     
     public void UpdateDomino(DominoEntity dominoInfo)
     {

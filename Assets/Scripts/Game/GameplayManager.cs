@@ -200,21 +200,24 @@ public class GameplayManager : MonoBehaviour
         }
     }
 
-    public void ClientAddSelectedToNewTrack(int selectedDominoId, bool isFlipped, List<List<int>> tracksWithDomininoIds)
+    public void ClientAddSelectedToNewTrack(int selectedDominoId, bool isFlipped, List<List<int>> tracksWithDominoIds, string playerName)
     {
         float trackSlideDuration = 0.3f;
         GameObject currentObj = meshManager.GetDominoMeshById(selectedDominoId);
 
-        Debug.Log(tracksWithDomininoIds.Count + " tracks");
+        Debug.Log(tracksWithDominoIds.Count + " tracks");
         
         PlayerAddedDomino?.Invoke(this, selectedDominoId);
         PlayerAddedTrack?.Invoke(this, selectedDominoId);
 
         ClientFlipDominoMesh(selectedDominoId, isFlipped);
 
+        int trackIndex = tracksWithDominoIds.Count - 1;
+        int lastDominoId = tracksWithDominoIds[trackIndex][tracksWithDominoIds[trackIndex].Count - 1];
+
         // move empties to move the lines and animate the selected box moving to the track
         StartCoroutine(layoutManager.AddDominoToNewTrackAndUpdateTrackPositions(currentObj.transform, selectedDominoId,
-            tracksWithDomininoIds, meshManager, trackSlideDuration));
+            tracksWithDominoIds, meshManager, trackSlideDuration, () => AddTrackPlayerMessage(trackIndex, lastDominoId, playerName)));
     }
 
     public void ClientRearrangePlayerDominoes(int[] playerDominoIds)
@@ -232,9 +235,49 @@ public class GameplayManager : MonoBehaviour
         ClientFlipDominoMesh(selectedDominoId, isFlipped);
         
         PlayerAddedDomino?.Invoke(this, selectedDominoId);
+
+        int lastDominoId = tracksWithDominoIds[trackIndex][tracksWithDominoIds[trackIndex].Count - 1];
         
         StartCoroutine(layoutManager.AddDominoToExistingTrack(currentObj.transform, tracksWithDominoIds,
-             trackIndex));
+             trackIndex, () => UpdateTrackPlayerMessage(trackIndex, lastDominoId)));
+    }
+    
+    private void AddTrackPlayerMessage(int trackIndex, int lastDominoId, string playerName)
+    {
+        // TODO: how do I know which track is owned by this player?? Server would need to tell us because the DominoTracker.Station on the client can't be trusted
+        GameObject lastDomino = meshManager.GetDominoMeshById(lastDominoId);
+        Vector3 trackMessagePosition = layoutManager.GetTrackMessagePosition(lastDomino.transform);
+
+        GameObject trackMessageObject = meshManager.GetTrackMessageByTrackIndex(trackIndex);
+        if (trackMessageObject is null)
+        {
+            meshManager.SetTrackMessageForTrack(trackIndex, trackMessagePosition, $"Player {playerName}");
+        }
+        else
+        {
+            // TODO: animate text slide to position (ideally overshoot and park itself would be neat)
+            layoutManager.MoveTrackMessageToEndOfTrack(trackMessageObject, trackMessagePosition);
+        }
+        
+    }
+
+    private void UpdateTrackPlayerMessage(int trackIndex, int lastDominoId)
+    {
+        // TODO: how do I know which track is owned by this player?? Server would need to tell us because the DominoTracker.Station on the client can't be trusted
+        GameObject lastDomino = meshManager.GetDominoMeshById(lastDominoId);
+        Vector3 trackMessagePosition = layoutManager.GetTrackMessagePosition(lastDomino.transform);
+
+        GameObject trackMessageObject = meshManager.GetTrackMessageByTrackIndex(trackIndex);
+        if (trackMessageObject is null)
+        {
+            Debug.LogError("This track's message is unexpectedly missing.");
+        }
+        else
+        {
+            // TODO: animate text slide to position (ideally overshoot and park itself would be neat)
+            layoutManager.MoveTrackMessageToEndOfTrack(trackMessageObject, trackMessagePosition);
+        }
+        
     }
     
     public void ClientRemoveDominoFromTrack(int returnedDominoId, int[] playerDominoes,

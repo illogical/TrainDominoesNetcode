@@ -359,4 +359,19 @@ public class LayoutManager : MonoBehaviour
 
         yield return _waiter.GetWait(staggerDeloy);
     }
+
+    public Vector3 GetTrackMessagePosition(Transform lastDomino)
+    {
+        float margin = 0.003f;
+        var objectDimensions = PositionHelper.GetObjectDimensions(DominoPrefab);
+        float messageLeftPosition = lastDomino.position.x + (objectDimensions.y / 2) + margin;     // domino is rotated onto its side
+        return new Vector3(messageLeftPosition, lastDomino.position.y, lastDomino.position.z);
+    }
+
+    public void MoveTrackMessageToEndOfTrack(GameObject trackMessageObject, Vector3 position)
+    {
+        float duration = 0.1f;
+        var mover = trackMessageObject.GetComponent<Mover>();
+        StartCoroutine(mover.MoveOverSeconds(position, DominoRotateToTrack));
+    }
 }

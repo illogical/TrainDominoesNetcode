@@ -2,6 +2,7 @@ using Assets.Scripts.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Assets.Scripts.Models;
 using UnityEngine;
 
 public class LayoutManager : MonoBehaviour
@@ -360,18 +361,39 @@ public class LayoutManager : MonoBehaviour
         yield return _waiter.GetWait(staggerDeloy);
     }
 
-    public Vector3 GetTrackMessagePosition(Transform lastDomino)
+    public Vector3 GetTrackLabelPosition(Vector3 lastDominoPosition)
     {
         float margin = 0.003f;
         var objectDimensions = PositionHelper.GetObjectDimensions(DominoPrefab);
-        float messageLeftPosition = lastDomino.position.x + (objectDimensions.y / 2) + margin;     // domino is rotated onto its side
-        return new Vector3(messageLeftPosition, lastDomino.position.y, lastDomino.position.z);
+        float messageLeftPosition = lastDominoPosition.x + (objectDimensions.y / 2) + margin;     // domino is rotated onto its side
+        return new Vector3(messageLeftPosition, lastDominoPosition.y, lastDominoPosition.z);
     }
 
-    public void MoveTrackMessageToEndOfTrack(GameObject trackMessageObject, Vector3 position)
+    public void MoveTrackLabelToEndOfTrack(GameObject trackMessageObject, Vector3 position)
     {
         float duration = 0.1f;
         var mover = trackMessageObject.GetComponent<Mover>();
         StartCoroutine(mover.MoveOverSeconds(position, DominoRotateToTrack));
+    }
+
+    public void UpdateTrackLabelPositions(Station station, Dictionary<int, GameObject> trackMessageObjectsByTrackIndex, Dictionary<int, Vector3> trackLabelDestinationPositionsByTrackIndex)
+    {
+        for (int i = 0; i < station.Tracks.Count; i++)
+        {
+            if (!trackMessageObjectsByTrackIndex.ContainsKey(i))
+            {
+                // no message for this track
+                continue;
+            }
+            if (!trackLabelDestinationPositionsByTrackIndex.ContainsKey(i))
+            {
+                // caller did not include all of the message destinations
+                Debug.LogError($"trackLabelDestinationPositionsByTrackIndex is missing a position for track {i}");
+                continue;
+            }
+            
+            MoveTrackLabelToEndOfTrack(trackMessageObjectsByTrackIndex[i], trackLabelDestinationPositionsByTrackIndex[i]);
+        }
+        
     }
 }

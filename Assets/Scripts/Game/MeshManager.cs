@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Assets.Scripts.Game;
 using JetBrains.Annotations;
 using UnityEngine;
 
@@ -8,7 +9,7 @@ public class MeshManager : MonoBehaviour
     [SerializeField] private TrackEndMessage trackEndMessagePrefab = null;
 
     private Dictionary<int, GameObject> dominoObjects = new Dictionary<int, GameObject>();
-    private Dictionary<int, TrackEndMessage> trackEndMessages = new Dictionary<int, TrackEndMessage>(); // stored per trackIndex
+    private Dictionary<int, TrackEndMessage> trackEndLabels = new Dictionary<int, TrackEndMessage>(); // stored per trackIndex
     private Quaternion dominoRotation = Quaternion.Euler(new Vector3(-90, 0, 180));
 
     private int engineDominoId = -1;
@@ -88,24 +89,23 @@ public class MeshManager : MonoBehaviour
         return newDomino;
     }
 
-    public GameObject SetTrackMessageForTrack(int trackIndex, Vector3 initialPosition, string text)
+    public GameObject SetTrackLabelForTrack(int trackIndex, Vector3 initialPosition, string text)
     {
-        // TODO: call this when a track is created. Use GetTrackMessageByTrackIndex to move it when a new domino is added
         // TODO: handle when a domino is removed from a track
         // TODO: handle destroying (or inactivates) the message if a track is removed
         
-        if (!trackEndMessages.ContainsKey(trackIndex))
+        if (!trackEndLabels.ContainsKey(trackIndex))
         {
-            trackEndMessages.Add(trackIndex, Instantiate(trackEndMessagePrefab, initialPosition, Quaternion.identity));
+            trackEndLabels.Add(trackIndex, Instantiate(trackEndMessagePrefab, initialPosition, Quaternion.identity));
         }
-        trackEndMessages[trackIndex].SetText(text);
-        trackEndMessages[trackIndex].gameObject.SetActive(true); // in case it had been hidden
+        trackEndLabels[trackIndex].SetText(text);
+        trackEndLabels[trackIndex].gameObject.SetActive(true); // in case it had been hidden
 
-        return trackEndMessages[trackIndex].gameObject;
+        return trackEndLabels[trackIndex].gameObject;
     }
     
-    [CanBeNull] public GameObject GetTrackMessageByTrackIndex(int trackIndex) => 
-        trackEndMessages.ContainsKey(trackIndex) ? trackEndMessages[trackIndex].gameObject : null;
+    [CanBeNull] public GameObject GetTrackLabelByTrackIndex(int trackIndex) => 
+        trackEndLabels.ContainsKey(trackIndex) ? trackEndLabels[trackIndex].gameObject : null;
     
     public void UpdateDomino(DominoEntity dominoInfo)
     {

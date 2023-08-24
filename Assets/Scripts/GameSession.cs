@@ -178,7 +178,7 @@ public class GameSession : NetworkBehaviour
             
             TurnEndDTO turnEndDto = new TurnEndDTO(gameplayManager.DominoTracker.Station,
                 gameplayManager.DominoTracker.GetDominoFlipStatuses(gameplayManager.DominoTracker.Station),
-                addedDominoes);
+                addedDominoes, true);
             byte[] turnEndBytes = new NetworkSerializer<TurnEndDTO>().Serialize(turnEndDto);
             // TODO: may want to handle animations for new tracks differently?
             UpdateStationsClientRpc(turnEndBytes);
@@ -236,7 +236,7 @@ public class GameSession : NetworkBehaviour
         
         TurnEndDTO turnEndDto = new TurnEndDTO(gameplayManager.DominoTracker.Station,
             gameplayManager.DominoTracker.GetDominoFlipStatuses(gameplayManager.DominoTracker.Station),
-            addedDominoes);
+            addedDominoes, false);
         byte[] turnEndBytes = new NetworkSerializer<TurnEndDTO>().Serialize(turnEndDto);
         
         UpdateStationsClientRpc(turnEndBytes);
@@ -267,7 +267,7 @@ public class GameSession : NetworkBehaviour
         // sync the domino flip statuses
         gameplayManager.ClientUpdateFlipStatuses(turnEnd.DominoFlipInfo);
         // update MeshManager placement based upon the newly added dominoes
-        gameplayManager.ClientUpdateStation(turnEnd.MainStation.GetDominoIdsByTracks(), turnEnd.AddedDominoes);
+        gameplayManager.ClientUpdateStation(turnEnd.MainStation, turnEnd.AddedDominoes);
     }
 
     [ClientRpc]
@@ -387,6 +387,7 @@ public class GameSession : NetworkBehaviour
         {
             SelectedDominoId = selectedDominoId.Value,
             IsFlipped = flipped,
+            IsGroupTurn = gameplayManager.TurnManager.IsGroupTurn,
             PlayerTurnStation = playerTurnStation,
             ClientId = senderClientId,
             PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).ToArray(),
@@ -440,6 +441,7 @@ public class GameSession : NetworkBehaviour
         {
             SelectedDominoId = selectedDominoId.Value,
             IsFlipped = flipped,
+            IsGroupTurn = gameplayManager.TurnManager.IsGroupTurn,
             PlayerTurnStation = playerTurnStation,
             ClientId = senderClientId,
             PlayerDominoes = gameplayManager.DominoTracker.GetPlayerDominoes(senderClientId).ToArray(),
@@ -471,7 +473,7 @@ public class GameSession : NetworkBehaviour
         
         AddToTrackDTO dto = new NetworkSerializer<AddToTrackDTO>().Deserialize(addToTrackDto);
         gameplayManager.ClientAddSelectedToNewTrack(dto.SelectedDominoId, dto.IsFlipped,
-            dto.PlayerTurnStation.GetDominoIdsByTracks(), dto.ClientId.ToString());
+            dto.PlayerTurnStation, dto.IsGroupTurn);
         gameplayManager.ClientRearrangePlayerDominoes(dto.PlayerDominoes);
     }
     
@@ -484,7 +486,7 @@ public class GameSession : NetworkBehaviour
         
         AddToTrackDTO dto = new NetworkSerializer<AddToTrackDTO>().Deserialize(addToTrackDto);
         gameplayManager.ClientAddSelectedDominoToTrack(dto.SelectedDominoId, dto.IsFlipped, dto.TrackIndex,
-            dto.PlayerTurnStation.GetDominoIdsByTracks());
+            dto.PlayerTurnStation, dto.IsGroupTurn);
         gameplayManager.ClientRearrangePlayerDominoes(dto.PlayerDominoes);
     }
     
@@ -521,6 +523,7 @@ public class GameSession : NetworkBehaviour
     private void EndGroupTurnClientRpc(ulong clientIdForTurn)
     {
         Debug.Log("Group turn complete");
+        // TODO: add track labels
         gameplayManager.TurnManager.CompleteGroupTurn(); // sync the clients
 
         if (clientIdForTurn == NetworkManager.Singleton.LocalClientId)

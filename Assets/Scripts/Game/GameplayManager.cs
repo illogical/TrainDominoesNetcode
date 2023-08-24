@@ -261,6 +261,10 @@ public class GameplayManager : MonoBehaviour
         // TODO: need the official list of player dominoes for the client to provide them here
         layoutManager.ReturnDominoToPlayer(playerDominoMeshes, returnedDominoId);
         layoutManager.UpdateStationPositions(trackDominoIds, trackDominoMeshes);
+        
+        // update track label positions
+        ClientUpdateTrackLabels(station);
+        // TODO: Set label inactive when a track is removed. How to know a track was removed?
     }
 
     public bool ServerCompareDominoToEngine(int dominoId)
@@ -307,6 +311,9 @@ public class GameplayManager : MonoBehaviour
 
     private void ClientUpdateTrackLabels(Station station)
     {
+        // TODO: hide all track labels that are not included in this station? (player just removed a track)
+        meshManager.DisableAllTrackLabels();
+        
         Dictionary<int, GameObject> trackLabelObjectsByTrackIndex = new Dictionary<int, GameObject>();
         Dictionary<int, Vector3> tracLabelDestinationPositionsByTrackIndex = new Dictionary<int, Vector3>();
         
@@ -323,6 +330,7 @@ public class GameplayManager : MonoBehaviour
                                             ?? meshManager.SetTrackLabelForTrack(i, destinationPosition,
                                                 $"Player {station.Tracks[i].PlayerId.ToString()}");
 
+            trackMessageObject.gameObject.SetActive(true);
             trackLabelObjectsByTrackIndex.Add(i, trackMessageObject);
             tracLabelDestinationPositionsByTrackIndex.Add(i, destinationPosition);
         }

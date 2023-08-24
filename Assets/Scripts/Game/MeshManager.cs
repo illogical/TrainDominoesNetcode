@@ -6,7 +6,7 @@ using UnityEngine;
 public class MeshManager : MonoBehaviour
 {
     [SerializeField] private GameObject playerDominoPrefab = null;
-    [SerializeField] private TrackEndMessage trackEndMessagePrefab = null;
+    [SerializeField] private GameObject trackEndMessagePrefab = null;
 
     private Dictionary<int, GameObject> dominoObjects = new Dictionary<int, GameObject>();
     private Dictionary<int, TrackEndMessage> trackEndLabels = new Dictionary<int, TrackEndMessage>(); // stored per trackIndex
@@ -96,9 +96,10 @@ public class MeshManager : MonoBehaviour
         
         if (!trackEndLabels.ContainsKey(trackIndex))
         {
-            trackEndLabels.Add(trackIndex, Instantiate(trackEndMessagePrefab, initialPosition, Quaternion.identity));
+            var newObj = Instantiate(trackEndMessagePrefab, initialPosition, Quaternion.identity);
+            trackEndLabels.Add(trackIndex, newObj.GetComponent<TrackEndMessage>());
         }
-        trackEndLabels[trackIndex].SetText(text);
+        trackEndLabels[trackIndex].GetComponent<TrackEndMessage>().SetText(text);
         trackEndLabels[trackIndex].gameObject.SetActive(true); // in case it had been hidden
 
         return trackEndLabels[trackIndex].gameObject;
@@ -106,6 +107,14 @@ public class MeshManager : MonoBehaviour
     
     [CanBeNull] public GameObject GetTrackLabelByTrackIndex(int trackIndex) => 
         trackEndLabels.ContainsKey(trackIndex) ? trackEndLabels[trackIndex].gameObject : null;
+
+    public void DisableAllTrackLabels()
+    {
+        foreach (var trackEndLabelKey in trackEndLabels.Keys)
+        {
+            trackEndLabels[trackEndLabelKey].gameObject.SetActive(false);
+        }
+    }
     
     public void UpdateDomino(DominoEntity dominoInfo)
     {

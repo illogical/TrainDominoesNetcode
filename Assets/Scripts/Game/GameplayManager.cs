@@ -305,8 +305,10 @@ public class GameplayManager : MonoBehaviour
             allTrackDominoIds.AddRange(track.DominoIds);
         }
 
-        layoutManager.UpdateStationPositions(station.GetDominoIdsByTracks(), ClientGetDominoTransforms(allTrackDominoIds.ToArray()));
-        ClientUpdateTrackLabels(station);
+        layoutManager.UpdateStationPositions(station.GetDominoIdsByTracks(), 
+            ClientGetDominoTransforms(allTrackDominoIds.ToArray()), 
+            () => ClientUpdateTrackLabels(station));
+        
     }
 
     private void ClientUpdateTrackLabels(Station station)

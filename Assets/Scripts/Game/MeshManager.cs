@@ -6,7 +6,7 @@ using UnityEngine;
 public class MeshManager : MonoBehaviour
 {
     [SerializeField] private GameObject playerDominoPrefab = null;
-    [SerializeField] private GameObject trackEndMessagePrefab = null;
+    [SerializeField] private TrackEndMessage trackEndMessagePrefab = null;
 
     private Dictionary<int, GameObject> dominoObjects = new Dictionary<int, GameObject>();
     private Dictionary<int, TrackEndMessage> trackEndLabels = new Dictionary<int, TrackEndMessage>(); // stored per trackIndex
@@ -96,10 +96,10 @@ public class MeshManager : MonoBehaviour
         
         if (!trackEndLabels.ContainsKey(trackIndex))
         {
-            var newObj = Instantiate(trackEndMessagePrefab, initialPosition, Quaternion.identity);
+            var newObj = Instantiate(trackEndMessagePrefab.gameObject, initialPosition, Quaternion.identity);
             trackEndLabels.Add(trackIndex, newObj.GetComponent<TrackEndMessage>());
         }
-        trackEndLabels[trackIndex].GetComponent<TrackEndMessage>().SetText(text);
+        trackEndLabels[trackIndex].SetText(text);
         trackEndLabels[trackIndex].gameObject.SetActive(true); // in case it had been hidden
 
         return trackEndLabels[trackIndex].gameObject;

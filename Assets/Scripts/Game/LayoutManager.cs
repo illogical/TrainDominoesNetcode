@@ -337,14 +337,14 @@ public class LayoutManager : MonoBehaviour
         yield return _waiter.GetWait(RearrangePlayerDominoes.Duration);
     }
 
-    public void UpdateStationPositions(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms)
+    public void UpdateStationPositions(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms, Action afterComplete = null)
     {
         // TODO: how to know when a domino is flipped? Might need full DominoEntity here instead of just an ID
 
-        StartCoroutine(MoveDominoesToStation(trackDominoIds, dominoTransforms));
+        StartCoroutine(MoveDominoesToStation(trackDominoIds, dominoTransforms, afterComplete));
     }
 
-    private IEnumerator MoveDominoesToStation(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms)
+    private IEnumerator MoveDominoesToStation(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms, Action afterComplete = null)
     {
         float staggerDeloy = 0.25f;
 
@@ -354,10 +354,10 @@ public class LayoutManager : MonoBehaviour
             {
                 int dominoId = trackDominoIds[trackIndex][dominoIndex];
                 // TODO: slow this animation down (make it configurable)
-                StartCoroutine(AddDominoToTrack(dominoTransforms[dominoId], dominoIndex, trackIndex, trackDominoIds.Count));
+                StartCoroutine(AddDominoToTrack(dominoTransforms[dominoId], dominoIndex, trackIndex, trackDominoIds.Count, afterComplete));
             }
         }
-
+        
         yield return _waiter.GetWait(staggerDeloy);
     }
 

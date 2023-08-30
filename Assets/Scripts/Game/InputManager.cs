@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
@@ -12,6 +13,8 @@ public class InputManager : MonoBehaviour
     public event EventHandler NewGameButtonClicked;
 
     public Camera MainCamera;
+    [Space]
+    public ControlsManager ControlsManager;
     [Space]
     [SerializeField] private Button DrawButton;
     [SerializeField] private Button EndTurnButton;

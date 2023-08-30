@@ -91,7 +91,6 @@ public class MeshManager : MonoBehaviour
 
     public GameObject SetTrackLabelForTrack(int trackIndex, Vector3 initialPosition, string text)
     {
-        // TODO: handle when a domino is removed from a track
         // TODO: handle destroying (or inactivates) the message if a track is removed
         
         if (!trackEndLabels.ContainsKey(trackIndex))

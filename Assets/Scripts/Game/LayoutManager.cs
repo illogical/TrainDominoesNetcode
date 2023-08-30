@@ -339,8 +339,6 @@ public class LayoutManager : MonoBehaviour
 
     public void UpdateStationPositions(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms, Action afterComplete = null)
     {
-        // TODO: how to know when a domino is flipped? Might need full DominoEntity here instead of just an ID
-
         StartCoroutine(MoveDominoesToStation(trackDominoIds, dominoTransforms, afterComplete));
     }
 

@@ -254,17 +254,14 @@ public class GameplayManager : MonoBehaviour
         var playerDominoIds = DominoTracker.GetDominoesByIDs(playerDominoes);
         var playerDominoMeshes = meshManager.GetDominoMeshesByEntities(playerDominoIds);
         
-        // TODO: update track positions
+        // update track positions and return the domino to the player
         List<List<int>> trackDominoIds = station.GetDominoIdsByTracks();
         var trackDominoMeshes = meshManager.GetDominoTransformsByIds(station.GetAllStationDominoIds().ToArray());
-        
-        // TODO: need the official list of player dominoes for the client to provide them here
         layoutManager.ReturnDominoToPlayer(playerDominoMeshes, returnedDominoId);
         layoutManager.UpdateStationPositions(trackDominoIds, trackDominoMeshes);
         
         // update track label positions
         ClientUpdateTrackLabels(station);
-        // TODO: Set label inactive when a track is removed. How to know a track was removed?
     }
 
     public bool ServerCompareDominoToEngine(int dominoId)

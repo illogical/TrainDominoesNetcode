@@ -11,11 +11,19 @@ public class InputManager : MonoBehaviour
     public event EventHandler EndTurnClicked;
     public event EventHandler ReadyButtonClicked;
     public event EventHandler NewGameButtonClicked;
+    public event EventHandler<DominoScrollEventArgs> ScrollOverDomino;
+
+    public class DominoScrollEventArgs : EventArgs
+    {
+        public Vector2 ScrollAmount;
+        public int DominoId;
+    }
 
     public Camera MainCamera;
     [Space]
-    public ControlsManager ControlsManager;
-    [Space]
+    [SerializeField]
+    internal ControlsManager ControlsManager;
+    [Header("UI Buttons")]
     [SerializeField] private Button DrawButton;
     [SerializeField] private Button EndTurnButton;
     [SerializeField] private Button RoundReadyButton;
@@ -30,8 +38,9 @@ public class InputManager : MonoBehaviour
         RoundReadyButton.onClick.AddListener(OnReadyButtonClicked);
         RestartReadyButton.onClick.AddListener(OnReadyButtonClicked);
         NewGameButton.onClick.AddListener(OnNewGameButtonClicked);
-        
         QuitButton.onClick.AddListener(() => Application.Quit());
+        
+        ControlsManager.ScrollAction.performed += ScrollActionOnperformed;
     }
 
     void Update()
@@ -39,15 +48,19 @@ public class InputManager : MonoBehaviour
         GetMouseClick();
     }
 
-    private void OnDrawButtonClicked()
+    private void OnDestroy()
     {
-        DrawButtonClicked?.Invoke(this, EventArgs.Empty);
+        ControlsManager.ScrollAction.performed -= ScrollActionOnperformed;
+    }
+    
+    private void ScrollActionOnperformed(InputAction.CallbackContext obj)
+    {
+        GetScrollTrack(obj.ReadValue<Vector2>());
     }
 
-    private void OnEndTurnButtonClicked()
-    {
-        EndTurnClicked?.Invoke(this, EventArgs.Empty);
-    }
+    private void OnDrawButtonClicked() => DrawButtonClicked?.Invoke(this, EventArgs.Empty);
+    private void OnEndTurnButtonClicked() => EndTurnClicked?.Invoke(this, EventArgs.Empty);
+    private void OnNewGameButtonClicked() => NewGameButtonClicked?.Invoke(this, EventArgs.Empty);
     
     private void OnReadyButtonClicked()
     {
@@ -56,11 +69,6 @@ public class InputManager : MonoBehaviour
         ReadyButtonClicked?.Invoke(this, EventArgs.Empty);
     }
     
-    private void OnNewGameButtonClicked()
-    {
-        NewGameButtonClicked?.Invoke(this, EventArgs.Empty);
-    }
-
     private void GetMouseClick()
     {
         if (!Input.GetMouseButtonDown(0))
@@ -87,6 +95,24 @@ public class InputManager : MonoBehaviour
             Debug.Log($"Domino {id} ({purpose}) was clicked via InputManager");
 
             DominoClicked?.Invoke(this, id);
+        }
+    }
+
+    private void GetScrollTrack(Vector2 scrollAmount)
+    {
+        Ray ray = MainCamera.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit))
+        {
+            var dominoEntity = hit.transform.gameObject.GetComponent<DominoEntityUI>();
+            DominoEntity dominoInfo = dominoEntity.DominoInfo;
+            //if (dominoInfo is not { Purpose: PurposeType.Track })
+            if (dominoInfo == null)
+            {
+                return;
+            }
+            
+            ScrollOverDomino?.Invoke(this, new DominoScrollEventArgs() { ScrollAmount = scrollAmount, DominoId = dominoInfo.ID});
         }
     }
 

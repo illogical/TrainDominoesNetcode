@@ -101,7 +101,7 @@ public class GameplayManager : MonoBehaviour
             {
                 // create the mesh
                 dominoMesh = meshManager.CreatePlayerDominoFromInfo(DominoTracker.GetDominoByID(dominoId),
-                    new Vector3(0, 1, 0), PurposeType.Table);
+                    new Vector3(0, 1, 0), PurposeType.Track);
             }
 
             dominoTransforms.Add(dominoId, dominoMesh.transform);

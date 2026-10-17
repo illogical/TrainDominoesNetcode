@@ -34,7 +34,16 @@ public class RelayTester : NetworkBehaviour
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             Debug.Log($"Join code = {joinCode}");
 
-            RelayServerData relayServerData = new RelayServerData(allocation, "dtls");
+            RelayServerEndpoint endpoint = allocation.ServerEndpoints?.Find(server => server.ConnectionType == "dtls");
+            if (endpoint == null)
+            {
+                Debug.LogError("Cannot create Relay host: the allocation has no DTLS endpoint.");
+                return;
+            }
+
+            RelayServerData relayServerData = new RelayServerData(
+                endpoint.Host, (ushort)endpoint.Port, allocation.AllocationIdBytes,
+                allocation.ConnectionData, allocation.ConnectionData, allocation.Key, isSecure: true);
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
             NetworkManager.StartHost();
 
@@ -53,7 +62,16 @@ public class RelayTester : NetworkBehaviour
             Debug.Log($"Joining with join code {joinCode}");
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
             
-            RelayServerData relayServerData = new RelayServerData(joinAllocation, "dtls");
+            RelayServerEndpoint endpoint = joinAllocation.ServerEndpoints?.Find(server => server.ConnectionType == "dtls");
+            if (endpoint == null)
+            {
+                Debug.LogError("Cannot join Relay: the allocation has no DTLS endpoint.");
+                return;
+            }
+
+            RelayServerData relayServerData = new RelayServerData(
+                endpoint.Host, (ushort)endpoint.Port, joinAllocation.AllocationIdBytes,
+                joinAllocation.ConnectionData, joinAllocation.HostConnectionData, joinAllocation.Key, isSecure: true);
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
             NetworkManager.StartClient();
         }

@@ -1,14 +1,14 @@
 ---
 type: state-review
-status: draft
+status: agreed-integration-pending
 updated: 2026-10-17
 ---
 
 # Player states — Puremco rules mapping
 
-This is the first STATE-001 review artifact. The user selected Puremco rules after withdrawing preferences based on uncertain memory. Use the [rulebook](TRAIN_DOMINOES_RULEBOOK.md) as the behavioral authority and the [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) for implementation. The [project overview](PROJECT_STATE.md) remains a dated record of current code.
+STATE-001 policy/state review was agreed on 2026-10-17. The standalone core now implements the agreed rules; local state integration is pending. The user selected Puremco rules after withdrawing preferences based on uncertain memory. Use the [rulebook](TRAIN_DOMINOES_RULEBOOK.md) as the behavioral authority and the [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) for implementation. The [project overview](PROJECT_STATE.md) remains a dated record of current code.
 
-**Current code was statically inspected; nothing in this document is a successful play-test claim.** Rule-driven class/behavior changes below have not been made. The separately authorized factory/logging infrastructure refactor is implemented; see [debugging and verification](STATE_MACHINE_DEBUGGING.md). Published baseline selection is settled; review the matrix and the rulebook's explicitly labeled app policies before state implementation.
+**Current code was statically inspected; nothing in this document is a successful play-test claim.** Rule-driven class/behavior changes below have not been made. The separately authorized factory/logging infrastructure refactor is implemented; see [debugging and verification](STATE_MACHINE_DEBUGGING.md). Published baseline and R-015–R-018 application policies are settled; see [verification](RULES_ENGINE_VERIFICATION.md). The later [anticipated-state inventory](ANTICIPATED_PLAYER_STATES.md) governs the selected seven normal states plus SessionSuspended.
 
 ## Three different meanings of state
 
@@ -28,8 +28,8 @@ Source: [states folder](../Scripts/Game/States), [GameSession](../Scripts/GameSe
 | --- | --- | --- | --- |
 | `PregameState` — cached | Subscribes to join; calls join RPC and immediately enters Started. No explicit gameplay-button policy | Readiness/roster start gate missing; event startup ordering needs verification | Retain for setup, use authoritative readiness/start result; R-001, R-015 |
 | `GameStartedState` — cached, file `GameStartState.cs` | Requests engine display, then immediately enters Turn Started | Does not await authoritative deal/setup. Current all-player entry serves group opening | Retain as round initialization; send only active seat to active play, all others to waiting; R-001, R-004–R-006 |
-| `PlayerTurnStartedState` — cached | Enables Draw, disables End Turn. Forwards select/draw/end requests; draw toggles buttons immediately. Placement enters Made Move outside group play; during group play remains here | No selected/draw-used/follow-up model. Group branch conflicts with selected rules. Client can re-enter and reset buttons without a rule transition | Retain as active interaction, derive permissions from engine; R-003, R-005–R-012, R-017 |
-| `PlayerMadeMoveState` — cached | Disables Draw, enables End Turn; forwards clicks/end; undo event returns to Turn Started | Assumes placement completes ordinary turn. Unconditional End Turn conflicts with double follow-up; one played-ID field cannot describe the two-double exception | Retain for a draft ready to commit; return to active interaction when additional play is required; R-007, R-011, R-016–R-017 |
+| `PlayerTurnStartedState` — cached | Enables Draw, disables End Turn. Forwards select/draw/end requests; draw toggles buttons immediately. Placement enters Made Move outside group play; during group play remains here | No selected/draw-used/follow-up model. Group branch conflicts with selected rules. Client can re-enter and reset buttons without a rule transition | Merge into PlayerActingState, derive permissions from engine; R-003, R-005–R-012, R-017 |
+| `PlayerMadeMoveState` — cached | Disables Draw, enables End Turn; forwards clicks/end; undo event returns to Turn Started | Assumes placement completes ordinary turn. Unconditional End Turn conflicts with double follow-up; one played-ID field cannot describe the two-double exception | Merge into PlayerActingState; draft readiness is queried data, not a separate lifecycle; R-007, R-011, R-016–R-017 |
 | `PlayerAwaitingTurnState` — cached | Disables Draw/End Turn; turn-start event enters Turn Started | Receives shared round/game end events. No explicit round-initialization reason | Retain for other-player turns and setup wait; no group-submission wait in selected rules; R-004, R-015 |
 | `RoundOverState` — cached | Reads winner/scores, shows UI; Ready sends RPC; all-ready resets local managers/meshes and constructs Started | Assumes a single round winner; blocked round may have none. Shared host/client reset path and readiness list need testing | Retain as presentation of a round result with reason, scores, and zero/one ending player; R-013–R-015 |
 | `GameOverState` — cached | Shows scores/winner, enables restart-ready, listens to New Game; New Game constructs Started | No complete coordinated reset; restart-ready emits an event this state does not consume; single-winner model loses ties | Retain, display winner list and await coordinated new match; R-014–R-015 |
@@ -49,73 +49,47 @@ Rule and example IDs reference the rulebook; this table defines responsibilities
 | --- | --- | --- | --- | --- |
 | Roster not started | Registered participants Ready; coordinator starts only at ready threshold | Authoritative initialization produces engine/deal and first active seat | Pregame stub; hand draw based on empty hand | Engine setup + adapter roster; R-001, R-015 |
 | Round initializing | Coordinator supplies validated deck; clients wait | Initialized result → active seat or waiting view | Started enters active immediately | Started + pending; test no command before setup |
-| Ordinary active play, including first turn | Active seat selects locally; requests legal placement, or Draw when engine permits | Placement resolves to follow-up or ready-to-commit; Draw resolves to required drawn play or legal pass | Turn Started group/normal overlap | Engine requirements + active state; EX-002, EX-003, EX-010 |
+| Ordinary active play, including first turn | Active seat selects locally; requests legal placement, or Draw when engine permits | Immediate placement resolves to follow-up/next turn/result; Draft placement resolves to follow-up or ready-to-commit; Draw resolves to required drawn play or legal pass | Turn Started group/normal overlap | Engine requirements + active state; EX-002, EX-003, EX-010 |
 | Personal/shared train access | Active seat may target an explicit train identity; inherited cover may override ordinary access | Accepted placement updates endpoint/ownership-preserving marker effect | Nullable owner and incomplete marker checks | Data/query, not new local state; EX-001, EX-004, EX-011 |
 | First double in current draft | Active seat requests a legal extra play or a permitted follow-up draw | Cover or elsewhere non-double → commit-ready; qualified second double → third-tile requirement | Server `HasMadeMove` blocks further play | Engine requirement + active state; EX-005, EX-012 |
 | Second double in current draft | Active seat must use an in-hand third tile covering one of the two doubles | Third placement → commit-ready, one exposed double remains | Missing | Engine requirement, not a new class; EX-006 |
 | Open double inherited at turn start | Active seat covers required train, draws if unable, or reaches legal pass | Cover → commit-ready; failed draw → pass-ready | Missing priority/ownership exception | Engine access override; EX-011 |
-| Commit-ready draft | Active seat End Turn or permitted Undo; no unrelated extra placement | Commit → round result or next player. Undo → recomputed requirement | Made Move partially covers this | Retain Made Move, permission-driven; EX-007, EX-010 |
+| Commit-ready draft | Active seat End Turn or permitted Undo; no unrelated extra placement | Commit → round result or next player. Undo → recomputed requirement | Made Move partially covers this | PlayerActingState with queried permissions; EX-007, EX-010 |
 | Command pending | Sender waits; no competing mutation requests; local selection may be visually retained | Accepted result → derive state from view. Rejection → restore latest authoritative permissions | Button disabling only | Add one `PlayerActionPendingState`; test rejection and duplicate acknowledgments |
 | Another player's turn | Non-active seats observe public board/counts | Targeted active-seat change or round/match result | Awaiting partially covers this | Retain; never expose private hands/drafts |
 | Round ended | Participants view scores; Ready once per player | All-ready → next engine, or final round → match result | Round Over assumes hand-empty winner | Result model + readiness set; EX-007–EX-009 |
-| Match ended | View all winners; request ready/new-match protocol | All-ready → full initialization | Game Over local restart only | Engine reset and adapter coordination; EX-009 |
+| Match ended or suspended abandonment | View joint winners when available; host creates fresh match, optionally with remaining seats | Fresh 2–8 roster → all-ready → initialization | Game Over local restart only | Core reset + trusted adapter coordination; EX-009 |
+| One public tile remains | Participant Announce, including between turns; opponents Challenge within R-018 window | Announcement/challenge/next accepted play-draw-pass closes window | Missing | Rule data + Acting/Waiting request handling; no new class |
+| Session unavailable | Host suspends core progression; clients display last usable view | Host resumes after usable synchronization or creates fresh match | Missing | PlayerSessionSuspendedState + host gate; R-015 |
 
-### States to add, retain, and avoid
+### Selected local state responsibilities
 
-**Add:** `PlayerActionPendingState` for all asynchronous mutation requests. A command token identifies the request; do not create a pending subclass for every command.
+Use the [anticipated inventory](ANTICIPATED_PLAYER_STATES.md): Pregame, RoundInitializing, PlayerAwaitingTurn, PlayerActing, PlayerActionPending, RoundOver, GameOver, plus PlayerSessionSuspended. Merge Turn Started/Made Move into Acting; replace Started's immediate active entry with confirmed initialization. Retire group opening and the unused Joined placeholder only during U6 and after reference review.
 
-**Retain/refactor:** the seven registered states above. `PlayerMadeMoveState` means “draft can now be committed,” not “exactly one tile was clicked.” If the engine requires another play, remain in/return to Turn Started with a follow-up prompt.
+Doubles, draw attempts, markers, draft/commit readiness, announcements and challenges remain authoritative data/queries. No further local state is needed for rule implementation. Both Acting and Waiting must forward supported announcement/challenge actions; pending results reconcile against the latest phase and view. The announcement button remains available even when it returns harmless feedback.
 
-**Do not add:** `PlayerOpeningTurnState`, opening submission/reveal states, a draw state per double, a selected-tile state, a train-public state, or per-player world-state classes mirroring every Unity class. Puremco has no distinct opening-construction phase. Selected IDs and hover/animation data remain local; draws, markers, and obligations remain engine data.
+## Selected future interaction flow
 
-**Retire:** the group-opening path and associated completion-order rule during integration, and the unused joined placeholder after reference checks. Preserve metadata for any existing Unity asset moves; do not delete code in this documentation task.
-
-## Proposed local transition diagrams
-
-These describe future behavior; they are not diagrams of code already wired today.
+This simplified responsibility diagram describes U6, not current C# wiring. All modes also route authoritative round/match results and suspension through the shared coordinator. A refresh retaining the same mode does not re-enter it. Extend the source mapper before moving transition calls into that coordinator.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Pregame
-    Pregame --> Started: ready roster starts
-    Started --> Pending: initialize/deal
-    Pending --> Active: accepted and local seat active
-    Pending --> Waiting: accepted and another seat active
-    Waiting --> Active: authoritative turn start
-    Active --> Pending: place or draw request
-    Pending --> Active: accepted and more play required
-    Pending --> MadeMove: accepted and commit/pass allowed
-    Pending --> Active: rejected and latest view needs play
-    Pending --> MadeMove: rejected and latest view is commit-ready
-    MadeMove --> Pending: commit or undo request
-    Pending --> Waiting: accepted commit advances turn
-    Pending --> Started: accepted initialization retry
-    Pending --> Pregame: rejected initialization returns to setup
-    Active --> RoundOver: authoritative round end
-    MadeMove --> RoundOver: authoritative round end
-    Waiting --> RoundOver: authoritative round end
-    Pending --> RoundOver: authoritative round end
-    RoundOver --> Started: all ready and rounds remain
-    RoundOver --> GameOver: final round scored
-    GameOver --> Started: coordinated full new match
+    Pregame --> RoundInitializing: all ready; setup begins
+    RoundInitializing --> Acting: confirmed local actor
+    RoundInitializing --> Waiting: confirmed other actor
+    Waiting --> Acting: authoritative actor becomes local
+    Acting --> Pending: permitted mutation request
+    Waiting --> Pending: announce or challenge request
+    Pending --> Acting: latest view has local actor
+    Pending --> Waiting: latest view has other actor
+    Pending --> RoundOver: authoritative round result
+    Pending --> GameOver: authoritative final match result
+    RoundOver --> RoundInitializing: all ready; next deck supplied
+    GameOver --> Pregame: host creates fresh match
 ```
 
-```mermaid
-flowchart TD
-    A[Accepted placement] --> B{Committed final tile?}
-    B -->|Yes| C[Round result]
-    B -->|No| D{Engine requirement}
-    D -->|Double follow-up| E[Active interaction: eligible extra play or draw]
-    D -->|Third-tile cover| F[Active interaction: cover one double from hand]
-    D -->|Complete ordinary play or inherited cover| G[Made Move: commit or permitted undo]
-    E --> H[Accepted non-double / failed-play outcome]
-    F --> G
-    H --> G
-    G --> I[Commit]
-    I --> J[Next seat with any inherited open-double requirement]
-```
-
-While a final tile is provisional, it is commit-ready and follows R-016; the termination check runs at commitment. Terminal authoritative events take precedence over a delayed acknowledgment or animation callback. Pending cleanup must remove both transient and shared event subscriptions.
+Immediate mode needs no End Turn after a completed placement. Draft mode keeps End Turn/Undo permissions within Acting; provisional final tiles end the round only at commitment. Setup/results readiness may also use Pending without changing the underlying presentation. Results/suspension preempt pending work from an older phase, while requests belonging to the current readiness phase remain correlated.
 
 ## Existing logic to reorganize
 
@@ -143,4 +117,4 @@ The adapter converts a clicked engine/mesh into an explicit destination `TrainId
 
 ## Fresh-session handoff
 
-Review the source-checked Puremco baseline and app policies, then agree to this mapping before changing classes. Mark STATE-001 complete only after that review. STATE-002 records actual local host/client behavior separately from this static analysis. Engine scaffolding and integration follow the [implementation units](RULES_ENGINE_IMPLEMENTATION_PLAN.md#implementation-units); final art remains late priority.
+The user approved this state direction and reviewed app policies individually on 2026-10-17. STATE-001 is complete as a decision task; no gameplay classes were changed by that agreement. STATE-002 records actual local host/client behavior separately from this static analysis. Engine scaffolding and integration follow the [implementation units](RULES_ENGINE_IMPLEMENTATION_PLAN.md#implementation-units); final art remains late priority.

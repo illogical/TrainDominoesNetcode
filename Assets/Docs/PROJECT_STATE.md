@@ -10,6 +10,14 @@ Start with [TASKS.md](../../TASKS.md) for priorities and [AGENTS.md](../../AGENT
 
 State-infrastructure update (2026-10-17): constructor-injected lazy factories now replace per-state context fields; bounded diagnostics and Off/Transitions/Verbose logging are implemented. The source-linked state checks pass, and gameplay scripts compile against installed Unity references. No Unity Play Mode/host-client verification was performed. See [state debugging and verification](STATE_MACHINE_DEBUGGING.md). This does not close STATE-001 or implement its proposed behavior.
 
+## Standalone engine update — 2026-10-17
+
+The selected Puremco rules now have a portable implementation in `Assets/Scripts/RulesEngine`, compiled both by a Unity assembly definition and a source-linked .NET Standard 2.1 library. External .NET 10/NUnit tests exercise actual core sources. [Verification report](RULES_ENGINE_VERIFICATION.md) and [developer guide](../../RulesEngine/README.md) record commands, coverage and limits.
+
+The user reviewed the remaining app policies: Immediate placement by default, optional match-fixed Draft/undo, manual one-tile announcements/opponent challenges with default draw-one penalty, readiness sets, joint winners, suspension, and fresh matches with remaining seats. The selected future local inventory is seven normal states plus SessionSuspended; no extra rule-specific classes are needed.
+
+**Live gameplay still follows the legacy managers/RPCs and states described below.** No core authority switch, scene/prefab/art/package change, Play Mode test or host/client session was performed for this delivery. STATE-001 is agreed; STATE-002 and U6/ENG-006 remain open. The earlier baseline's “no rules-core harness yet” statements are historical; the current standalone harness is now present.
+
 ## Purpose and development context
 
 The project is a multiplayer train-dominoes game using Unity and Netcode for GameObjects. It generates a double-twelve set (91 dominoes), places an engine, lets players build opening tracks during a shared group turn, and then advances through individual turns. It contains selection, matching/orientation, provisional moves, undo, station synchronization, round scores, and end-of-round/game UI.
@@ -29,7 +37,7 @@ The user is separately preparing four colored domino sets for four players. Inte
 | Unity Test Framework | `1.8.0`; installed package alone does not establish project tests |
 | Build scene | `Assets/Scenes/GameScene.unity` |
 | Saved development settings | `IgnoreDominoComparisons: 1`, `StartAtRound: 2`, `DominoStartCount: 12` |
-| Project tests / assembly boundaries | Focused package-free `Tests/StateMachine` checks link actual state sources with adapter stubs; no project-owned `.asmdef` or rules-core harness yet |
+| Project tests / assembly boundaries | Package-free `Tests/StateMachine` checks plus source-linked `RulesEngine` NUnit suite; dedicated pure rules `.asmdef`. Main-scene adapters remain legacy |
 
 Package versions come from [manifest.json](../../Packages/manifest.json). The scene settings bypass matching checks in `GameplayManager.ServerCompareDominoToEngine` and `ServerCompareDominoToTrackDomino`. A successful move under these settings is not evidence of legal matching. `StartAtRound` feeds both engine indexing and round initialization; their exact alignment needs characterization rather than assuming the label proves the expected engine.
 
@@ -138,7 +146,7 @@ The [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) now selects .NET Standard
 
 ## Next session
 
-Start with **STATE-001** in [TASKS.md](../../TASKS.md). Review the saved Puremco rulebook/matrix and application-policy proposals before adding states. Characterize current behavior separately from desired behavior; do not lock unfinished prototype behavior into rule tests merely because it exists today.
+Start with **STATE-002** and **ENG-006** in [TASKS.md](../../TASKS.md). STATE-001 policies are agreed and the standalone engine is verified; establish the runtime baseline before integrating it with local states. Characterize current behavior separately from desired behavior; do not lock unfinished prototype behavior into rule tests merely because it exists today.
 
 ### Inspection sources
 

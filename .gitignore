@@ -79,3 +79,11 @@ crashlytics-build.properties
 /Assets/TextMesh Pro
 /Assets/TutorialInfo
 /Assets/Plugins
+
+# Hand-authored portable rules-engine projects (Unity-generated projects stay ignored).
+!/RulesEngine/TrainDominoesRulesEngine.slnx
+!/RulesEngine/TrainDominoesRulesEngine/TrainDominoesRulesEngine.csproj
+!/RulesEngine/TrainDominoesRulesEngine.Tests/TrainDominoesRulesEngine.Tests.csproj
+/RulesEngine/**/bin/
+/RulesEngine/**/obj/
+/RulesEngine/**/TestResults/

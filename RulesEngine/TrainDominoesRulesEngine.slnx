@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TrainDominoesRulesEngine/TrainDominoesRulesEngine.csproj" />
+  <Project Path="TrainDominoesRulesEngine.Tests/TrainDominoesRulesEngine.Tests.csproj" />
+</Solution>

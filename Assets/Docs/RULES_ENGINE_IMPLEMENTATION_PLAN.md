@@ -1,6 +1,6 @@
 ---
 type: implementation-plan
-status: draft
+status: agreed
 updated: 2026-10-17
 execution: code
 ---
@@ -9,9 +9,9 @@ execution: code
 
 ## Goal and authority
 
-Make the selected Puremco game independently testable, then have Unity player states consume authoritative rule outcomes. Follow the [rulebook](TRAIN_DOMINOES_RULEBOOK.md) and [state mapping](PLAYER_STATE_REVIEW.md), not the superseded personal-only, simultaneous-opening, or strict-cover proposals. Preserve useful provisional-move UX without changing the published game implicitly.
+Make the selected Puremco game independently testable, then have Unity player states consume authoritative rule outcomes. Follow the [rulebook](TRAIN_DOMINOES_RULEBOOK.md) and [state mapping](PLAYER_STATE_REVIEW.md), not the superseded personal-only, simultaneous-opening, or strict-cover proposals. Support Immediate placement by default and optional Draft/undo without changing the published game implicitly.
 
-**This file is a plan, not an implemented engine.** No C# project, assembly definition, test suite, or gameplay refactor is delivered with these documents. Before behavior-bearing units U3–U6, complete STATE-001's review of the matrix and the clearly identified R-015–R-017 app policies. U1–U2 can establish the pure source boundary without deciding a different rules variant.
+**Execution scope agreed 2026-10-17:** deliver the complete standalone engine through U1–U5 plus U7 before switching live Unity gameplay in U6. STATE-001 policies were reviewed individually: Immediate placement default, optional Draft/undo, match-fixed settings, manual announcement/opponent challenge, readiness sets, joint winners and suspension with fresh-roster new matches. See the [verification report](RULES_ENGINE_VERIFICATION.md) for execution evidence; this plan defines design, not progress tracking.
 
 The core owns game decisions; the host adapter authenticates participants and invokes it; clients consume restricted views. Unity animation or button state cannot advance rules on its own. Implement one selected profile, not a configurable collection of every researched variant.
 
@@ -22,11 +22,11 @@ The core owns game decisions; the host adapter authenticates participants and in
 | REQ-001 | R-001–R-004: double-twelve set, selected deal counts, 2–8 fixed seats, personal plus one shared train, thirteen engines |
 | REQ-002 | R-005–R-009: sequential turns from the start, exact endpoint legality, ordinary access versus inherited-double access |
 | REQ-003 | R-010–R-012, R-017: mandatory play, bounded draws, Puremco extra play and conditional two-double procedure, markers |
-| REQ-004 | R-013–R-015: round results, score-once ledger, match winners, ready/reset coordination and one-tile notification |
-| REQ-005 | R-016: useful draft undo without rerolling draws, losing obligations, or advancing another player prematurely |
+| REQ-004 | R-013–R-015, R-018: round results, score-once ledger, joint winners, ready/reset coordination and manual notification/challenge |
+| REQ-005 | R-016: match-fixed Immediate/Draft modes; optional undo without rerolling draws or losing obligations |
 | REQ-006 | Portable core, reproducible transitions, validated/rejected actions, private views, one authoritative rule implementation |
 
-Do not build bots, a rules-editor UI, generic variant plug-ins, reconnect transport recovery, a new serializer, or final domino art in these units. NET-002 tracks serializer replacement independently. Retain engine support for eight players even though only four final colored sets are planned; use existing presentation where feasible and report any layout limitation explicitly.
+Do not build production bots, a rules-editor/settings GUI, generic variant plug-ins, reconnect transport recovery, a new serializer, or final domino art in these units. Deterministic test drivers are verification fixtures, not shipped game bots. NET-002 tracks serializer replacement independently. Retain engine support for eight players even though only four final colored sets are planned; use existing presentation where feasible and report any layout limitation explicitly.
 
 ## Planning contract
 
@@ -71,7 +71,9 @@ Evidence: `ProjectSettings/ProjectVersion.txt` specifies 6000.6.6f1; `ProjectSet
 | `TrainId`, `TrainState`, `Placement` | Explicit Personal/Shared kind, owner for personal trains even while empty, marker, ordered oriented placements, actual endpoint. One stable shared ID; array index is not identity |
 | `MatchState` | Selected profile/version, roster/seats, starting seat, round history, cumulative totals, readiness and match result |
 | `RoundState` | Round index/engine, hands, ordered remaining boneyard, trains, turn, round result |
-| `TurnState` | Actor, stable turn identifier, current play requirement, opportunity/draw history, provisional placements and undo checkpoint, open-double reference(s) needed during the current turn |
+| `TurnState` | Actor, turn identifier, requirement/draw history, provisional placements and undo checkpoint, bounded open-double references |
+| `MatchSettings`, `PositionToken` | Immutable Immediate/Draft and DrawOneTile/None settings; match/round/turn/revision token reconstructed by external adapters |
+| `AnnouncementStatus` | Public one-tile announcement and opponent challenge window; no timer or extra local state |
 | `RoundResult`, `MatchResult` | Ending reason; nullable ending player for blocked rounds; all round scores; list of tied lowest-score match winners |
 
 Separate a pending **additional play** from an inherited **must-cover** obligation. During a qualified two-double turn, track both draft doubles until the third tile covers one. At turn end there is at most one exposed obligation under R-017. Do not implement a chronological queue of arbitrary doubles from the rejected opening-chain variant.
@@ -163,7 +165,7 @@ flowchart LR
 
 **Files:** draft/checkpoint logic, `TurnRulesTests.cs`, `ViewAndInvariantTests.cs`.
 
-**Approach:** preserve draft UX while sealing on draw. Store enough state to reverse orientation, hand membership, provisional train creation, marker effects, and requirements atomically. Undo is a permitted transition, not a generic restore-any-snapshot command.
+**Approach:** make Immediate the match-fixed default: public irreversible placement, automatic completion when its requirement is met, explicit legal Pass. Optional Draft preserves preview UX while sealing on draw. Store enough state to reverse orientation, hand membership, provisional train creation, marker effects, and requirements atomically. Undo is a permitted transition, not a generic restore-any-snapshot command.
 
 **Tests:** undo first and second double; undo third cover restores the third-tile requirement; draw locks prior placements; drawn tile cannot return to pile; re-entry does not renew allowances; a provisional final tile does not score; commit advances exactly once; views expose only the actor's draft.
 
@@ -175,7 +177,7 @@ flowchart LR
 
 **Files:** Results, round/match evaluation, readiness and reset rules, `LifecycleTests.cs`.
 
-**Approach:** represent blocked rounds without requiring an empty-hand winner. Evaluate victory on commit, then block after marker consequences. Score into a once-per-round ledger. Readiness advances to a coordinator-provided new deck only after the gate is satisfied; guard round/phase identity on lifecycle commands.
+**Approach:** represent blocked rounds without requiring an empty-hand winner. Evaluate victory on commit, then block after marker consequences. Score into a once-per-round ledger. For blocked detection, retain inherited-double restrictions and consider destinations that later mandatory passes can open, without mutating those markers. Readiness advances to a coordinator-provided new deck only after the gate is satisfied; guard round/phase identity on lifecycle commands.
 
 **Tests:** EX-007–EX-009 and EX-013; all thirteen engines exactly once; first-turn last tile; score repetition rejected; blank zero; rotating starter; ready-click duplicates; retained roster but cleared per-round data; complete new match; tied totals; no legal moves under an inherited double; opened access preventing a false block.
 
@@ -185,29 +187,41 @@ flowchart LR
 
 **Tasks:** RULES-003, remaining RULES-004 integration, ENG-006, STATE-003/004 and NET-001. **Depends on:** U3–U5 plus STATE-002 runtime baseline. **Requirements:** REQ-001–REQ-006.
 
-**Files:** existing GameSession/managers/DTOs/states; new `PlayerActionPendingState`; focused Unity adapter test assembly, for example `Assets/Tests/PlayMode/RulesAdapterTests.cs`. New test assemblies cannot directly reference predefined Assembly-CSharp: use black-box scene/component access for these tests, avoiding a wholesale runtime assembly migration.
+**Files:** existing GameSession/managers/DTOs/states; new pending/initializing/acting/suspended responsibilities from the [anticipated-state inventory](ANTICIPATED_PLAYER_STATES.md); focused Unity adapter test assembly, for example `Assets/Tests/PlayMode/RulesAdapterTests.cs`. New test assemblies cannot directly reference predefined Assembly-CSharp: use black-box scene/component access for these tests, avoiding a wholesale runtime assembly migration.
 
-**Approach:** integrate catalog/access queries first, then commands/turn authority, then lifecycle and local transitions. Switch the session's live mutation path to the core at one controlled boundary; do not interleave old and new hand mutations. Old queries may remain read-only projections until removed. Retire group-turn completion-order logic, preserve metadata, remove the unused joined state only after checking references. Add pending/rejection handling before relying on new legal-action buttons.
+**Approach:** integrate catalog/access queries first, then commands/turn authority, then lifecycle and local transitions. Switch the session's live mutation path to the core at one controlled boundary; do not interleave old and new hand mutations. Old queries may remain read-only projections until removed. Retire group-turn completion-order logic, preserve metadata, remove the unused joined state only after checking references. Add pending/rejection handling before relying on new legal-action buttons. Merge Turn Started/Made Move into Acting; keep seven normal states plus SessionSuspended. Announce/challenge must work from observing as well as acting, using the same request mechanism; keep the announcement button available even when it only returns harmless feedback. Wire host suspension and fresh-roster new matches without removing seats from an active match. Extend the state mapper before moving transitions into a coordinator.
 
 **Tests:** local host plus client reaches a first ordinary turn without group submission; extra play elsewhere and two-double sequence; engine private views survive actual DTO/RPC boundaries; unknown actor/out-of-turn/stale/repeated commands do not mutate; duplicate acknowledgments do not duplicate animations/turns/scores; eight players support nine logical trains; blocked result and joint winners reach all UIs; readiness/reset clears both host and client views.
 
 **Done:** all core tests and relevant Unity integration checks pass; installed-scene smoke checks verify transitions with matching bypass off in the test setup. Restore/review settings rather than silently changing the saved development scene. Core-owned decisions have one implementation; dead branches/duplicate managers and abandoned attempts are removed. Report any unverified eight-player visual layout limitation separately from engine correctness.
 
+### U7. Manual one-tile announcements and challenges
+
+**Tasks:** ENG-007. **Depends on:** U3–U4; include its outcomes in U5 scoring/lifecycle verification. **Requirements:** REQ-004, REQ-006; R-014, R-018 supersede automatic notification.
+
+**Files:** announcement transitions and queries in the portable source tree, `AnnouncementTests.cs`, filtered views/events.
+
+**Approach:** expose manual announcement and opponent challenge commands outside active-turn-only mutation handling. Accept announcements only for a publicly irreversible one-tile hand. At turn completion open a challenge window for an unannounced one-tile hand. Close on announcement, a successful challenge, or the next accepted play/draw/pass. Rejected commands leave it open. Default DrawOneTile is separate from ordinary draw/play requirements; an empty pile records the infraction without punishment. Match-fixed None records without drawing. Final-tile termination takes precedence; private draft previews remain private.
+
+**Tests:** timely/repeated/unnecessary announcements; opponent/self/unknown challenges; stale command races; expiry on each accepted action; one private penalty draw; empty pile; None; draft visibility and no obligation after going out.
+
+**Done:** command/query/view tests pass with immutable rejection and no duplicate penalty. U6 owns the actual button, challenge control and private RPC routing.
+
 ## Verification contract
 
-Planned external checks once U1 exists:
+External checks from the repository root (the developer guide uses `cd RulesEngine` to enforce the SDK pin):
 
 ```sh
 dotnet build RulesEngine/TrainDominoesRulesEngine.slnx
 dotnet test RulesEngine/TrainDominoesRulesEngine.Tests/TrainDominoesRulesEngine.Tests.csproj
 ```
 
-These are future commands, not checks already available or run. Add documented Unity Test Runner/batch invocation in U6 for the actual harness and installed editor; do not claim current tests exist. Avoid live Lobby/Relay calls unless that task explicitly needs them; local transport suffices for initial adapter evidence.
+The external projects now exist; run from `RulesEngine` to enforce its SDK pin (use relative project paths there). The [developer guide](../../RulesEngine/README.md) has the exact current commands. Add documented Unity Test Runner/batch invocation in U6 for the actual adapter harness and installed editor; do not claim adapter tests exist before creating them. Avoid live Lobby/Relay calls unless that task explicitly needs them; local transport suffices for initial adapter evidence.
 
 Every feature-bearing unit must have rule/example-linked tests. Invariant scenarios include unique tile location, unchanged input snapshots, rejected-command immutability, consistent endpoint orientation, valid active actor, unchanged owner on opponent play, private hand/boneyard data filtering, deterministic replay from explicit decks, and scoring once. Broader test repetition is warranted only by new changes/failures.
 
 ## Definition of done and review boundary
 
-The **documentation delivery** is complete when the three linked documents and task/guidance updates are source-checked and the diff is documentation-only. That does not complete STATE-001, build the engine, or verify gameplay.
+The original documentation-only delivery established the design. The standalone delivery now requires U1–U5/U7 tests, source-linked builds, a Unity assembly import/consumer check, and recorded evidence. Completion of that delivery does not complete U6 or verify the main game scene.
 
-The **engine implementation** is complete only after U1–U6 acceptance evidence, rulebook/matrix updates, removal of replaced authorities, and passing external plus Unity checks. Keep progress in TASKS.md using stable IDs; do not mark code units done merely because they are described here. Review R-015–R-017 before behavior work; defer new variants rather than silently expanding the profile. Optional penalties and exact disconnect recovery remain separate future features, not blockers to defining normal Puremco play.
+The **integrated engine implementation** is complete only after U1–U7 acceptance evidence, rulebook/matrix updates, removal of replaced authorities, and passing external plus Unity checks. Keep progress in TASKS.md using stable IDs; do not mark code units done merely because they are described here. Follow the reviewed R-015–R-018 policies; defer new variants rather than silently expanding the profile. Additional penalty options, settings GUI, optional tiebreaker design and exact disconnect recovery remain future work. Standalone delivery does not close U6 or multiplayer validation.

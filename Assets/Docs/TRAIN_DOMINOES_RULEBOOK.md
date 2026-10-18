@@ -1,13 +1,13 @@
 ---
 type: rulebook
-status: draft
-version: 0.1
+status: agreed-app-profile
+version: 0.2
 updated: 2026-10-17
 ---
 
 # Train Dominoes rulebook — Puremco baseline
 
-The user selected **Puremco rules**, replacing earlier choices based on uncertain recollection. This first iteration uses the **Puremco DominoRules web edition** as its primary reference and the University Games/Puremco printed sheet as corroboration. Where editions differ, identify the edition rather than silently mixing them. This is intended behavior; the current game does not yet enforce it completely.
+The user selected **Puremco rules**, replacing earlier choices based on uncertain recollection. This first iteration uses the **Puremco DominoRules web edition** as its primary reference and the University Games/Puremco printed sheet as corroboration. Where editions differ, identify the edition rather than silently mixing them. The standalone engine now implements this profile; the current Unity gameplay still uses its legacy rule paths. See [verification](RULES_ENGINE_VERIFICATION.md) for the tested boundary and limits.
 
 **Naming:** Puremco is a brand/publisher of Mexican Train Dominoes, not a different game. Read [Mexican Train and Puremco: names and edition differences](MEXICAN_TRAIN_RULE_VARIANTS.md) for a comparison and prompts to recognize the family's version. Selecting this reference does not establish which edition the family historically played.
 
@@ -35,7 +35,7 @@ A marker changes access to an existing personal train; it does not create a new 
 | DEC-005 — Two doubles | Conditional two-double play with an in-hand third tile covering one | Do not substitute unlimited double chains from another edition |
 | DEC-006 — Scope | Double-twelve, 2–8 players, thirteen engines, fixed seats/rotating starter | Earlier compatible choices retained; four-color art remains separate |
 | DEC-007 — Deal table | Use explicit double-twelve counts on Puremco's web page | Earlier RNK table is superseded; printed sheet has an edition-specific table, not an automatic override |
-| DEC-008 — App controls | Draft undo/commit, readiness, automatic last-tile notification and joint winners are proposed software conventions below | Not published Puremco requirements or independently confirmed family rules |
+| DEC-008 — App controls | User-reviewed 2026-10-17: Immediate placement by default; optional Draft/undo; readiness sets, joint winners, manual announcement/challenge, suspension and fresh-roster new matches | Application policies, not historical family rules; see R-015–R-018 |
 
 The important correction is not just restoring a shared train: adopting Puremco also changes opening play and doubles. A memory or current code path does not override this register.
 
@@ -75,7 +75,7 @@ Use the normal unable-to-play procedure, not a separate opening draw or chain-co
 
 ### R-007 — Turn completion
 
-After a non-double ordinary play, the next player acts. A double needs its additional play or a legal failed-play outcome before the turn ends. Application commitment controls are described separately in R-016.
+After a non-double ordinary play, the next player acts. A double needs its additional play or a legal failed-play outcome before the turn ends. Immediate play finishes automatically; optional Draft commitment is described in R-016.
 
 ### R-008 — An open double on a later turn
 
@@ -105,27 +105,39 @@ End immediately when someone plays their final tile, even a double, or when the 
 
 ### R-014 — Scores and notification
 
-Count unplayed pips as penalty points; lowest cumulative score wins. Blank pips are zero; do not import Chickenfoot's double-blank penalty. Announce reaching one tile. Optional infraction penalties are not enabled in this draft. [Puremco scoring and optional penalties, printed sheet page 4](https://www.universitygames.com/_files/ugd/05f72c_230047a18d1c4372a9ec2dd61b1de8f0.pdf).
+Count unplayed pips as penalty points; lowest cumulative score wins. Blank pips are zero; do not import Chickenfoot's double-blank penalty. Players manually announce reaching one tile. The selected optional missed-announcement penalty and challenge window are defined in R-018; other optional infractions remain disabled. [Puremco scoring and optional penalties, printed sheet page 4](https://www.universitygames.com/_files/ugd/05f72c_230047a18d1c4372a9ec2dd61b1de8f0.pdf).
 
-## Application conventions — proposals, not Puremco rules
+## Application conventions — reviewed project policies
 
-These fill software gaps while preserving published play. Review them before the corresponding integration work; they are not historical family rules.
+The user reviewed these individually on 2026-10-17 and approved implementation of the standalone profile. They fill software gaps; do not present them as historical family rules or verbatim publisher requirements. Settings are fixed for a match; their GUI is a later task.
 
 ### R-015 — Match management
 
-Use a fixed ready roster of 2–8 seats. Readiness is a set, not a count of button clicks. Score a round once; all players ready advances to the next engine. New Match clears all game data. A disconnected participant suspends progression instead of silently changing the roster; reconnect/abandonment UI is deferred. Report all lowest-score players as joint winners if totals tie; the sources do not specify a tie-break procedure. Emit the one-tile announcement automatically from committed hand counts, with no manual penalty subsystem.
+Use fixed seats with 2–8 participants. Readiness is a set: everyone must ready before initial play and each subsequent round, then the coordinator supplies the next validated shuffled deck. Score a round once. New Match starts with fresh readiness, engine schedule, hands, scores, results and request identity. Report all lowest-score players as joint winners; a future optional tiebreaker is deferred.
 
-### R-016 — Preview and undo
+A disconnected participant suspends progression instead of silently changing the roster. The host may abandon a suspended match and create a fresh match with the remaining 2–8 participants; collect their readiness again. Do not drop seats from an active match. Connection detection and usable resynchronization belong to the host adapter; exact reconnect/abandonment UI is deferred.
 
-Retain the existing useful idea of provisional moves before End Turn, but enforce legality in the engine. Provisional placements may be undone last-in-first-out; selection itself remains local UI data. Only committed play advances the turn or ends a round. The acting player cannot yield with an unsatisfied follow-up requirement except by a legal pass. Others cannot act during the draft.
+### R-016 — Placement commitment and optional undo
 
-A draw seals earlier placements and clears their undo history because the player has learned a hidden tile. The drawn tile stays out of the boneyard permanently. Undoing a subsequent placement neither refreshes the draw allowance nor removes an obligation. A playable drawn tile must be replayed legally before End Turn. This prevents undo from becoming a way to fish for tiles. Show draft changes only to their actor until commitment; publish sealed placements when a draw makes them irreversible.
+`CommitmentMode.Immediate` is the default. Each accepted placement is public and irreversible; completing the current play requirement automatically advances the turn or ends the round. A permitted Pass explicitly ends an unsuccessful turn. Doubles still require their applicable follow-up. No End Turn or Undo is available in this mode.
 
-### R-017 — Implementation interpretations requiring explicit tests
+The host may instead choose `CommitmentMode.Draft` before the match. Provisional placements may be undone last-in-first-out; selection itself remains local UI data. Only committed play advances the turn or ends a round. End Turn commits a completed draft; a legal Pass seals and commits an unsuccessful turn. Others cannot play during the actor's draft, although permitted between-turn announcements/challenges remain independent commands.
+
+A draw seals earlier placements and clears their undo history because the player has learned a hidden tile. The drawn tile stays out of the boneyard permanently. Undoing a subsequent placement neither refreshes the draw allowance nor removes an obligation. A playable drawn tile must be replayed legally before End Turn. Show unsealed draft changes only to their actor; publish sealed placements when a draw makes them irreversible. A provisional final tile does not end a round until commitment; an immediate final tile ends it upon accepted placement.
+
+### R-017 — Reviewed operational interpretations
 
 Model drawing as one attempt for the **current play requirement**. If a drawn double is played and creates an additional-play requirement, an additional attempt is available when no follow-up exists. This operationalizes Puremco's extra-play instruction; the sheet does not spell out that combined scenario, so do not mislabel the boundary as a quotation.
 
 In the two-double exception, the second placement is legal only if the held third-tile cover exists; after playing the second double the actor must cover one of the two, without drawing. Reject a third double and a second double that lacks the required in-hand cover. Check final-tile termination first. Under this bounded procedure, at most one double remains exposed when a turn completes; do not invent a generic multi-double queue from another edition.
+
+### R-018 — Manual one-tile announcement and opponent challenge
+
+Puremco's printed sheet requires notification at one remaining tile; its penalties are optional and offer several choices. The user selected a manual action with an always-available GUI button (GUI integration is deferred). An unnecessary/repeated click returns harmless feedback: “You don't currently need to announce.” One remaining tile does not promise the player's next turn is their last.
+
+An announcement can be accepted when the public, irreversible hand count is one, including between turns. Private draft previews do not create an announcement obligation. Going out within the turn ends the round first. If a completed turn leaves an unannounced one-tile hand, any opponent may challenge until the next player's first accepted play, draw or pass. An accepted announcement or one successful challenge closes the opportunity. Rejected actions do not expire it; host command order decides races. No timer or automatic missed-announcement punishment is used.
+
+`AnnouncementPenalty.DrawOneTile` is the match-fixed default. A successful opponent challenge draws one tile for the offender when available, without consuming an ordinary draw allowance or requiring immediate play of that penalty tile. When the boneyard is empty, record the infraction and close the challenge without another penalty. `AnnouncementPenalty.None` records the infraction without drawing. Other penalties/settings UI are future work. These challenge/timing details are project policies; the publisher does not define this software protocol. [Printed notification and optional penalties](https://www.universitygames.com/_files/ugd/05f72c_230047a18d1c4372a9ec2dd61b1de8f0.pdf).
 
 ## Worked examples for the engine and state review
 
@@ -139,13 +151,13 @@ These scenarios are project-authored acceptance examples, not evidence that the 
 | EX-004 | A marks their train. B extends it; the marker stays. A extends it later; the marker is removed | R-009, R-012 |
 | EX-005 | A plays 4–4 on their train, then a non-double on the shared train. That completes A's turn, but the next player must satisfy 4–4 | R-008, R-011 |
 | EX-006 | A has a 4–4 and 6–6 for two eligible endpoints and an in-hand 4–2. Allow the two doubles followed by 4–2; the next player must cover 6–6. Without an in-hand covering third tile, reject the second double | R-011, R-017 |
-| EX-007 | A commits their final tile, a double. End the round without drawing or demanding coverage, even on A's first turn | R-013, R-016 |
+| EX-007 | A plays their final tile, a double. Immediate mode ends the round on acceptance; Draft mode waits for commitment. No draw/coverage is required, even on A's first turn | R-013, R-016 |
 | EX-008 | Empty boneyard: a pass opens a destination another player can use. Do not declare blocked; a later position with no legal action for anyone may end | R-010, R-012, R-013 |
-| EX-009 | Final totals 90, 90, 110, 130 yield two winners under the proposed app tie policy | R-014, R-015 |
+| EX-009 | Final totals 90, 90, 110, 130 yield two winners under the selected app tie policy | R-014, R-015 |
 | EX-010 | A can play a non-double, so Draw is illegal. Undo/re-entry must not permit that draw or renew a previously used attempt | R-010, R-016 |
 | EX-011 | Pending double is on B's private train. A can cover it despite ordinary access restrictions, without transferring ownership or closing A's marked train | R-008, R-012 |
 | EX-012 | After a normal no-play draw, the only playable tile is a double. Its follow-up is a separate requirement; a failed follow-up draw cannot be retried | R-010, R-011, R-017 |
-| EX-013 | One tile remains after commitment: emit one notification. Repeated acknowledgment does not emit it again or add a penalty | R-014, R-015 |
+| EX-013 | One public tile remains: allow a manual announcement. Repeated announcement has no effect. An opponent may instead challenge an omission before the next accepted play/draw/pass; draw one penalty tile if available, once | R-014, R-018 |
 
 ## Variations deliberately excluded
 
@@ -159,7 +171,7 @@ These scenarios are project-authored acceptance examples, not evidence that the 
 
 ## Review status and sources
 
-The published baseline is now selected. STATE-001 remains open for review of this first matrix and R-015–R-017 application interpretations; no further clarification is required to save these documents. Review does not authorize accidentally restoring superseded opening rules.
+The published baseline and R-015–R-018 application profile were reviewed and approved on 2026-10-17. The standalone engine is implemented and tested; Unity gameplay/state integration remains deferred. See [verification](RULES_ENGINE_VERIFICATION.md).
 
 Research checked 2026-10-17:
 

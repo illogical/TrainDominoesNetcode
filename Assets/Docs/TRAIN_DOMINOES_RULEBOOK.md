@@ -7,7 +7,7 @@ updated: 2026-10-17
 
 # Train Dominoes rulebook — Puremco baseline
 
-The user selected **Puremco rules**, replacing earlier choices based on uncertain recollection. This first iteration uses the **Puremco DominoRules web edition** as its primary reference and the University Games/Puremco printed sheet as corroboration. Where editions differ, identify the edition rather than silently mixing them. The standalone engine now implements this profile; the current Unity gameplay still uses its legacy rule paths. See [verification](RULES_ENGINE_VERIFICATION.md) for the tested boundary and limits.
+The user selected **Puremco rules**, replacing earlier choices based on uncertain recollection. This first iteration uses the **Puremco DominoRules web edition** as its primary reference and the University Games/Puremco printed sheet as corroboration. Where editions differ, identify the edition rather than silently mixing them. The standalone engine and Unity gameplay adapter now implement this profile. See [standalone verification](RULES_ENGINE_VERIFICATION.md) and [integration verification](GAMEPLAY_INTEGRATION_VERIFICATION.md) for their separately tested boundaries and limits.
 
 **Naming:** Puremco is a brand/publisher of Mexican Train Dominoes, not a different game. Read [Mexican Train and Puremco: names and edition differences](MEXICAN_TRAIN_RULE_VARIANTS.md) for a comparison and prompts to recognize the family's version. Selecting this reference does not establish which edition the family historically played.
 
@@ -115,7 +115,7 @@ The user reviewed these individually on 2026-10-17 and approved implementation o
 
 Use fixed seats with 2–8 participants. Readiness is a set: everyone must ready before initial play and each subsequent round, then the coordinator supplies the next validated shuffled deck. Score a round once. New Match starts with fresh readiness, engine schedule, hands, scores, results and request identity. Report all lowest-score players as joint winners; a future optional tiebreaker is deferred.
 
-A disconnected participant suspends progression instead of silently changing the roster. The host may abandon a suspended match and create a fresh match with the remaining 2–8 participants; collect their readiness again. Do not drop seats from an active match. Connection detection and usable resynchronization belong to the host adapter; exact reconnect/abandonment UI is deferred.
+A disconnected participant suspends progression instead of silently changing the roster. The host may abandon a suspended match and create a fresh match with the remaining 2–8 participants; collect their readiness again. Do not drop seats from an active match. Connection detection and usable resynchronization belong to the host adapter. The adapter implements host-issued seat secrets, reclaim under a new transport ID, missing-seat feedback, Retry and host Resume once every fixed seat is connected. This preserves the roster; host migration, app-restart recovery and human review of recovery UX remain outside the recorded evidence.
 
 ### R-016 — Placement commitment and optional undo
 
@@ -133,7 +133,7 @@ In the two-double exception, the second placement is legal only if the held thir
 
 ### R-018 — Manual one-tile announcement and opponent challenge
 
-Puremco's printed sheet requires notification at one remaining tile; its penalties are optional and offer several choices. The user selected a manual action with an always-available GUI button (GUI integration is deferred). An unnecessary/repeated click returns harmless feedback: “You don't currently need to announce.” One remaining tile does not promise the player's next turn is their last.
+Puremco's printed sheet requires notification at one remaining tile; its penalties are optional and offer several choices. The user selected a manual action with an always-available GUI button (implemented in the Unity action controls; permitted announcements/challenges remain usable during board motion). An unnecessary/repeated click returns harmless feedback: “You don't currently need to announce.” One remaining tile does not promise the player's next turn is their last.
 
 An announcement can be accepted when the public, irreversible hand count is one, including between turns. Private draft previews do not create an announcement obligation. Going out within the turn ends the round first. If a completed turn leaves an unannounced one-tile hand, any opponent may challenge until the next player's first accepted play, draw or pass. An accepted announcement or one successful challenge closes the opportunity. Rejected actions do not expire it; host command order decides races. No timer or automatic missed-announcement punishment is used.
 
@@ -171,7 +171,7 @@ These scenarios are project-authored acceptance examples, not evidence that the 
 
 ## Review status and sources
 
-The published baseline and R-015–R-018 application profile were reviewed and approved on 2026-10-17. The standalone engine is implemented and tested; Unity gameplay/state integration remains deferred. See [verification](RULES_ENGINE_VERIFICATION.md).
+The published baseline and R-015–R-018 application profile were reviewed and approved on 2026-10-17. The standalone engine and Unity gameplay/state integration are implemented. [Standalone verification](RULES_ENGINE_VERIFICATION.md) records core evidence; [integration verification](GAMEPLAY_INTEGRATION_VERIFICATION.md) records subsequent console, actual localhost, authorized live Lobby/Relay and synthetic presentation results. The [gameplay review roadmap](plans/2026-10-18-gameplay-gap-analysis-and-review-plan.md) tracks remaining startup, recovery, admission and visual acceptance work.
 
 Research checked 2026-10-17:
 
@@ -180,4 +180,4 @@ Research checked 2026-10-17:
 - **S3 — John McLeod, Pagat:** [Mexican Train and variations](https://www.pagat.com/domino/star/mextrain.html), comparison only.
 - **S4 — RNK Sales (2020):** [Mexican Train rules](https://rnkgaming.com/wp-content/uploads/2021/03/Mexican-Train-Rules.pdf), comparison only; superseded as the proposed baseline.
 
-No source is claimed to settle all software controls. Do not describe the draft, its engine, or the current game as runtime-verified.
+No source is claimed to settle all software controls. Describe verification by its recorded scope and date; a passing core suite or scripted match does not establish exhaustive multiplayer behavior or human acceptance of visual quality.

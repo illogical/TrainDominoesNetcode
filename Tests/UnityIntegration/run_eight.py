@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """Run eight local real Unity players without contacting multiplayer services."""
+import argparse
 from pathlib import Path
 import subprocess
 import time
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--normal', action='store_true', help='Use production eight-seat host creation and random deck')
+parser.add_argument('--output-dir', type=Path, default=Path(__file__).parent)
+args = parser.parse_args()
+args.output_dir.mkdir(parents=True, exist_ok=True)
 app = '/tmp/td-integration-build/Integration.app/Contents/MacOS/TrainDominoesNetcode'
 for path in Path('/tmp').glob('td-eight-*'):
     if path.is_file(): path.unlink()
@@ -12,6 +18,7 @@ try:
     for index in range(8):
         command = [app, '-batchmode', '-nographics', '--mute-audio', '--integration-eight', '-logFile', f'/tmp/td-eight-{index}.log']
         if index == 0: command.append('--integration-host')
+        if args.normal: command.append('--integration-eight-normal')
         processes.append(subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT))
         time.sleep(1)
     deadline = time.monotonic() + 150
@@ -31,5 +38,5 @@ finally:
         source = Path(f'/tmp/td-eight-{index}.log')
         if source.exists():
             lines = [line for line in source.read_text(errors='replace').splitlines() if line.startswith('EIGHT ') or line.startswith('Exception:') or 'Presentation exceeded' in line]
-            Path(__file__).with_name(f'observed-eight-{index}.log').write_text('\n'.join(lines)+'\n')
+            (args.output_dir / f'observed-eight-{index}.log').write_text('\n'.join(lines)+'\n')
         if process.poll() is None: process.terminate()

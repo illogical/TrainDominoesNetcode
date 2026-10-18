@@ -16,15 +16,17 @@ using UnityEngine;
 public sealed class IntegrationRuntime:MonoBehaviour
 {
     CommandRequest captured; PlayerViewDto initialView;
-    bool host,draft,gapOnly,challenge,penaltyNone,live,reconnect;
+    bool host,draft,gapOnly,challenge,penaltyNone,live,reconnect,normal,setupFailure;
+    int setupAttempts;
+    int observedRound=-1, firstStarter=-1; string createdMatch;
     // NET-004 over real transport.
     bool dropped, sawMissing, resumed; string role; GameSession session; int actions, placements, draws, passes, undos, ends, rounds, announcements; bool undoDone;
     // NET-005 over real transport: privacy invariants on every received view, and challenge/penalty bookkeeping.
     int privacyViews, challengesWon, penaltiesReceived, missedSeen, expiredRejected; bool windowSkipped, expiryPending;
     ClientSession Client=>session.Client;
-    string Mode=>reconnect?"reconnect":live?"live":gapOnly?"presentation":draft?"draft":challenge?(penaltyNone?"challenge-none":"challenge"):"immediate";
+    string Mode=>setupFailure?"setup-failure":normal?"normal":reconnect?"reconnect":live?"live":gapOnly?"presentation":draft?"draft":challenge?(penaltyNone?"challenge-none":"challenge"):"immediate";
     string Prefix=>"/tmp/td-integration-"+Mode;
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { var args=Environment.GetCommandLineArgs(); if(!args.Contains("--integration-eight") && !args.Contains("--integration-view")) new GameObject("IntegrationRuntime").AddComponent<IntegrationRuntime>(); }
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { var args=Environment.GetCommandLineArgs(); if(!args.Contains("--integration-eight") && !args.Contains("--integration-view") && !args.Contains("--integration-review")) new GameObject("IntegrationRuntime").AddComponent<IntegrationRuntime>(); }
     void Mark(string s)=>Debug.Log("INTEGRATION "+role+" "+s);
     void Assert(bool condition,string name) { if(!condition) throw new Exception("ASSERT "+name); Mark("PASS "+name); }
     IEnumerator Wait(Func<bool> condition,string name,float limit=25)
@@ -34,6 +36,8 @@ public sealed class IntegrationRuntime:MonoBehaviour
     }
     IEnumerator Start()
     {
+        setupFailure=Environment.GetCommandLineArgs().Contains("--integration-setup-failure");
+        normal=setupFailure || Environment.GetCommandLineArgs().Contains("--integration-normal");
         host=Environment.GetCommandLineArgs().Contains("--integration-host"); draft=Environment.GetCommandLineArgs().Contains("--integration-draft"); gapOnly=Environment.GetCommandLineArgs().Contains("--presentation-only"); role=host?"host":"client";
         challenge=Environment.GetCommandLineArgs().Contains("--integration-challenge"); penaltyNone=Environment.GetCommandLineArgs().Contains("--integration-penalty-none");
         // --integration-live uses the scene's real Lobby + Relay path (SimpleMatchmaking); every other mode is localhost.
@@ -65,7 +69,9 @@ public sealed class IntegrationRuntime:MonoBehaviour
             Assert(host?net.StartHost():net.StartClient(),"network-start");
             yield return Wait(()=>net.IsConnectedClient && session.IsSpawned,"network-spawn");
         }
-        if(host)
+        AssertStartHidden();
+        if(normal) yield return NormalCreation(net);
+        else if(host)
         {
             yield return Wait(()=>net.ConnectedClientsIds.Count==2,"two-peers",live?90:25);
             var ids=net.ConnectedClientsIds.OrderBy(i=>i).ToArray();
@@ -76,10 +82,18 @@ public sealed class IntegrationRuntime:MonoBehaviour
         else yield return Wait(()=>File.Exists(Prefix+"-ready"),"authority-ready");
         Client.Synchronize(); yield return Wait(()=>Client.View!=null,"initial-view");
         Assert(Client.View.Hand.Length==0 && Client.View.Players.Length==2,"filtered-initial-view");
-        yield return ReadyUntilPlaying();
+        if(normal)
+        {
+            createdMatch=Client.View.Token.MatchId;
+            File.WriteAllText(Prefix+"-"+role+"-initial-seen","ready");
+            yield return Wait(()=>File.Exists(Prefix+"-host-initial-seen")&&File.Exists(Prefix+"-client-initial-seen"),"normal-both-initial-views");
+        }
+        if(setupFailure) yield return SetupFailureRecovery();
+        else yield return ReadyUntilPlaying();
         yield return Wait(()=>!Client.IsPresentationBusy,"deal-complete");
         Assert(Client.View.Hand.Length==DominoCatalog.HandSize(2) && Client.View.Trains.Length==3,"deal-profile-hand-and-three-trains");
         initialView=Copy(Client.View);
+        createdMatch=Client.View.Token.MatchId;
         Mark("normal-speed-setup-completed");
         if(gapOnly)
         {
@@ -87,7 +101,8 @@ public sealed class IntegrationRuntime:MonoBehaviour
             yield return Wait(()=>File.Exists(Prefix+"-"+(host?"client":"host")+"-gap"),"both-gap-probes");
             Mark("PASS ALL");yield return new WaitForSecondsRealtime(1);Application.Quit();yield break;
         }
-        if(!host) yield return Wait(()=>File.Exists(Prefix+"-first-done"),"host-first-action");
+        if(!host && !normal) yield return Wait(()=>File.Exists(Prefix+"-first-done"),"host-first-action");
+        if(normal) Time.timeScale=50;
         float started=Time.realtimeSinceStartup;
         while(Client.View.Phase!=MatchPhase.MatchOver && Time.realtimeSinceStartup-started<(live?540:300))
         {
@@ -155,7 +170,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
             }
             yield return Wait(()=>!Client.IsPresentationBusy,"motion-complete");
             if(kind==CommandKind.Place && Client.View.Token.RoundIndex==view.Token.RoundIndex) AssertPlacement(tile);
-            if(actions==1 && host)
+            if(actions==1 && host && !normal)
             {
                 Mark("normal-speed-first-action-completed");
                 long revision=Client.View.Token.Revision;
@@ -180,8 +195,9 @@ public sealed class IntegrationRuntime:MonoBehaviour
         {
             yield return Wait(()=>File.Exists(Prefix+"-client-complete"),"client-match-complete");
             yield return PresentationProbes();
-            Client.NewMatch(); yield return Wait(()=>Client.View.Token.MatchId!="cli-"+Mode,"fresh-match");
+            Client.NewMatch(); yield return Wait(()=>Client.View.Token.MatchId!=createdMatch,"fresh-match");
             Assert(Client.View.RoundResults.Length==0 && Client.View.Totals.All(t=>t.Count==0),"fresh-match-clears-scores");
+            if(normal) Assert(Client.View.Hand.Length==0 && Client.View.ReadyPlayers.Length==0,"fresh-match-clears-hands-and-readiness");
             File.WriteAllText(Prefix+"-reset","reset");
             yield return Wait(()=>File.Exists(Prefix+"-client-reset"),"client-reset");
             net.Shutdown();
@@ -195,6 +211,85 @@ public sealed class IntegrationRuntime:MonoBehaviour
             Assert(!Client.BoardEnabled,"disconnected-board-disabled");
         }
         Mark("PASS ALL"); yield return new WaitForSecondsRealtime(1); Application.Quit(0);
+    }
+    void AssertStartHidden()
+    {
+        foreach(var matchmaking in FindObjectsByType<SimpleMatchmaking>())
+        {
+            var start=(UnityEngine.UI.Button)typeof(SimpleMatchmaking).GetField("_startButton",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(matchmaking);
+            Assert(start!=null&&!start.gameObject.activeSelf,"start-control-hidden-during-session");
+        }
+    }
+    IEnumerator NormalCreation(NetworkManager net)
+    {
+        if(host)
+        {
+            yield return Wait(()=>net.ConnectedClientsIds.Count==2,"normal-connected-before-freeze");
+            yield return Wait(()=>File.Exists(Prefix+"-unauthorized"),"normal-unauthorized-peer-tested");
+            Assert(Client.View==null,"normal-no-authority-before-host-ready");
+            Client.Ready();
+            yield return Wait(()=>Client.View!=null,"normal-production-host-create");
+            Assert(!Client.View.Token.MatchId.StartsWith("cli-"),"normal-production-match-identity");
+            if(setupFailure)
+            {
+                var authority=(AuthoritativeMatchCoordinator)typeof(GameSession).GetField("authority",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(session);
+                var field=typeof(AuthoritativeMatchCoordinator).GetField("deckSupplier",BindingFlags.Instance|BindingFlags.NonPublic);
+                var supplier=(Func<int,IEnumerable<int>>)field.GetValue(authority);
+                field.SetValue(authority,new Func<int,IEnumerable<int>>(round=>{setupAttempts++;if(setupAttempts<=2)throw new InvalidOperationException("review injected supplier failure");return supplier(round);}));
+            }
+            File.WriteAllText(Prefix+"-ready","ready");
+        }
+        else
+        {
+            Client.Ready();
+            yield return Wait(()=>Client.Feedback=="Only the host can create a match.","normal-unauthorized-create-rejected");
+            Assert(Client.View==null,"normal-unauthorized-create-no-view");
+            File.WriteAllText(Prefix+"-unauthorized","done");
+            yield return Wait(()=>Client.View!=null,"normal-production-view");
+        }
+        Assert(Client.View.Players.Length==2 && Client.View.Hand.Length==0,"normal-fixed-roster-before-deal");
+        if(host)
+        {
+            Client.Ready(); yield return Wait(()=>Client.Pending==null,"normal-first-readiness");
+            Assert(Client.View.Phase!=MatchPhase.Playing,"normal-one-ready-no-deal");
+            var ready=WireCopy(captured); long revision=Client.View.Token.Revision;
+            Raw(ready);yield return new WaitForSecondsRealtime(.2f);
+            Assert(Client.View.Token.Revision==revision && Client.View.Hand.Length==0,"normal-duplicate-ready-no-mutation");
+            File.WriteAllText(Prefix+"-readiness-tested","done");
+        }
+        else yield return Wait(()=>File.Exists(Prefix+"-readiness-tested"),"normal-readiness-probe");
+    }
+    IEnumerator SetupFailureRecovery()
+    {
+        float start=Time.realtimeSinceStartup;
+        while(Client.View.Phase!=MatchPhase.AwaitingDeck)
+        {
+            if(Time.realtimeSinceStartup-start>30)throw new Exception("TIMEOUT setup-failure readiness");
+            if(Client.CanSubmit&&Client.View.Allowed.CanReady)Client.Ready();yield return null;
+        }
+        yield return Wait(()=>Client.Feedback.StartsWith("Round setup failed."),"setup-failure-visible-to-"+role);
+        string id=Client.View.Token.MatchId;long revision=Client.View.Token.Revision;
+        Assert(Client.View.Hand.Length==0&&Client.View.ReadyPlayers.Length==2&&Client.View.RoundResults.Length==0,"setup-failure-no-partial-deal");
+        if(!host)
+        {
+            Client.RetrySetup();yield return Wait(()=>Client.Pending==null,"setup-nonhost-retry");
+            Assert(Client.LastRejection==RuleError.InvalidCommand&&Client.View.Phase==MatchPhase.AwaitingDeck,"setup-nonhost-retry-rejected");
+            File.WriteAllText(Prefix+"-nonhost-retry-tested","done");
+        }
+        else
+        {
+            yield return Wait(()=>File.Exists(Prefix+"-nonhost-retry-tested"),"setup-peer-observed-failure");
+            Client.RetrySetup();yield return Wait(()=>Client.Pending==null,"setup-persistent-failure-retry");
+            Assert(Client.View.Phase==MatchPhase.AwaitingDeck&&Client.View.Token.Revision==revision&&setupAttempts==2,"setup-persistent-failure-no-mutation");
+            var retry=WireCopy(captured);Raw(retry);yield return new WaitForSecondsRealtime(.2f);
+            Assert(setupAttempts==2&&Client.View.Token.Revision==revision,"setup-duplicate-failed-retry-cached");
+            retry.RequestId="stale-setup";retry.Expected.Revision--;Raw(retry);yield return new WaitForSecondsRealtime(.2f);
+            Assert(setupAttempts==2&&Client.View.Token.Revision==revision,"setup-stale-retry-no-supplier-call");
+            Client.RetrySetup();yield return Wait(()=>Client.Pending==null&&Client.View.Phase==MatchPhase.Playing,"setup-recovered");
+            Assert(setupAttempts==3,"setup-starts-once-after-recovery");
+        }
+        yield return Wait(()=>Client.View.Phase==MatchPhase.Playing,"setup-recovered-both-peers");
+        Assert(Client.View.Token.MatchId==id&&Client.View.RoundResults.Length==0,"setup-recovery-preserves-match-and-score");
     }
     /// <summary>NET-004: lose the connection in the middle of an action, reconnect through Retry, reclaim the seat.</summary>
     IEnumerator DropAndReclaim(NetworkManager net)
@@ -210,10 +305,12 @@ public sealed class IntegrationRuntime:MonoBehaviour
         net.Shutdown();
         yield return Wait(()=>!net.IsListening && !net.ShutdownInProgress,"client-dropped");
         Assert(!Client.IsAvailable && !Client.BoardEnabled,"drop-disables-input");
+        AssertStartHidden();
         yield return new WaitForSecondsRealtime(1);
         Client.Synchronize(); // the Retry action: reconnects because the session is no longer spawned
         yield return Wait(()=>net.IsConnectedClient && session.IsSpawned && Client.View!=null,"reconnected-and-reclaimed",30);
         Assert(Client.View.Player==seat && Client.Credential.Seat==seat,"same-seat-after-reconnect");
+        AssertStartHidden();
         Assert(Client.Credential.Secret!=secret,"secret-rotated-after-reclaim");
         int change=Client.View.Hand.Length-hand;
         Mark("in-flight request "+(change==0?"was not applied (or a pass)":"applied once, hand "+(change>0?"+":"")+change));
@@ -232,10 +329,18 @@ public sealed class IntegrationRuntime:MonoBehaviour
     // Every received view: only my own provisional tiles, my hand matches my public count, all 90 tiles accounted for.
     void CheckPrivacy(PlayerViewDto v)
     {
-        if(v==null || v.Token.MatchId==null || !v.Token.MatchId.StartsWith("cli-")) return; // synthetic probes are exempt
+        if(v==null || v.Token.MatchId==null || (normal ? !Guid.TryParse(v.Token.MatchId,out _) : !v.Token.MatchId.StartsWith("cli-"))) return; // synthetic probes are exempt
         privacyViews++;
         if(v.Trains.Any(t=>t.Placements.Any(p=>p.IsProvisional && p.PlayedBy!=v.Player))) throw new Exception("ASSERT privacy-no-foreign-provisional");
         if(v.Phase!=MatchPhase.Playing) return;
+        if(normal && v.Token.MatchId==createdMatch && v.Token.RoundIndex!=observedRound)
+        {
+            observedRound=v.Token.RoundIndex;
+            if(firstStarter<0) firstStarter=v.ActivePlayer;
+            Assert(v.ActivePlayer==(firstStarter+observedRound)%v.Players.Length,"normal-starter-rotation-round-"+observedRound);
+            Assert(v.HandCounts.All(c=>c.Count==DominoCatalog.HandSize(v.Players.Length)),"normal-redeal-counts-round-"+observedRound);
+            Assert(v.RoundResults.Length==observedRound,"normal-score-once-round-"+observedRound);
+        }
         int own=v.HandCounts.Single(c=>c.Player==v.Player).Count;
         if(own!=v.Hand.Length) throw new Exception("ASSERT privacy-own-hand-count");
         int others=v.HandCounts.Where(c=>c.Player!=v.Player).Sum(c=>c.Count);
@@ -327,7 +432,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
         Assert(Vector3.Distance(position,expected)<0.001f&&mesh.GetDominoMeshById(added)==null,"presentation-cancel-old-draw-one-tile-layout");
         Mark("PRESENTATION-ONLY synthetic probes end");
     }
-    static IEnumerable<int> Deck(int round)
+    public static IEnumerable<int> Deck(int round)
     {
         var remaining=DominoCatalog.All.Where(d=>d.Id!=DominoCatalog.EngineForRound(round)).Select(d=>d.Id).ToList();
         if(round==0) return remaining; // Initial round also exercises draw and pass.

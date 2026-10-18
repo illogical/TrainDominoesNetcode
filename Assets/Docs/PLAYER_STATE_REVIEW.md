@@ -8,20 +8,20 @@ updated: 2026-10-18
 
 STATE-001 policy/state review was agreed on 2026-10-17. The selected Puremco core and its live gameplay adapter/state integration are implemented as of 2026-10-18; integration verification remains in progress. The [rulebook](TRAIN_DOMINOES_RULEBOOK.md) owns behavior, the [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) owns the core boundary, and the [integration guide](GAMEPLAY_INTEGRATION.md) describes actual symbols and data flow.
 
-The selected inventory is implemented: seven normal states plus SessionSuspended. The [source-derived flow](PlayerStateFlow/current.md) should be regenerated after state changes; static graphs are not play-test evidence. The [legacy CLI runtime baseline](STATE_002_RUNTIME_BASELINE.md) is historical evidence of the replaced nested-RPC/group-readiness defect. Current verification outcomes belong in the [verification report](RULES_ENGINE_VERIFICATION.md).
+The selected inventory is implemented: seven normal states plus SessionSuspended. The [source-derived flow](PlayerStateFlow/current.md) should be regenerated after state changes; static graphs are not play-test evidence. The [legacy CLI runtime baseline](STATE_002_RUNTIME_BASELINE.md) is historical evidence of the replaced nested-RPC/group-readiness defect. Current adapter, localhost, live-service and presentation outcomes belong in [integration verification](GAMEPLAY_INTEGRATION_VERIFICATION.md); [standalone verification](RULES_ENGINE_VERIFICATION.md) is the earlier core-only report. The [gameplay review roadmap](plans/2026-10-18-gameplay-gap-analysis-and-review-plan.md) tracks remaining acceptance work without proposing additional states.
 
 ## Implemented phase/action matrix — 2026-10-18
 
 | Condition | Local mode / owner | Implemented behavior |
 | --- | --- | --- |
 | No view / initial readiness | Pregame; host session adapter | Host creates a 2–8-person fixed roster. Each seat submits Ready; join alone does not start play |
-| Awaiting deck / initial presentation | RoundInitializing; authoritative coordinator and presentation | `TryStartRound` supplies a validated deck. Interaction waits for round presentation completion |
+| Awaiting deck / initial presentation | RoundInitializing; authoritative coordinator and presentation | `TryStartRound` supplies a validated deck. Interaction waits for round presentation completion; failed setup retains readiness/scores, reports participant feedback and allows a host-only correlated Retry through existing Ready (GAME-002) |
 | Local actor | PlayerActing | Selection is local; explicit tile/train placement, Draw, Pass and Draft Undo/End Turn use core views and commands |
 | Other actor | PlayerAwaitingTurn | Observe filtered views; still forward Announce/Challenge |
 | Outstanding command | PlayerActionPending | One request installed before send; Retry preserves identity. Outcome matching and view freshness are independent |
 | Round result | RoundOver | Show ending reason, scores/totals and Ready; no local rule reset. Blocked result permits no ending player |
 | Match result | GameOver | Show all joint winners; host requests a fresh match and fresh readiness |
-| Session unavailable/suspended | PlayerSessionSuspended | Block ordinary commands, offer synchronization/resume/new match. Host requires every frozen transport identity before resume |
+| Session unavailable/suspended | PlayerSessionSuspended | Block ordinary commands, offer synchronization/resume/new match. Retry reconnects/reclaims a fixed seat with a rotating host-issued secret; host Resume requires every fixed seat connected, including seats rebound to new transport IDs |
 | Doubles / draw / markers / Draft readiness | Core data, not state classes | `PlayerViewDto` carries requirement, legal placements and allowed actions |
 | Visual work | GameplayManager / GameplayPresenter | Ordered local batches; board input mask; terminal snap; cancellation/generation/watchdog recovery |
 

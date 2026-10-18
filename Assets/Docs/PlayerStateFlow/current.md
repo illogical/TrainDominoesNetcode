@@ -1,8 +1,8 @@
 # Player-state flow — current source
 
-Working tree (HEAD 0eec4e56dd974d84a02d2b33f7aa198484f180e8)
+Working tree (HEAD 0cff488e4bc7cfbfeca19cbfc36cac597b281841)
 
-State-source SHA-256: `c039bb9ff3253f6498d7bd5cbe2c44d9b8d9d9f1296fb942c01261af540f49e9`.
+State-source SHA-256: `f3b4046b4747029a4db81075d1c4d9d287c6fae2b65ccef8a0abef0c5c8c1818`.
 
 Static source inventory, not runtime verification or an authoritative rules specification. Guards are source expressions, not evaluated predicates. RPC requests do not imply acceptance.
 
@@ -623,6 +623,7 @@ Includes input/actions that may send requests without changing state. Actions ar
 | RoundInitializingState | client.ViewChanged | ViewChanged | Reconcile() |
 | RoundInitializingState | ctx.Input.AnnounceClicked | AnnounceClicked | ctx.Client.Submit(CommandKind.Announce) |
 | RoundInitializingState | ctx.Input.ChallengeClicked | ChallengeClicked | ctx.Client.Submit(CommandKind.Challenge, target: target) |
+| RoundInitializingState | ctx.Input.RetryClicked | RetryClicked | ctx.Client.RetrySetup() |
 | RoundOverState | client.PresentationChanged | PresentationChanged | Reconcile() |
 | RoundOverState | client.RequestChanged | RequestChanged | Reconcile() |
 | RoundOverState | client.SessionAvailabilityChanged | SessionAvailabilityChanged | Reconcile() |

@@ -11,7 +11,7 @@ using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 public sealed class EightRuntime:MonoBehaviour
 {
-    bool host; GameSession session; string role="starting";
+    bool host,normal; GameSession session; string role="starting";
     ClientSession Client=>session.Client;
     const string Prefix="/tmp/td-eight-";
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { if(Environment.GetCommandLineArgs().Contains("--integration-eight")) new GameObject("EightRuntime").AddComponent<EightRuntime>(); }
@@ -20,6 +20,7 @@ public sealed class EightRuntime:MonoBehaviour
     IEnumerator Start()
     {
         host=Environment.GetCommandLineArgs().Contains("--integration-host");
+        normal=Environment.GetCommandLineArgs().Contains("--integration-eight-normal");
         foreach(var m in FindObjectsByType<SimpleMatchmaking>())m.enabled=false;
         yield return new WaitForSecondsRealtime(2);session=FindAnyObjectByType<GameSession>();var net=NetworkManager.Singleton;
         var sound=FindAnyObjectByType<Assets.Scripts.Game.SoundManager>();Assert(sound!=null&&sound.IsMuted&&AudioListener.volume==0f,"audio-muted-for-testing");
@@ -28,8 +29,16 @@ public sealed class EightRuntime:MonoBehaviour
         if(host)
         {
             yield return Wait(()=>net.ConnectedClientsIds.Count==8,"eight-peers");var ids=net.ConnectedClientsIds.OrderBy(i=>i).ToArray();
+            if(normal)
+            {
+                Client.Ready();yield return Wait(()=>Client.View!=null,"production-eight-seat-creation");
+                Assert(!Client.View.Token.MatchId.StartsWith("cli-"),"production-eight-seat-match-identity");
+            }
+            else
+            {
             var authority=new AuthoritativeMatchCoordinator("cli-eight",ids,0,null,round=>DominoCatalog.All.Where(d=>d.Id!=DominoCatalog.EngineForRound(round)).Select(d=>d.Id));
             typeof(GameSession).GetField("authority",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(session,authority);
+            }
             File.WriteAllText(Prefix+"ready","ready");
         }
         else yield return Wait(()=>File.Exists(Prefix+"ready"),"authority");

@@ -29,6 +29,8 @@ public class LayoutManager : MonoBehaviour
     public AnimationDefinition DominoSlideToTrack;
     public AnimationDefinition RearrangePlayerDominoes;
     public AnimationDefinition SelectionEase;
+    [Tooltip("Presentation-only seed for reproducible initial-deal timing; never used by the rules RNG.")]
+    [SerializeField] private int DealMotionSeed = 1729;
 
     public static readonly Quaternion HandRotation = Quaternion.Euler(-90, 0, 180);
     public static readonly Quaternion TrackRotation = Quaternion.Euler(0, -90, -90);
@@ -185,9 +187,12 @@ public class LayoutManager : MonoBehaviour
         {
             var tile = dominoes[i].transform;
             SnapToHand(tile, new Vector3(positions[i].x, under, 0));
-            routines.Add(AnimationHelper.MoveLocalOverSeconds(tile, positions[i], null, null,
+            AnimationHelper.DealTiming(i, dominoes.Count, DealMotionSeed,
                 PlayerDominoSlideIn != null ? PlayerDominoSlideIn.Duration : 0,
-                PlayerDominoSlideIn != null ? PlayerDominoSlideIn.Delay * i : 0, PlayerDominoSlideIn));
+                PlayerDominoSlideIn != null ? PlayerDominoSlideIn.Delay : 0,
+                out float duration, out float delay);
+            routines.Add(AnimationHelper.MoveLocalOverSeconds(tile, positions[i], null, null,
+                duration, delay, PlayerDominoSlideIn));
         }
         yield return Together(routines.ToArray());
     }

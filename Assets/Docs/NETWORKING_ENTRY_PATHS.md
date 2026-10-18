@@ -71,3 +71,11 @@ This is the path the game ships with. The `SimpleMatchmaking` component on the `
 | Relay rejoin after a drop, **live service** | **Verified.** `run_players.py --live --reconnect`: the client drops mid-move, `RejoinRelay` joins the same lobby's allocation again, the seat is reclaimed with a rotated secret, a forged claim is refused, and the host sees the missing seat, then everyone back, resumes and finishes. Evidence: `Tests/UnityIntegration/observed-live-reconnect-*.log`. |
 
 **Not established live:** that the lobby is deleted on exit (no error was logged, and a lobby without heartbeats lapses on the service side); behavior on slow or lossy real networks, since both players ran on one machine through the real Relay service; a Relay allocation expiring after a long idle period.
+
+## Gameplay closure changes (2026-10-18)
+
+The Start control now follows NetworkManager client/server startup events on every entry path, including direct transport. It stays hidden during a reconnectable session; after a stop it returns only when no seat credential or connected lobby remains. Subscriptions are installed in Awake and balanced at destruction, including when the matchmaking component is disabled by a localhost fixture.
+
+Production match creation freezes seats and calls `SimpleMatchmaking.FreezeAdmission`. The hosting Lobby is updated with `IsLocked=true`, preventing quick-join admission; failed updates log a warning and retry on a later heartbeat. The Relay allocation remains available to legitimate seat reclaim through the saved join code. An arrival racing the lock receives explicit waiting-for-fresh-match feedback and no projection; this is not spectator support. Fresh matches seat the currently connected 2–8 peers.
+
+This change has local source/coordinator coverage and production eight-seat startup checks; the new Lobby-lock call has not been exercised against live services in this implementation run. SDK behavior was checked against the installed pinned Lobby API. A mocked/live admission and near-capacity transport-reclaim matrix remains GAME-003 work; do not infer Relay capacity from the console seat-registry fixture.

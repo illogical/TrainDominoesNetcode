@@ -153,10 +153,10 @@ The four `[ServerRpc(RequireOwnership = false)]` RPCs compiled with obsolete war
   - `--ugs-profile <name>` gives each instance its own identity.
 - **Next time:** take limits from the game's rules, choose the encrypted transport option by default, and handle the one expected exception narrowly instead of catching everything.
 
-### M15. A leftover NetworkObject on a local-only prefab (Medium, worked around: VIEW-001)
+### M15. A leftover NetworkObject on a local-only prefab (Medium, asset fix: MAINT-004)
 
 - **What happened:** board navigation moves tiles under row transforms, but every tile stayed at the scene root. Their local targets were applied as world positions. Nothing threw. The domino prefab still has a `NetworkObject` (and `NetworkTransform`) from when tiles were networked, and it is registered in `DefaultNetworkPrefabs`. Tiles are now created with plain `Instantiate` and never spawned. NGO's `NetworkObject.OnTransformParentChanged` then undoes any reparenting: with the network stopped it logs "is not listening, start a server or host before re-parenting", and in a running host or client "can only be re-parented after being spawned". The localhost match logs had 35 of these errors, unnoticed because they were errors, not exceptions.
-- **Fix:** `MeshManager` sets `AutoObjectParentSync = false` on each tile it creates, so NGO leaves the parent alone. The prefab asset is unchanged; removing the unused network components is tracked as MAINT-004, because the prefab is registered as a network prefab.
+- **Fix (2026-10-18):** the Unity Editor removed `NetworkTransform` and `NetworkObject` from `domino_original` and removed its entry from `DefaultNetworkPrefabs`. `MeshManager` no longer needs the parent-sync workaround. `DominoPlayer` and the scene's explicit network prefab list are unchanged; the player's serialized hash remains 951099334. A focused Editor check verifies component removal, registration removal and local parenting with no running network. Full match/view regression evidence is recorded separately; this asset check alone does not complete MAINT-004.
 - **Next time:** a prefab that is no longer spawned should not carry network components; they keep enforcing network rules on purely local objects. Search logs for NGO errors, not only exceptions, after a presentation change.
 
 ### Design lessons (from the pre-Priority-4 review)
@@ -263,6 +263,10 @@ Both outcomes are safe, and the tests pin both down.
 ### VIEW-001–004 — board navigation and feedback (2026-10-18)
 
 Presentation work, but with two netcode lessons. M15: a leftover `NetworkObject` on a local-only prefab silently undid every reparenting. M11 (now fixed): an exactly-once key must name the transition (the revision), not just the round. The wire contract, projections and RPCs are unchanged. All seven localhost CLI scenarios pass on this build.
+
+### 2026-10-18 — Local presentation prefab cleanup
+
+MAINT-004 removes the unused tile network components and registration through the Unity Editor, replacing the VIEW-001 parent-sync workaround. Focused Editor checks pass. Saving the scene's console startup override also serializes current Unity/NGO defaults, including the already-clamped ten-second spawn timeout and disabled scene-object migration synchronization; legacy development settings remain unchanged.
 
 ## Libraries: versions and upgrade notes
 

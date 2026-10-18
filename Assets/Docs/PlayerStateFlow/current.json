@@ -54,7 +54,7 @@
       "base": "ObservingStateBase",
       "abstract": false,
       "file": "Assets/Scripts/Game/States/RoundInitializingState.cs",
-      "line": 4
+      "line": 6
     },
     {
       "name": "RoundOverState",
@@ -5865,6 +5865,17 @@
       ]
     },
     {
+      "source": "RoundInitializingState",
+      "event": "ctx.Input.RetryClicked",
+      "handler": "RetryClicked",
+      "owner": "RoundInitializingState",
+      "file": "Assets/Scripts/Game/States/RoundInitializingState.cs",
+      "line": 11,
+      "actions": [
+        "ctx.Client.RetrySetup()"
+      ]
+    },
+    {
       "source": "RoundOverState",
       "event": "client.PresentationChanged",
       "handler": "PresentationChanged",
@@ -5923,6 +5934,6 @@
   "warnings": [],
   "schemaVersion": 1,
   "status": "source",
-  "sourceLabel": "Working tree (HEAD 0eec4e56dd974d84a02d2b33f7aa198484f180e8)",
-  "sourceHash": "c039bb9ff3253f6498d7bd5cbe2c44d9b8d9d9f1296fb942c01261af540f49e9"
+  "sourceLabel": "Working tree (HEAD 0cff488e4bc7cfbfeca19cbfc36cac597b281841)",
+  "sourceHash": "f3b4046b4747029a4db81075d1c4d9d287c6fae2b65ccef8a0abef0c5c8c1818"
 }

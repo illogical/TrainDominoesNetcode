@@ -83,9 +83,6 @@ public class MeshManager : MonoBehaviour
         info.Purpose = purpose;
         var newDomino = Instantiate(prefab, position, dominoRotation);
         newDomino.name = info.ID.ToString();
-        // Tiles are local presentation objects and are never spawned. The prefab still carries a NetworkObject,
-        // whose parent sync would undo reparenting under the board rows (VIEW-001).
-        if (newDomino.TryGetComponent<Unity.Netcode.NetworkObject>(out var networkObject)) networkObject.AutoObjectParentSync = false;
 
         var dom = newDomino.GetComponent<DominoEntityUI>();
         dom.SetDominoInfo(info);

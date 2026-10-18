@@ -34,11 +34,50 @@ namespace Assets.Scripts.Game
         private string _playerId;
         private bool _busy;
         private float _nextHeartbeat;
+        private NetworkManager _network;
+        private bool _rosterFrozen, _admissionBusy;
+        private bool _publishedLock;
+
+        // Lock Lobby discovery, never Relay allocation: returning seats still need to reconnect.
+        public void FreezeAdmission()
+        {
+            _rosterFrozen = true;
+            PublishAdmission();
+        }
+
+        private async void PublishAdmission()
+        {
+            if (_admissionBusy || _connectedLobby == null || _connectedLobby.HostId != _playerId || _publishedLock == _rosterFrozen) return;
+            _admissionBusy = true;
+            bool locked = _rosterFrozen;
+            try
+            {
+                _connectedLobby = await LobbyService.Instance.UpdateLobbyAsync(_connectedLobby.Id, new UpdateLobbyOptions { IsLocked = locked });
+                _publishedLock = locked;
+            }
+            catch (Exception e) { Debug.LogWarning("Could not close lobby admission: " + e.Message); }
+            finally { _admissionBusy = false; }
+        }
+
+        private void NetworkStarted() { _startButton.gameObject.SetActive(false); }
+        private void NetworkStopped(bool wasHost)
+        {
+            bool canStart = GameSession.Instance?.Client.Credential == null && _connectedLobby == null;
+            _startButton.gameObject.SetActive(canStart);
+            _startButton.interactable = !_busy;
+        }
 
         private void Awake()
         {
             _transport = FindAnyObjectByType<UnityTransport>();
             _startButton.onClick.AddListener(CreateOrJoinLobby);
+            _network = NetworkManager.Singleton != null ? NetworkManager.Singleton : FindAnyObjectByType<NetworkManager>();
+            if (_network != null)
+            {
+                _network.OnClientStarted += NetworkStarted;
+                _network.OnServerStarted += NetworkStarted;
+                _network.OnClientStopped += NetworkStopped;
+            }
         }
 
         public async void CreateOrJoinLobby()
@@ -51,6 +90,7 @@ namespace Assets.Scripts.Game
             {
                 await Authenticate();
                 _connectedLobby = await QuickJoinLobby() ?? await CreateLobby();
+                PublishAdmission();
             }
             catch (Exception e)
             {
@@ -59,7 +99,7 @@ namespace Assets.Scripts.Game
             finally
             {
                 _busy = false;
-                if (_connectedLobby != null) _startButton.gameObject.SetActive(false);
+                if (_connectedLobby != null || _network != null && _network.IsListening) _startButton.gameObject.SetActive(false);
                 else _startButton.interactable = true;
             }
         }
@@ -164,6 +204,7 @@ namespace Assets.Scripts.Game
             // The lobby service closes a hosted lobby without heartbeats; send one every 15 seconds.
             if (_connectedLobby == null || _connectedLobby.HostId != _playerId || Time.realtimeSinceStartup < _nextHeartbeat) return;
             _nextHeartbeat = Time.realtimeSinceStartup + HeartbeatSeconds;
+            PublishAdmission();
             _ = Heartbeat(_connectedLobby.Id);
         }
 
@@ -188,6 +229,13 @@ namespace Assets.Scripts.Game
 
         private void OnDestroy()
         {
+            if (_network != null)
+            {
+                _network.OnClientStarted -= NetworkStarted;
+                _network.OnServerStarted -= NetworkStarted;
+                _network.OnClientStopped -= NetworkStopped;
+            }
+            _startButton.onClick.RemoveListener(CreateOrJoinLobby);
             if (_connectedLobby == null) return;
             // Best effort while shutting down; failures are logged inside LeaveLobby.
             _ = LeaveLobby(_connectedLobby);

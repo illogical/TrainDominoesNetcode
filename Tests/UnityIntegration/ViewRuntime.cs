@@ -66,12 +66,13 @@ public sealed class ViewRuntime : MonoBehaviour
         }
         Mark($"SCREEN screen={Screen.width}x{Screen.height} camera={cam.pixelWidth}x{cam.pixelHeight} offscreen={offscreen} canvasScale={canvas?.scaleFactor} dpi={Screen.dpi} graphics={SystemInfo.graphicsDeviceType}");
         Assert(cam.pixelWidth == width && cam.pixelHeight == height && Mathf.Abs(canvas.scaleFactor - height / 1080f) < 1e-3f, "view-size-applied");
-        // A started Relay match hides the start menu (SimpleMatchmaking). These probes start no network, so hide it the
-        // same way. The direct/LAN path does not hide it (finding VIEW-005).
+        // These synthetic presentation probes start no network, so the start menu is still appropriate here.
+        // Hide it only for view-mode layout checks; actual network-start visibility is asserted by IntegrationRuntime.
         var menu = FindAnyObjectByType<MainMenuUI>(); if (menu != null) { menu.gameObject.SetActive(false); Mark("main-menu-hidden-as-in-a-started-match"); }
-        // The Quantum Console opens at startup in every build; close it as a developer would (finding VIEW-005).
+        // Assert the scene startup policy directly; never close an unexpectedly open overlay to pass a probe.
         foreach (var console in FindObjectsByType<MonoBehaviour>().Where(b => b.GetType().Name == "QuantumConsole"))
-        { console.GetType().GetMethod("Deactivate")?.Invoke(console, null); Mark("developer-console-closed"); }
+            Assert(console.GetType().GetProperty("IsActive")?.GetValue(console) is bool active && !active,
+                "developer-console-starts-closed");
         mouse = InputSystem.AddDevice<Mouse>("ProbeMouse"); keyboard = InputSystem.AddDevice<Keyboard>("ProbeKeyboard"); screen = InputSystem.AddDevice<Touchscreen>("ProbeTouch");
         mouse.MakeCurrent(); keyboard.MakeCurrent();
         if (screenshots) Directory.CreateDirectory(shots);

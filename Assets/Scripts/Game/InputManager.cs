@@ -122,7 +122,7 @@ public class InputManager : MonoBehaviour,IInteractionInput
         Set("Undo",view?.Settings?.Commitment==CommitmentMode.Draft && view.Phase==MatchPhase.Playing,board && view.Allowed.CanUndo);
         Set("End Turn",view?.Settings?.Commitment==CommitmentMode.Draft && view.Phase==MatchPhase.Playing,board && view.Allowed.CanEndTurn);
         Set("Announce",view?.Phase==MatchPhase.Playing,usable);
-        Set("Retry",client.Pending!=null || !client.IsAvailable,true);
+        Set("Retry",client.Pending!=null || !client.IsAvailable || view?.Phase==MatchPhase.AwaitingDeck && Unity.Netcode.NetworkManager.Singleton!=null && Unity.Netcode.NetworkManager.Singleton.IsHost,true);
         // Resume is the host's action and only works once every seat is connected again (NET-004).
         Set("Resume",view!=null && view.IsSuspended,client.MissingSeats.Length==0 && Unity.Netcode.NetworkManager.Singleton!=null && Unity.Netcode.NetworkManager.Singleton.IsHost);
         Set("New Match",view!=null && (view.IsSuspended || view.Phase==MatchPhase.MatchOver),true);

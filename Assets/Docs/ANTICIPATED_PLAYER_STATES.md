@@ -6,13 +6,17 @@ updated: 2026-10-18
 
 # Anticipated player states for the full Puremco profile
 
-This document preserves the selected Puremco interaction design agreed on 2026-10-17. The selected eight classes are now implemented; runtime verification remains in progress. The [integration guide](GAMEPLAY_INTEGRATION.md) describes actual command/presentation flow, the [state matrix](PLAYER_STATE_REVIEW.md) records current responsibility, and the [generated map](PlayerStateFlow/current.md) records source wiring.
+This document preserves the selected Puremco interaction design agreed on 2026-10-17. The selected eight classes are implemented, with recorded console, actual localhost and authorized live-service verification; human visual acceptance remains in progress. See [integration verification](GAMEPLAY_INTEGRATION_VERIFICATION.md) for scope and dated outcomes. The [integration guide](GAMEPLAY_INTEGRATION.md) describes actual command/presentation flow, the [state matrix](PLAYER_STATE_REVIEW.md) records current responsibility, and the [generated map](PlayerStateFlow/current.md) records source wiring.
 
 **Implemented inventory:** PregameState, RoundInitializingState, PlayerAwaitingTurnState, PlayerActingState, PlayerActionPendingState, RoundOverState, GameOverState and PlayerSessionSuspendedState. `PlayerStateCoordinator` selects modes from recipient views, pending delivery and presentation status. The runner remains flat. TurnStarted/MadeMove are merged into Acting; Started is replaced by RoundInitializing; the unused Joined placeholder and distributed turn/result handlers are removed.
 
 Doubles, drawing allowances, markers, Draft readiness and scoring remain authoritative data. Existing animation operations are wrapped in locally ordered/cancellable batches; completion releases board input but never advances rules. Announce/Challenge remains possible from Acting and Waiting during motion. Startup/round-replacement presentation finishes before board interaction begins.
 
-**Reading the historical sections below:** “current flow” is the pre-integration 2026-10-17 baseline; “proposed” and “remaining implementation” describe its then-agreed targets. They are preserved for before/after comparison, not current source claims. Follow the implemented matrix and generated map for today's behavior. The [legacy runtime baseline](STATE_002_RUNTIME_BASELINE.md) records a real CLI characterization, including its group-readiness blocker; it does not prove replacement behavior. Detailed reconnect transport, recovery UX, settings UI and visual-quality review remain deferred.
+**Reading the historical sections below:** “current flow” is the pre-integration 2026-10-17 baseline; “proposed” and “remaining implementation” describe its then-agreed targets. They are preserved for before/after comparison, not current source claims. Follow the implemented matrix and generated map for today's behavior. The [legacy runtime baseline](STATE_002_RUNTIME_BASELINE.md) records a real CLI characterization, including its group-readiness blocker; it does not prove replacement behavior. Seat-secret reclaim under a new transport ID, Retry, missing-seat feedback and host Resume are implemented and have localhost and authorized Lobby/Relay evidence. Host migration, app-restart recovery, settings UI and human review of recovery/layout/motion remain deferred. The [gameplay review roadmap](plans/2026-10-18-gameplay-gap-analysis-and-review-plan.md) tracks production startup evidence, host setup Retry, frozen-roster admission and remaining review coverage; these conditions do not add local states.
+
+## Historical design and implementation targets — 2026-10-17
+
+The remaining sections preserve the original design and its then-current implementation gaps. Their U6, missing-state and deferred-recovery wording is historical; use the implemented inventory above for current behavior.
 
 ## Engine contract additions agreed during standalone implementation
 

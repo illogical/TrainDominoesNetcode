@@ -8,6 +8,7 @@ namespace Assets.Scripts.Game.Integration
     /// <summary>Recipient-only state and delivery correlation. Never owns game rules or waits for animation to accept a result.</summary>
     public sealed class ClientSession
     {
+        public const string SetupFailureMessage = "Round setup failed. The host can press Retry to try again.";
         private readonly Action<CommandRequest> send;
         private readonly HashSet<string> retiredMatches = new HashSet<string>();
         public PlayerViewDto View { get; private set; }
@@ -48,6 +49,7 @@ namespace Assets.Scripts.Game.Integration
             if (View == null) { StartMatchRequested?.Invoke(); return; }
             if (View.Allowed.CanReady) Submit(CommandKind.Ready);
         }
+        public void RetrySetup() { if (View?.Phase == MatchPhase.AwaitingDeck) Submit(CommandKind.Ready); }
         public void NewMatch() => NewMatchRequested?.Invoke();
         public void Resume() => ResumeRequested?.Invoke();
         public void Synchronize() => SynchronizationRequested?.Invoke();
@@ -134,6 +136,7 @@ namespace Assets.Scripts.Game.Integration
                 if (old != null && !sameMatch) retiredMatches.Add(old.Token.MatchId);
                 if (oldPhase || next.IsSuspended) { requestChanged |= Pending != null; Pending = null; IsUncertain = false; }
                 View = next;
+                if (next.Phase != MatchPhase.AwaitingDeck && Feedback == SetupFailureMessage) Feedback = "";
                 if (SelectedTile.HasValue && (!next.Hand.Contains(SelectedTile.Value) || next.ActivePlayer != next.Player || terminal)) SelectedTile = null;
                 IsPresentationBusy = true;
                 if (replace) IsRoundPresented = false;

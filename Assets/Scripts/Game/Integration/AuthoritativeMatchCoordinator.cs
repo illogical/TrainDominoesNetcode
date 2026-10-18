@@ -14,6 +14,7 @@ namespace Assets.Scripts.Game.Integration
         private readonly Dictionary<PlayerId, Dictionary<string, Cached>> cache = new Dictionary<PlayerId, Dictionary<string, Cached>>();
         private readonly Func<int, IEnumerable<int>> deckSupplier;
         private MatchState state;
+        private readonly ulong hostTransport;
 
         public string LastLifecycleError { get; private set; }
 
@@ -28,9 +29,10 @@ namespace Assets.Scripts.Game.Integration
             public CommandOutcome Outcome;
         }
 
-        public AuthoritativeMatchCoordinator(string matchId, IEnumerable<ulong> transportIds, int startingSeat = 0, MatchSettings settings = null, Func<int, IEnumerable<int>> deckSupplier = null)
+        public AuthoritativeMatchCoordinator(string matchId, IEnumerable<ulong> transportIds, int startingSeat = 0, MatchSettings settings = null, Func<int, IEnumerable<int>> deckSupplier = null, ulong hostTransport = 0)
         {
             seats = new SeatRegistry(transportIds);
+            this.hostTransport = hostTransport;
             state = Core.CreateMatch(matchId, seats.Seats, startingSeat, settings);
             foreach (var seat in seats.Seats) cache[seat] = new Dictionary<string, Cached>(StringComparer.Ordinal);
             this.deckSupplier = deckSupplier ?? ShuffledDeck;
@@ -59,6 +61,29 @@ namespace Assets.Scripts.Game.Integration
                     return Reply(actor, replay);
                 }
 
+                // AwaitingDeck is a trusted lifecycle boundary, not a player rule action.
+                if (request.Kind == CommandKind.Ready && state.Phase == MatchPhase.AwaitingDeck)
+                {
+                    RuleError error = authenticatedSender != hostTransport ? RuleError.InvalidCommand
+                        : state.IsSuspended ? RuleError.Suspended
+                        : request.Expected == null || !request.Expected.ToToken().Equals(state.Token) ? RuleError.StalePosition
+                        : RuleError.None;
+                    var setupPackets = new List<RecipientPacket>();
+                    if (error == RuleError.None)
+                    {
+                        TryStartRound(setupPackets);
+                        if (state.Phase == MatchPhase.AwaitingDeck) error = RuleError.InvalidDeck;
+                    }
+                    var setupOutcome = new CommandOutcome { RequestId = request.RequestId, Accepted = error == RuleError.None,
+                        Error = error, Position = TokenDto.From(state.Token) };
+                    cache[actor][request.RequestId] = new Cached { Fingerprint = fingerprint, Outcome = Copy(setupOutcome) };
+                    // Settle the retry on the first setup projection. A phase change may retire
+                    // pending work, so an outcome in a later same-revision packet is too late.
+                    var own = setupPackets.FirstOrDefault(packet => packet.Recipient == authenticatedSender);
+                    if (own != null) own.Packet.Outcome = Copy(setupOutcome);
+                    else setupPackets.AddRange(Reply(actor, setupOutcome));
+                    return setupPackets.AsReadOnly();
+                }
                 var result = Core.Apply(state, actor, ToCommand(request));
                 state = result.State;
                 var outcome = new CommandOutcome { RequestId = request.RequestId, Accepted = result.Accepted, Error = result.Error, Position = TokenDto.From(state.Token) };

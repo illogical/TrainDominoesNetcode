@@ -30,6 +30,22 @@ internal static class Program
             f.Install(View(active: 1, revision: 3));
             Equal(nameof(PlayerAwaitingTurnState), f.State);
         });
+        Check("setup retry balances observing and retry subscriptions", () =>
+        {
+            using var f = new Fixture();
+            f.Install(View(phase: MatchPhase.AwaitingDeck));
+            f.Context.SwitchState(c => new RoundInitializingState(c));
+            f.Input.Retry();
+            Equal(1, f.Sent.Count);
+            Equal(CommandKind.Ready, f.Sent[0].Kind);
+            Equal(nameof(PlayerActionPendingState), f.State);
+            f.Client.Receive(new ProjectionPacket { View = f.Client.View, Outcome = Outcome(f.Client.Pending, false) });
+            Equal(nameof(RoundInitializingState), f.State);
+            f.Input.Retry(); Equal(2, f.Sent.Count);
+            f.Client.Receive(new ProjectionPacket { View = View(revision: 2), Outcome = Outcome(f.Client.Pending) });
+            f.Present();
+            f.Input.Retry(); Equal(2, f.Sent.Count);
+        });
         Check("Pending is installed before an immediate host outcome", () =>
         {
             Fixture fixture = null;

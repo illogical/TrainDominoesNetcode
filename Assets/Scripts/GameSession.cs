@@ -136,6 +136,7 @@ public class GameSession : NetworkBehaviour
         departed.Clear();
         authority = new AuthoritativeMatchCoordinator(Guid.NewGuid().ToString("N"), participants,
             UnityEngine.Random.Range(0, participants.Length), new MatchSettings(commitment, announcementPenalty));
+        FindAnyObjectByType<Assets.Scripts.Game.SimpleMatchmaking>()?.FreezeAdmission();
         foreach (var id in authority.Participants) Send(id, authority.GetProjection(id));
     }
 
@@ -220,6 +221,8 @@ public class GameSession : NetworkBehaviour
         var packet = authority.GetProjection(sender);
         if (packet == null) { FeedbackClientRpc("You are not seated in this match. Wait for a fresh match.", To(sender)); return; }
         Send(sender, packet, true);
+        if (!string.IsNullOrEmpty(authority.LastLifecycleError))
+            FeedbackClientRpc(ClientSession.SetupFailureMessage, To(sender));
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -262,7 +265,12 @@ public class GameSession : NetworkBehaviour
     {
         foreach (var packet in packets)
             if (NetworkManager.ConnectedClients.ContainsKey(packet.Recipient)) Send(packet.Recipient, packet.Packet);
-        if (!string.IsNullOrEmpty(authority.LastLifecycleError)) Debug.LogError("Round setup failed: " + authority.LastLifecycleError, this);
+        if (!string.IsNullOrEmpty(authority.LastLifecycleError))
+        {
+            Debug.LogError("Round setup failed: " + authority.LastLifecycleError, this);
+            foreach (var id in authority.Participants)
+                if (NetworkManager.ConnectedClients.ContainsKey(id)) FeedbackClientRpc(ClientSession.SetupFailureMessage, To(id));
+        }
     }
 
     private void Send(ulong id, ProjectionPacket packet, bool synchronization = false)

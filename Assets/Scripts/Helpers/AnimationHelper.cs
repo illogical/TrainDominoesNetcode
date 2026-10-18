@@ -4,7 +4,30 @@ using UnityEngine;
 
 public static class AnimationHelper
 {
-    private static float Ease(AnimationDefinition definition, float progress) => definition != null && definition.Curve != null ? definition.Curve.Evaluate(progress) : progress;
+    // Keep a smooth acceleration/deceleration fallback for definitions without an authored curve.
+    private static float Ease(AnimationDefinition definition, float progress) => definition != null && definition.Curve != null ? definition.Curve.Evaluate(progress) : progress * progress * (3f - 2f * progress);
+
+    /// <summary>
+    /// Reproducible, modest variation for the initial deal's parallel columns. Never extends the authored
+    /// batch deadline (duration + stagger * (count - 1)), and does not consume the gameplay RNG.
+    /// Timing alone is not collision avoidance: callers must keep those columns spatially separated.
+    /// </summary>
+    public static void DealTiming(int index, int count, int seed, float duration, float stagger, out float seconds, out float delay)
+    {
+        uint hash;
+        unchecked
+        {
+            hash = (uint)seed ^ ((uint)index + 1u) * 0x9e3779b9u;
+            hash ^= hash >> 16; hash *= 0x7feb352du;
+            hash ^= hash >> 15; hash *= 0x846ca68bu;
+            hash ^= hash >> 16;
+        }
+        float departure = (hash & 0xffffu) / 65535f;
+        float arrival = (hash >> 16) / 65535f;
+        seconds = System.Math.Max(0, duration) * (0.92f + 0.08f * arrival);
+        float step = System.Math.Max(0, stagger);
+        delay = System.Math.Max(0, System.Math.Min(step * System.Math.Max(0, count - 1), step * (index + (departure - 0.5f) * 0.4f)));
+    }
 
     public static IEnumerator MoveOverSeconds(Transform transform, Vector3 endPos, AnimationDefinition animationDefinition)
     {

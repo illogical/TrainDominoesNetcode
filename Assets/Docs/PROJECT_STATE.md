@@ -6,11 +6,13 @@ This is a static inspection of source, serialized scene settings, package manife
 
 Start with [TASKS.md](../../TASKS.md) for priorities and [AGENTS.md](../../AGENTS.md) for coding guidance.
 
+**Design update after the initial inspection:** the user selected [Puremco rules](TRAIN_DOMINOES_RULEBOOK.md), superseding earlier recollections/preferences. The [state review](PLAYER_STATE_REVIEW.md) and [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) now define the target: 2–8 players, one shared train plus personal trains, sequential turns from the beginning, and Puremco double follow-ups. Existing group-turn behavior described below is legacy implementation to refactor, not the selected rule. No gameplay was changed by this update.
+
 ## Purpose and development context
 
 The project is a multiplayer train-dominoes game using Unity and Netcode for GameObjects. It generates a double-twelve set (91 dominoes), places an engine, lets players build opening tracks during a shared group turn, and then advances through individual turns. It contains selection, matching/orientation, provisional moves, undo, station synchronization, round scores, and end-of-round/game UI.
 
-The exact intended rules variant has not been established. Existing behavior is the documentation baseline; it must not silently become the specification. In particular, doubles, drawing/passing, public trains, blocked rounds, ties, engine progression, and player limits require a rules review.
+At the initial inspection the rules variant was unsettled. The Puremco baseline is now selected; existing behavior remains the implementation baseline and must not silently become the specification. Review the first state matrix and the rulebook's explicitly identified software conventions before behavior changes.
 
 The user is separately preparing four colored domino sets for four players. Integrating them is a late priority after rules and player-state work. This presentation requirement does not establish a four-player gameplay limit.
 
@@ -53,7 +55,7 @@ This indicates an unfinished turn/state refactor followed by presentation work, 
 | [GameplayManager](../Scripts/Game/GameplayManager.cs) | Creates managers, bridges gameplay events, calls comparisons, and coordinates meshes, sound, layout, and UI | Mixes rule-related operations and presentation |
 | [DominoTracker](../Scripts/Game/DominoTracker.cs) | Domino catalog, boneyard, hands, selection, engine, main station, per-player provisional stations, matching, undo data, and pip totals | Principal extraction candidate; currently uses Unity randomness and mutable shared data |
 | [TurnManager](../Scripts/Game/TurnManager.cs) / [TurnStatus](../Scripts/Models/TurnStatus.cs) | Group/individual phase, player order, turn flags, last played domino, winner IDs | Turn flags are not a complete rules model; no draw-used flag exists |
-| [RoundManager](../Scripts/Game/RoundManager.cs) / models | Round records, cumulative totals, lowest-score winners; station and track data | Round limit is 12; double-twelve engine generation includes 13 doubles, so intended round range needs confirmation |
+| [RoundManager](../Scripts/Game/RoundManager.cs) / models | Round records, cumulative totals, lowest-score winners; station and track data | Current round limit is 12; selected Puremco target is 13 engines, twelve through blank |
 | [Player states](../Scripts/Game/States) | Local subscriptions, available input, RPC requests, and UI transitions | These are local interaction states, not a complete authoritative world-state machine |
 | Presentation | `InputManager`, `MeshManager`, `LayoutManager`, UI scripts, helpers, and ScriptableObject animation/sound settings | Keep visuals and animation timing outside the future rules core |
 | Networking setup | `MyNetworkManager`, `DominoPlayer`, `NetworkManagerUI`, `SimpleMatchmaking`, `RelayTester` | Several entry paths exist; saved scene enables `SimpleMatchmaking` and disables the `RelayTester` component |
@@ -108,7 +110,7 @@ On initial registration, turn order follows group-turn completion order because 
 
 ## Gaps and candidate phases for review
 
-This is an assessment of missing behavior, not an approved list of new classes. The fresh review session must decide which conditions belong in authoritative rule data, local interaction states, or derived UI permissions.
+This initial assessment is retained as inspection context, not an approved list of classes. The later [Puremco state mapping](PLAYER_STATE_REVIEW.md) supersedes these open design questions; in particular it removes group-opening construction from the target profile and puts turn obligations in engine data.
 
 | Candidate phase / concern | Existing coverage | Decision needed before implementation |
 | --- | --- | --- |
@@ -130,11 +132,11 @@ The core should own domino values/IDs, hands and boneyard, legal placement and o
 
 `GameSession` should remain the authoritative network adapter: establish the acting player, ask the rules core to validate/apply a command, and synchronize accepted results or rejection feedback. Local player states should request actions and reflect results; buttons must not be the sole enforcement of rules.
 
-Before extraction, select the supported C#/.NET target and test framework against this Unity project's actual compatibility settings, decide how the external project references the shared sources, and characterize relevant behavior. Preserve existing network IDs and payloads unless a separately scoped migration is required. No public APIs or types were changed by this documentation work.
+The [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) now selects .NET Standard 2.1, supported C# 9 constructs, external .NET 10/NUnit tests, and shared source integration based on inspected compatibility settings. Validate both Unity and external compilation during scaffolding, and characterize relevant behavior before replacement. Preserve existing IDs and compatible payloads; explicitly plan needed view/result additions. No public APIs or types were changed by this documentation work.
 
 ## Next session
 
-Start with **STATE-001** in [TASKS.md](../../TASKS.md). Produce and obtain agreement on the rules/state matrix before adding states. Characterize current behavior separately from desired behavior; do not lock unfinished prototype behavior into rule tests merely because it exists today.
+Start with **STATE-001** in [TASKS.md](../../TASKS.md). Review the saved Puremco rulebook/matrix and application-policy proposals before adding states. Characterize current behavior separately from desired behavior; do not lock unfinished prototype behavior into rule tests merely because it exists today.
 
 ### Inspection sources
 

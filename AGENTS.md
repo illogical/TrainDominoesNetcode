@@ -2,16 +2,18 @@
 
 ## Start here
 
-Read [PROJECT_STATE.md](Assets/Docs/PROJECT_STATE.md) for the dated implementation baseline and [TASKS.md](TASKS.md) for priorities and completion criteria. Recheck source and scene settings before relying on the baseline. The project is a Unity multiplayer train-dominoes prototype; the exact rules variant and supported player count are not settled.
+Read [PROJECT_STATE.md](Assets/Docs/PROJECT_STATE.md) for the dated implementation baseline and [TASKS.md](TASKS.md) for priorities and completion criteria. Recheck source and scene settings before relying on the baseline. The project is a Unity multiplayer train-dominoes prototype targeting 2–8 players with a double-twelve set.
+
+The user selected the [Puremco rulebook baseline](Assets/Docs/TRAIN_DOMINOES_RULEBOOK.md). Read its edition/decision register, the [player-state mapping](Assets/Docs/PLAYER_STATE_REVIEW.md), and the [rules-engine plan](Assets/Docs/RULES_ENGINE_IMPLEMENTATION_PLAN.md). The plan is not implemented. The latest Puremco instruction supersedes earlier personal-only, simultaneous-opening, RNK-deal-table, and strict-cover proposals. Use one personal train per player plus exactly one shared Mexican Train, sequential play from the first turn, and Puremco's extra-play/two-double rules.
 
 “Player states” means `Assets/Scripts/Game/States`. They currently coordinate local input/events/UI; server-side rule decisions remain spread across `GameSession` and managers. Do not confuse local interaction states with authoritative game conditions.
 
 ## Rules and state work
 
-- Start with STATE-001. Before adding player states, review the existing inventory and the agreed matrix in `Assets/Docs/PLAYER_STATE_REVIEW.md` once created. If no agreed matrix exists, establish it first rather than inventing rules or classes.
+- Start with STATE-001. The first matrix exists in `Assets/Docs/PLAYER_STATE_REVIEW.md`; review it and the rulebook's proposed application policies before implementing state changes. Baseline selection does not imply every app-policy detail has been reviewed.
 - Keep known implementation behavior, intended rules, and proposals distinct. Do not assume generic train-dominoes rules apply without checking the agreed variant.
 - Keep the server authoritative. UI button availability is not rule validation; validate acting player, action legality, and repeated/stale commands at the authoritative boundary.
-- Prefer a pure C# rules assembly kept in source, integrated through Unity assembly definitions, with an external test project using the same core sources. This is a recommendation pending RULES-001, not an existing project structure. Avoid manually copied DLLs and duplicated rule implementations.
+- Follow the rules-engine plan's source-based assembly boundary and external test project using the same core sources. Planned targets are .NET Standard 2.1 / supported C# 9 for core and .NET 10 / NUnit for external tests; no projects or harness exist yet. Avoid manually copied DLLs and duplicated rule implementations.
 - Keep Unity, Netcode, input, rendering, animation, and transport serialization outside the rules core. Make randomness controllable for reproducible tests. Extract in small tested slices, preserving IDs and payload compatibility unless migration is explicitly in scope.
 - Balance state event subscriptions on entry/exit. Review group-turn, individual-turn, undo, and reset behavior together when changing shared state infrastructure.
 

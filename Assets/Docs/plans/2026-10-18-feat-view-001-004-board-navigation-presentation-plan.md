@@ -13,6 +13,17 @@ origin: TASKS.md (Follow-up: board navigation and presentation usability)
 
 **Authored context:** Saved on 2026-10-18 after a static review of the presentation and input sources, and after the user chose the control mappings recorded below. This document describes planned work. It does not claim anything is implemented or verified. Task IDs VIEW-001…VIEW-004 are unchanged; the F/R/U identifiers below are local to this plan. A separate session is working on Priority 4 (NET-002 → NET-001…) at the same time, so this plan is ordered to avoid the files that work touches. See [Coordination with Priority 4](#coordination-with-priority-4).
 
+## Implementation status (2026-10-18)
+
+U1–U4, U6 and U7 are implemented; U5's fixtures and automated layout checks exist. Evidence and what remains untested are recorded beside VIEW-001…VIEW-005 in [TASKS.md](../../../TASKS.md) and in the [CLI README](../../../Tests/UnityIntegration/README.md#board-navigation-and-presentation-probes-view-001004). Deviations from this plan:
+- **U7 once-key.** Notices are keyed by (match, revision, source index), not (match, round, source index). Source indexes restart at 0 for every transition, so the planned key would have hidden a second challenge in the same round.
+- **U7 placement.** Notices are consumed when a projection arrives (in `GameplayManager`), not inside `GameplayPresenter.Present`, so snapped and terminal batches still show their events.
+- **Label space.** The space after a row's last tile (for its label) is capped at 35% of the visible width; at high zoom a fixed three-tile pad pushed the last tile off screen.
+- **Maximum zoom** is four times the readable minimum (at least 1.5×), not a fixed value.
+- **Vertical indicator** is a draggable thumb at the right edge of the board.
+- **Challenge buttons** moved into the compacted action column, which leaves the top band for notices.
+- **Tile reparenting.** The domino prefab's leftover `NetworkObject` undid reparenting. `MeshManager` turns its parent sync off (see the [learning guide](../NETCODE_LEARNING_GUIDE.md), M15; prefab clean-up is MAINT-004).
+
 ## Context
 
 The authoritative gameplay integration is implemented, and real host/client CLI matches pass (see [integration verification](../GAMEPLAY_INTEGRATION_VERIFICATION.md)). Those checks deliberately skipped human-visible usability. On screen today:

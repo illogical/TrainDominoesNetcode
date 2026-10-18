@@ -127,9 +127,9 @@ Severity: **High** means it can corrupt or leak game state or crash a peer. **Me
 - **Fix so far:** `Tests/GameplayIntegration/LoopbackRelay.cs` connects real clients to a real coordinator, now through the production codec, with hold, drop, duplicate and reorder controls. NET-006 builds the full matrix.
 - **Next time:** build a fault-injecting loopback early; most netcode bugs only appear under reordering or loss.
 
-### M11. Events sent but never shown (Low, open: VIEW-004)
+### M11. Events sent but never shown (Low, fixed: VIEW-004)
 
-Announcements, challenges and penalty draws travel to clients, but `GameplayPresenter.Present` ignores them. Players get no feedback for those actions. **Next time:** when you add a message type, add its consumer and a test in the same change.
+Announcements, challenges and penalty draws travel to clients, but `GameplayPresenter.Present` ignored them. Players got no feedback for those actions. **Fix:** `EventFeedback` turns them into notices, each shown exactly once per (match, revision, source index). The plan had proposed (match, round, source index), but the source index restarts at 0 for every transition, so a second challenge in the same round would have been hidden. The revision identifies the transition. **Next time:** when you add a message type, add its consumer and a test in the same change. When you need a "seen once" key, check what each part of it really identifies.
 
 ### M12. Deprecated RPC attributes (Low, fixed: MAINT-003)
 
@@ -152,6 +152,12 @@ The four `[ServerRpc(RequireOwnership = false)]` RPCs compiled with obsolete war
   - Only `LobbyExceptionReason.NoOpenLobbies` falls through to creating a lobby.
   - `--ugs-profile <name>` gives each instance its own identity.
 - **Next time:** take limits from the game's rules, choose the encrypted transport option by default, and handle the one expected exception narrowly instead of catching everything.
+
+### M15. A leftover NetworkObject on a local-only prefab (Medium, worked around: VIEW-001)
+
+- **What happened:** board navigation moves tiles under row transforms, but every tile stayed at the scene root. Their local targets were applied as world positions. Nothing threw. The domino prefab still has a `NetworkObject` (and `NetworkTransform`) from when tiles were networked, and it is registered in `DefaultNetworkPrefabs`. Tiles are now created with plain `Instantiate` and never spawned. NGO's `NetworkObject.OnTransformParentChanged` then undoes any reparenting: with the network stopped it logs "is not listening, start a server or host before re-parenting", and in a running host or client "can only be re-parented after being spawned". The localhost match logs had 35 of these errors, unnoticed because they were errors, not exceptions.
+- **Fix:** `MeshManager` sets `AutoObjectParentSync = false` on each tile it creates, so NGO leaves the parent alone. The prefab asset is unchanged; removing the unused network components is tracked as MAINT-004, because the prefab is registered as a network prefab.
+- **Next time:** a prefab that is no longer spawned should not carry network components; they keep enforcing network rules on purely local objects. Search logs for NGO errors, not only exceptions, after a presentation change.
 
 ### Design lessons (from the pre-Priority-4 review)
 
@@ -254,6 +260,10 @@ Both outcomes are safe, and the tests pin both down.
 
 **Developing a package migration safely:** the Editor had the project open, so changing the manifest there would have triggered an immediate re-import mid-change. The migration was made and verified in an isolated copy (compile, every CLI scenario), then applied to the real project in one step.
 
+### VIEW-001–004 — board navigation and feedback (2026-10-18)
+
+Presentation work, but with two netcode lessons. M15: a leftover `NetworkObject` on a local-only prefab silently undid every reparenting. M11 (now fixed): an exactly-once key must name the transition (the revision), not just the round. The wire contract, projections and RPCs are unchanged. All seven localhost CLI scenarios pass on this build.
+
 ## Libraries: versions and upgrade notes
 
 Reviewed 2026-10-18 against the installed packages (`Packages/manifest.json`, `packages-lock.json`) and public release notes. **Updated the same day:** with the user's approval, Lobby and Relay were migrated to Multiplayer Services 2.3.3, and the deprecated RPC attributes and find APIs were replaced (MAINT-003).
@@ -285,3 +295,4 @@ Sources: [NGO 2.13.0 announcement and changelogs](https://discussions.unity.com/
 - [ ] Simulated, localhost CLI and live-service evidence are reported separately.
 - [ ] Identity that must survive a reconnect is a seat with a secret, never a transport ID; a failed claim receives no private data.
 - [ ] Every `Task` from a service call is awaited or explicitly observed; `async void` is limited to event handlers that catch everything.
+- [ ] Prefabs that are only instantiated locally carry no `NetworkObject`; if one must stay, its parent sync is off before local reparenting.

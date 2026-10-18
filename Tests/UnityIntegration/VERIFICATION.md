@@ -41,3 +41,7 @@ Valid challenge penalties and explicit private-draft information-leak assertions
 ## 2026-10-18 refactor re-run
 
 After the pre-Priority-4 refactor, all four scenarios (Immediate, Draft, eight-player, presentation-only) passed again from a fresh CLI build, and the filtered logs were identical. See `production-source-refactor.sha256` and the refactor section of `Assets/Docs/GAMEPLAY_INTEGRATION_VERIFICATION.md`.
+
+## 2026-10-18 VIEW-001–004 run
+
+`run_view.py` passed at 1280×720, 1920×1080 and 2532×1170 with 2, 3 and 8 players: 576 assertions (`observed-view.log`). The window sizes are offscreen camera targets with camera-space canvases, because batchmode players keep a 640×480 screen. Input is queued Input System device events, and selection goes through the production raycast. The screenshot run (`observed-view-screenshots.log`, PNGs in `/tmp/td-view-shots`) also passed. Its captures show the board but no UI text, so they are review aids, not a human-visible review. All seven localhost match scenarios passed again on the same build, with no NGO parenting errors. Source hash: `production-source-view.sha256`.

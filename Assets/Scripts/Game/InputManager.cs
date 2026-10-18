@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Assets.Scripts.Game.Integration;
+using Assets.Scripts.Game.Navigation;
 using TrainDominoesRulesEngine;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
@@ -13,21 +13,36 @@ public class InputManager : MonoBehaviour,IInteractionInput
     public event EventHandler<int> DominoClicked, ChallengeClicked;
     public event EventHandler<TrainIdDto> TrainChosen;
     public event EventHandler DrawButtonClicked,EndTurnClicked,ReadyButtonClicked,NewGameButtonClicked,PassClicked,UndoClicked,AnnounceClicked,RetryClicked,ResumeClicked;
-    public event EventHandler<DominoScrollEventArgs> ScrollOverDomino;
-    public class DominoScrollEventArgs : EventArgs { public Vector2 ScrollAmount; public int DominoId; }
     public Camera MainCamera;
+    // Preserved serialized reference. Board scrolling and zoom now come from BoardGestureController (VIEW-001).
     [SerializeField] internal ControlsManager ControlsManager;
     [SerializeField] private Button DrawButton,EndTurnButton,RoundReadyButton,RestartReadyButton,NewGameButton,QuitButton;
+    [SerializeField] private float noticeSeconds=5f;
     private ClientSession client;
     private GameObject panel;
-    private TextMeshProUGUI status;
+    private TextMeshProUGUI status,notice;
+    private float noticeUntil;
     private readonly Dictionary<string,Button> actions=new Dictionary<string,Button>();
-    private readonly List<Button> trains=new List<Button>(),challenges=new List<Button>();
+    private readonly List<string> actionOrder=new List<string>();
+    private readonly List<Button> challenges=new List<Button>();
+    private readonly List<string> notices=new List<string>();
     private string rosterKey="";
-    private bool scrollHooked;
-    private void Start()
+    private BoardNavigator navigator;
+    private LayoutManager layout;
+    private BoardGestureController gestures;
+    private BoardRowControls rowControls;
+    public BoardRowControls RowControls => rowControls;
+    public BoardGestureController Gestures => gestures;
+    /// <summary>Notices shown since binding, oldest first (VIEW-004). For review and checks; the banner shows the latest.</summary>
+    public IReadOnlyList<string> NoticeHistory => notices;
+    public string StatusText => status!=null ? status.text : "";
+
+    /// <summary>Connects board navigation. Called before <see cref="Bind"/>.</summary>
+    public void AttachBoard(LayoutManager layoutManager)
     {
-        if(ControlsManager?.ScrollAction!=null) { ControlsManager.ScrollAction.performed+=ScrollActionOnperformed; scrollHooked=true; }
+        layout=layoutManager; navigator=layoutManager.Navigator;
+        if(gestures==null) { gestures=gameObject.AddComponent<BoardGestureController>(); gestures.Tapped+=Tap; }
+        gestures.Initialize(navigator);
     }
     public void Bind(ClientSession session)
     {
@@ -35,25 +50,39 @@ public class InputManager : MonoBehaviour,IInteractionInput
         var canvas=DrawButton.GetComponentInParent<Canvas>();
         panel=new GameObject("Match controls",typeof(RectTransform)); panel.transform.SetParent(canvas.transform,false);
         var rect=(RectTransform)panel.transform; rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-        status=new GameObject("Match status",typeof(RectTransform),typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
-        status.transform.SetParent(panel.transform,false); status.font=DrawButton.GetComponentInChildren<TextMeshProUGUI>(true)?.font;
-        status.fontSize=18; status.color=Color.white; status.raycastTarget=false;
-        var sr=status.rectTransform; sr.anchorMin=new Vector2(0,1); sr.anchorMax=new Vector2(1,1); sr.pivot=new Vector2(0,1); sr.offsetMin=new Vector2(12,-72); sr.offsetMax=new Vector2(-210,-8);
-        AddAction("Ready",()=>ReadyButtonClicked?.Invoke(this,EventArgs.Empty),0);
-        AddAction("Draw",()=>DrawButtonClicked?.Invoke(this,EventArgs.Empty),1);
-        AddAction("Pass",()=>PassClicked?.Invoke(this,EventArgs.Empty),2);
-        AddAction("Undo",()=>UndoClicked?.Invoke(this,EventArgs.Empty),3);
-        AddAction("End Turn",()=>EndTurnClicked?.Invoke(this,EventArgs.Empty),4);
-        AddAction("Announce",()=>AnnounceClicked?.Invoke(this,EventArgs.Empty),5);
-        AddAction("Retry",()=>RetryClicked?.Invoke(this,EventArgs.Empty),6);
-        AddAction("Resume",()=>ResumeClicked?.Invoke(this,EventArgs.Empty),7);
-        AddAction("New Match",()=>NewGameButtonClicked?.Invoke(this,EventArgs.Empty),8);
+        status=Label("Match status",18,new Vector2(0,1),new Vector2(12,-72),new Vector2(-224,-8),TextAlignmentOptions.TopLeft);
+        // Announcements, challenges and penalties appear here, above the board and clear of the hand.
+        notice=Label("Match notice",20,new Vector2(0,1),new Vector2(12,-122),new Vector2(-224,-76),TextAlignmentOptions.Center);
+        notice.color=new Color(1f,0.86f,0.4f);
+        AddAction("Ready",()=>ReadyButtonClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("Draw",()=>DrawButtonClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("Pass",()=>PassClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("Undo",()=>UndoClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("End Turn",()=>EndTurnClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("Announce",()=>AnnounceClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("Retry",()=>RetryClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("Resume",()=>ResumeClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("New Match",()=>NewGameButtonClicked?.Invoke(this,EventArgs.Empty));
+        AddAction("Fit board",()=>navigator?.Fit());
         foreach(var button in new[]{DrawButton,EndTurnButton,RoundReadyButton,RestartReadyButton,NewGameButton}) if(button!=null) button.gameObject.SetActive(false);
         if(QuitButton!=null) QuitButton.onClick.AddListener(Quit);
+        if(navigator!=null)
+        {
+            rowControls=panel.AddComponent<BoardRowControls>();
+            rowControls.Initialize(navigator,layout,rect,(label,callback)=>Button(label,callback,new Vector2(0.5f,0.5f),Vector2.zero),train=>TrainChosen?.Invoke(this,train));
+        }
         client.ViewChanged+=Refresh; client.RequestChanged+=Refresh; client.PresentationChanged+=Refresh; client.SessionAvailabilityChanged+=Refresh; client.SelectionChanged+=Refresh;
         Refresh(this,EventArgs.Empty);
     }
-    private void AddAction(string label,Action callback,int index) { actions[label]=Button(label,callback,new Vector2(1,1),new Vector2(-12,-80-index*42)); }
+    private TextMeshProUGUI Label(string name,float size,Vector2 anchor,Vector2 min,Vector2 max,TextAlignmentOptions alignment)
+    {
+        var text=new GameObject(name,typeof(RectTransform),typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+        text.transform.SetParent(panel.transform,false); text.font=DrawButton.GetComponentInChildren<TextMeshProUGUI>(true)?.font;
+        text.fontSize=size; text.color=Color.white; text.raycastTarget=false; text.alignment=alignment;
+        var rt=text.rectTransform; rt.anchorMin=new Vector2(0,anchor.y); rt.anchorMax=new Vector2(1,anchor.y); rt.pivot=new Vector2(0,1); rt.offsetMin=min; rt.offsetMax=max;
+        return text;
+    }
+    private void AddAction(string label,Action callback) { actions[label]=Button(label,callback,new Vector2(1,1),Vector2.zero); actionOrder.Add(label); }
     private Button Button(string label,Action callback,Vector2 anchor,Vector2 position)
     {
         var button=Instantiate(DrawButton,panel.transform); button.name=label; button.gameObject.SetActive(true); button.onClick=new Button.ButtonClickedEvent(); button.onClick.AddListener(()=>callback());
@@ -61,30 +90,30 @@ public class InputManager : MonoBehaviour,IInteractionInput
         var rt=(RectTransform)button.transform; rt.anchorMin=rt.anchorMax=anchor; rt.pivot=anchor; rt.anchoredPosition=position; rt.sizeDelta=new Vector2(185,36); rt.localScale=Vector3.one;
         return button;
     }
+    /// <summary>Shows event notices (VIEW-004). The banner keeps the latest few for a few seconds.</summary>
+    public void ShowNotices(IEnumerable<string> lines)
+    {
+        foreach(var line in lines) { notices.Add(line); Debug.Log("[Notice] "+line); }
+        if(notice==null) return;
+        notice.text=string.Join("\n",notices.Skip(Math.Max(0,notices.Count-2)));
+        noticeUntil=Time.unscaledTime+noticeSeconds;
+    }
     private void Refresh(object sender,EventArgs e)
     {
         if(client==null) return;
         var view=client.View;
-        string key=view==null ? "" : view.Token.MatchId+":"+string.Join(",",view.Players);
+        string key=view==null ? "" : view.Token.MatchId+":"+view.Player+":"+string.Join(",",view.Players);
         if(key!=rosterKey)
         {
-            foreach(var button in trains.Concat(challenges)) Destroy(button.gameObject);
-            trains.Clear(); challenges.Clear(); rosterKey=key;
+            foreach(var button in challenges) Destroy(button.gameObject);
+            challenges.Clear(); rosterKey=key;
+            rowControls?.Build(view);
             if(view!=null)
-            {
-                for(int i=0;i<=view.Players.Length;i++)
-                {
-                    var train=i==view.Players.Length ? new TrainIdDto {IsShared=true} : new TrainIdDto {Owner=view.Players[i]};
-                    string title=train.IsShared ? "Mexican Train" : "Player "+(train.Owner+1)+" train";
-                    trains.Add(Button(title,()=>TrainChosen?.Invoke(this,train),new Vector2(0,1),new Vector2(12,-85-i*38)));
-                }
                 foreach(int player in view.Players)
                 {
                     int target=player;
-                    var challenge=Button("Challenge Player "+(player+1),()=>ChallengeClicked?.Invoke(this,target),new Vector2(0,0),new Vector2(12+challenges.Count*195,12));
-                    challenges.Add(challenge);
+                    challenges.Add(Button("Challenge "+PlayerText.Name(player),()=>ChallengeClicked?.Invoke(this,target),new Vector2(1,1),Vector2.zero));
                 }
-            }
         }
         bool usable=client.CanSubmit,board=client.BoardEnabled;
         Set("Ready",view==null || view.Phase==MatchPhase.AwaitingReady || view.Phase==MatchPhase.RoundOver,view==null || usable && view.Allowed.CanReady);
@@ -97,25 +126,32 @@ public class InputManager : MonoBehaviour,IInteractionInput
         // Resume is the host's action and only works once every seat is connected again (NET-004).
         Set("Resume",view!=null && view.IsSuspended,client.MissingSeats.Length==0 && Unity.Netcode.NetworkManager.Singleton!=null && Unity.Netcode.NetworkManager.Singleton.IsHost);
         Set("New Match",view!=null && (view.IsSuspended || view.Phase==MatchPhase.MatchOver),true);
-        foreach(var button in trains) { button.gameObject.SetActive(view?.Phase==MatchPhase.Playing); button.interactable=board && client.SelectedTile.HasValue; }
-        int visibleChallenge=0;
+        Set("Fit board",view?.Phase==MatchPhase.Playing,true);
+        // Visible actions stack without gaps, so the column stays short at small window sizes.
+        int slot=0;
+        foreach(var label in actionOrder) if(actions[label].gameObject.activeSelf) ((RectTransform)actions[label].transform).anchoredPosition=new Vector2(-12,-80-slot++*40);
+        // Challenges are actions too: they continue the same column, below the other actions.
         for(int i=0;i<challenges.Count;i++)
         {
             bool can=view.Allowed.ChallengeTargets.Contains(view.Players[i]);
-            if(can) ((RectTransform)challenges[i].transform).anchoredPosition=new Vector2(12+visibleChallenge++*195,12);
+            if(can) ((RectTransform)challenges[i].transform).anchoredPosition=new Vector2(-12,-80-slot++*40);
             challenges[i].gameObject.SetActive(can); challenges[i].interactable=usable;
         }
-        string phase=!client.IsAvailable && client.Credential!=null ? "Disconnected from the host · press Retry to reconnect to your seat" : view==null ? "Connect players, then Ready to create the match." : view.IsSuspended || !client.IsAvailable ? SuspendedText(client.MissingSeats) : view.Phase==MatchPhase.Playing ? "Player "+(view.ActivePlayer+1)+"'s turn · "+RequirementText(view.Requirement) : view.Phase==MatchPhase.AwaitingDeck ? "Preparing the next round" : view.Phase==MatchPhase.AwaitingReady ? "Ready for the next round" : "Results";
-        status.text=phase+"\n"+(view==null ? "" : "You: Player "+(view.Player+1)+" · Boneyard: "+view.BoneyardCount+" · "+string.Join("  ",view.HandCounts.Select(p=>"P"+(p.Player+1)+": "+p.Count)))+"\n"+client.Feedback;
+        rowControls?.Refresh(view,board,client.SelectedTile);
+        string phase=!client.IsAvailable && client.Credential!=null ? "Disconnected from the host · press Retry to reconnect to your seat" : view==null ? "Connect players, then Ready to create the match." : view.IsSuspended || !client.IsAvailable ? SuspendedText(client.MissingSeats) : view.Phase==MatchPhase.Playing ? TurnText(view)+" · "+RequirementText(view) : view.Phase==MatchPhase.AwaitingDeck ? "Preparing the next round" : view.Phase==MatchPhase.AwaitingReady ? "Ready for the next round" : "Results";
+        string pending=client.Pending==null ? "" : client.IsUncertain ? "Waiting for the host… press Retry if this persists. " : "Sending… ";
+        status.text=phase+"\n"+(view==null ? "" : "You: "+PlayerText.Name(view.Player)+" · Boneyard: "+view.BoneyardCount+" · "+string.Join("  ",view.HandCounts.Select(p=>"P"+(p.Player+1)+": "+p.Count)))+"\n"+pending+client.Feedback;
     }
+    private static string TurnText(PlayerViewDto view) => view.ActivePlayer==view.Player ? "Your turn" : PlayerText.Name(view.ActivePlayer)+"'s turn";
     private static string SuspendedText(int[] missing)
     {
         if(missing.Length==0) return "Match suspended · everyone is back; the host can resume";
         return "Match suspended · waiting for "+string.Join(", ",missing.Select(seat=>"Player "+(seat+1)))+" to reconnect";
     }
-    private static string RequirementText(PlayRequirement requirement)
+    private static string RequirementText(PlayerViewDto view)
     {
-        switch(requirement)
+        if(view.ActivePlayer!=view.Player) return view.OpenDoubles!=null && view.OpenDoubles.Length>0 ? "An open double must be covered" : "Waiting";
+        switch(view.Requirement)
         {
             case PlayRequirement.AdditionalPlay:return "Play another tile";
             case PlayRequirement.CoverInheritedDouble:return "Cover the open double";
@@ -127,22 +163,30 @@ public class InputManager : MonoBehaviour,IInteractionInput
     private void Set(string label,bool visible,bool enabled) { actions[label].gameObject.SetActive(visible); actions[label].interactable=enabled; }
     private void Update()
     {
-        if(!UnityEngine.Input.GetMouseButtonDown(0) || MainCamera==null) return;
-        if(UnityEngine.EventSystems.EventSystem.current!=null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
-        if(Physics.Raycast(MainCamera.ScreenPointToRay(UnityEngine.Input.mousePosition),out var hit))
-        { var tile=hit.transform.GetComponent<DominoEntityUI>(); if(tile?.DominoInfo!=null) DominoClicked?.Invoke(this,tile.DominoInfo.ID); }
+        if(notice!=null && !string.IsNullOrEmpty(notice.text) && Time.unscaledTime>noticeUntil) notice.text="";
     }
-    private void ScrollActionOnperformed(InputAction.CallbackContext context)
+    /// <summary>A click or tap that did not become a drag: the single selection path for hand and board tiles.</summary>
+    private void Tap(Vector2 screen)
     {
-        if(MainCamera!=null && Physics.Raycast(MainCamera.ScreenPointToRay(UnityEngine.Input.mousePosition),out var hit))
-        { var tile=hit.transform.GetComponent<DominoEntityUI>(); if(tile?.DominoInfo!=null) ScrollOverDomino?.Invoke(this,new DominoScrollEventArgs {DominoId=tile.DominoInfo.ID,ScrollAmount=context.ReadValue<Vector2>()}); }
+        var tile=TileAt(screen);
+        if(tile.HasValue) DominoClicked?.Invoke(this,tile.Value);
+    }
+    /// <summary>The tile under a screen point through the production raycast, or null.</summary>
+    public int? TileAt(Vector2 screen)
+    {
+        if(MainCamera==null) return null;
+        // Board roots move every frame while navigating; colliders must match what is drawn before hit-testing.
+        Physics.SyncTransforms();
+        if(Physics.Raycast(MainCamera.ScreenPointToRay(screen),out var hit))
+        { var tile=hit.transform.GetComponent<DominoEntityUI>(); if(tile?.DominoInfo!=null) return tile.DominoInfo.ID; }
+        return null;
     }
     private static void Quit() { Application.Quit(); }
     public void Unbind()
     {
         if(client!=null) { client.ViewChanged-=Refresh;client.RequestChanged-=Refresh;client.PresentationChanged-=Refresh;client.SessionAvailabilityChanged-=Refresh;client.SelectionChanged-=Refresh; }
-        client=null; if(panel!=null) Destroy(panel); actions.Clear(); trains.Clear(); challenges.Clear();rosterKey="";
+        client=null; if(panel!=null) Destroy(panel); actions.Clear(); actionOrder.Clear(); challenges.Clear(); rowControls=null; rosterKey="";
         if(QuitButton!=null) QuitButton.onClick.RemoveListener(Quit);
     }
-    private void OnDestroy() { Unbind(); if(scrollHooked && ControlsManager?.ScrollAction!=null) ControlsManager.ScrollAction.performed-=ScrollActionOnperformed; }
+    private void OnDestroy() { Unbind(); if(gestures!=null) gestures.Tapped-=Tap; }
 }

@@ -24,7 +24,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
     ClientSession Client=>session.Client;
     string Mode=>reconnect?"reconnect":live?"live":gapOnly?"presentation":draft?"draft":challenge?(penaltyNone?"challenge-none":"challenge"):"immediate";
     string Prefix=>"/tmp/td-integration-"+Mode;
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { if(!Environment.GetCommandLineArgs().Contains("--integration-eight")) new GameObject("IntegrationRuntime").AddComponent<IntegrationRuntime>(); }
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { var args=Environment.GetCommandLineArgs(); if(!args.Contains("--integration-eight") && !args.Contains("--integration-view")) new GameObject("IntegrationRuntime").AddComponent<IntegrationRuntime>(); }
     void Mark(string s)=>Debug.Log("INTEGRATION "+role+" "+s);
     void Assert(bool condition,string name) { if(!condition) throw new Exception("ASSERT "+name); Mark("PASS "+name); }
     IEnumerator Wait(Func<bool> condition,string name,float limit=25)
@@ -139,7 +139,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
             else Client.Submit(kind);
             actions++;
             yield return Wait(()=>Client.Pending==null,"request-settled");
-            if(Client.Feedback==RuleError.StalePosition.ToString()) { Mark("observed-safe-stale-"+kind+" retry-from-latest-view");yield return null;continue; }
+            if(Client.LastRejection==RuleError.StalePosition) { Mark("observed-safe-stale-"+kind+" retry-from-latest-view");yield return null;continue; }
             Assert(string.IsNullOrEmpty(Client.Feedback),"accepted-"+kind);
             if(expiryPending && Client.View.Phase!=MatchPhase.Playing) { expiryPending=false; windowSkipped=false; } // round ended: try again next window
             if(expiryPending)
@@ -148,8 +148,8 @@ public sealed class IntegrationRuntime:MonoBehaviour
                 // My accepted play closed the window I ignored; a late challenge must now be rejected.
                 int target=1-Client.View.Player;long turn=Client.View.Token.TurnNumber;bool closed=Client.View.Allowed.ChallengeTargets.Length==0;
                 Client.Submit(CommandKind.Challenge,target:target);yield return Wait(()=>Client.Pending==null,"expired-challenge-settled");
-                if(Client.Feedback==RuleError.ChallengeNotAllowed.ToString()) { Assert(closed,"window-closed-by-next-accepted-action");Mark("PASS expired-challenge-rejected");expiredRejected++; }
-                else if(Client.View.Phase!=MatchPhase.Playing || Client.View.Token.TurnNumber!=turn || Client.Feedback==RuleError.StalePosition.ToString())
+                if(Client.LastRejection==RuleError.ChallengeNotAllowed) { Assert(closed,"window-closed-by-next-accepted-action");Mark("PASS expired-challenge-rejected");expiredRejected++; }
+                else if(Client.View.Phase!=MatchPhase.Playing || Client.View.Token.TurnNumber!=turn || Client.LastRejection==RuleError.StalePosition)
                 { Mark("expired-challenge-inconclusive-opponent-moved-first");windowSkipped=false; } // real concurrency: retry at a later window
                 else throw new Exception("ASSERT expired-challenge-rejected feedback="+Client.Feedback);
             }
@@ -259,7 +259,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
     {
         var before=Client.View;int count=before.HandCounts.Single(c=>c.Player==target).Count;int boneyard=before.BoneyardCount;bool drawUsed=before.DrawAttemptUsed,canDraw=before.Allowed.CanDraw;
         Client.Submit(CommandKind.Challenge,target:before.Player);yield return Wait(()=>Client.Pending==null,"self-challenge-settled");
-        Assert(Client.Feedback==RuleError.ChallengeNotAllowed.ToString(),"self-challenge-rejected");
+        Assert(Client.LastRejection==RuleError.ChallengeNotAllowed,"self-challenge-rejected");
         Client.Submit(CommandKind.Challenge,target:target);yield return Wait(()=>Client.Pending==null,"challenge-settled");
         Assert(string.IsNullOrEmpty(Client.Feedback),"accepted-Challenge");challengesWon++;
         yield return Wait(()=>!Client.IsPresentationBusy,"challenge-presented");
@@ -268,7 +268,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
         Assert(after.HandCounts.Single(c=>c.Player==target).Count==count+(drawn?1:0) && after.BoneyardCount==boneyard-(drawn?1:0),penaltyNone?"no-penalty-tile-under-None":"penalty-applied-once");
         Assert(after.DrawAttemptUsed==drawUsed && after.Allowed.CanDraw==canDraw,"penalty-does-not-use-challenger-draw-allowance");
         Client.Submit(CommandKind.Challenge,target:target);yield return Wait(()=>Client.Pending==null,"repeat-challenge-settled");
-        Assert(Client.Feedback==RuleError.ChallengeNotAllowed.ToString(),"repeat-challenge-rejected");
+        Assert(Client.LastRejection==RuleError.ChallengeNotAllowed,"repeat-challenge-rejected");
     }
         void InvokeButton(string name)
     {

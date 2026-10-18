@@ -14,8 +14,8 @@ public sealed class GameplayPresenter : MonoBehaviour
     private LayoutManager layout;
     private SoundManager sounds;
     private readonly List<Coroutine> selections = new List<Coroutine>();
-    private static readonly Quaternion HandRotation = Quaternion.Euler(-90, 0, 180);
-    private static readonly Quaternion TrackRotation = Quaternion.Euler(0, -90, -90);
+    private string presentedRound;
+    public PlayerViewDto Current { get; private set; }
 
     public void Initialize(MeshManager meshManager, LayoutManager layoutManager, SoundManager soundManager)
     {
@@ -74,32 +74,48 @@ public sealed class GameplayPresenter : MonoBehaviour
         foreach (var train in view.Trains ?? Array.Empty<TrainViewDto>())
         {
             int slot = TrainSlot(view, train.Id);
-            int last = (train.Placements?.Length ?? 0) - 1;
-            var position = last < 0 ? layout.GetTrackLeftPosition(slot, count)
-                : layout.GetTrackLabelPosition(layout.GetTrackPosition(last, slot, count));
-            string title = train.Id.IsShared ? "Mexican Train" : "Player " + (train.Id.Owner + 1);
+            int tiles = train.Placements?.Length ?? 0;
+            string title = train.Id.IsShared ? "Mexican Train" : train.Id.Owner == view.Player ? "Your train" : "Player " + (train.Id.Owner + 1);
             if (train.IsMarked) title += " (open)";
-            meshes.SetTrackLabelForTrack(slot, position, title).transform.position = position;
+            // Labels live under their row, so they scroll and zoom with it.
+            layout.PlaceLabel(meshes.SetTrackLabelForTrack(slot, Vector3.zero, title), slot, count, tiles);
         }
+    }
+
+    private static string RoundKey(PlayerViewDto view) => view == null ? null : view.Token.MatchId + "/" + view.Token.RoundIndex + "/" + view.EngineId;
+
+    /// <summary>Navigation is local and resets on a new round or match (D4). Row count follows the roster.</summary>
+    private void EnterRound(PlayerViewDto view)
+    {
+        layout.Navigator.SetRowCount(view.Players.Length + 1);
+        string key = RoundKey(view);
+        if (key == presentedRound) return;
+        presentedRound = key;
+        layout.Navigator.ResetNavigation();
+    }
+
+    /// <summary>Row lengths drive the follow policy: a row showing its end keeps following new placements.</summary>
+    private void UpdateRowLengths(PlayerViewDto view)
+    {
+        foreach (var train in view.Trains ?? Array.Empty<TrainViewDto>())
+            layout.Navigator.SetRowTiles(TrainSlot(view, train.Id), train.Placements?.Length ?? 0);
     }
 
     public void Snap(PlayerViewDto view)
     {
         Cancel();
-        if (view == null) { meshes.ResetDominoMeshes(); meshes.DisableAllTrackLabels(); return; }
+        Current = view;
+        if (view == null) { meshes.ResetDominoMeshes(); meshes.DisableAllTrackLabels(); presentedRound = null; layout.Navigator.ResetNavigation(); return; }
+        EnterRound(view);
         Prepare(view);
-        if (view.EngineId >= 0)
-        {
-            var engine = meshes.GetDominoMeshById(view.EngineId);
-            engine.transform.SetPositionAndRotation(layout.GetEnginePosition(engine), HandRotation);
-        }
-        var positions = layout.GetHandPositions(view.Hand?.Length ?? 0);
+        if (view.EngineId >= 0) layout.SnapEngine(meshes.GetDominoMeshById(view.EngineId).transform);
+        var positions = layout.GetHandLocalPositions(view.Hand?.Length ?? 0);
         for (int i = 0; i < positions.Count; i++)
-            meshes.GetDominoMeshById(view.Hand[i]).transform.SetPositionAndRotation(positions[i], HandRotation);
+            layout.SnapToHand(meshes.GetDominoMeshById(view.Hand[i]).transform, positions[i]);
         foreach (var train in view.Trains ?? Array.Empty<TrainViewDto>())
             for (int i = 0; i < (train.Placements?.Length ?? 0); i++)
-                meshes.GetDominoMeshById(train.Placements[i].DominoId).transform.SetPositionAndRotation(
-                    layout.GetTrackPosition(i, TrainSlot(view, train.Id), view.Players.Length + 1), TrackRotation);
+                layout.SnapToTrack(meshes.GetDominoMeshById(train.Placements[i].DominoId).transform, i, TrainSlot(view, train.Id), view.Players.Length + 1);
+        UpdateRowLengths(view);
         Labels(view);
     }
 
@@ -107,7 +123,10 @@ public sealed class GameplayPresenter : MonoBehaviour
     {
         Cancel();
         if (after == null) { Snap(null); yield break; }
+        Current = after;
         bool newRound = before == null || before.Token.MatchId != after.Token.MatchId || before.Token.RoundIndex != after.Token.RoundIndex || before.EngineId != after.EngineId;
+        if (newRound) presentedRound = null;
+        EnterRound(after);
         if (newRound)
         {
             meshes.ResetDominoMeshes();
@@ -130,6 +149,8 @@ public sealed class GameplayPresenter : MonoBehaviour
                     placements.Add(layout.PlaceOnTrackRoutine(meshes.GetDominoMeshById(train.Placements[i].DominoId).transform,
                         i, TrainSlot(after, train.Id), after.Players.Length + 1));
                 }
+        // Rows grow as their placements start, so a following row eases to its new end with the tile in flight (D4).
+        UpdateRowLengths(after);
         yield return layout.Together(placements.ToArray());
         if (!newRound)
         {
@@ -148,17 +169,25 @@ public sealed class GameplayPresenter : MonoBehaviour
 
     public void Select(int? previous, int? current)
     {
-        foreach (var routine in selections) StopCoroutine(routine);
+        foreach (var routine in selections) if (routine != null) StopCoroutine(routine);
         selections.Clear();
         if (previous.HasValue && meshes.GetDominoMeshById(previous.Value) is GameObject oldMesh)
-            selections.Add(StartCoroutine(layout.SelectDominoRoutine(oldMesh, false)));
+            Track(StartCoroutine(layout.SelectDominoRoutine(oldMesh, false)));
         if (current.HasValue && meshes.GetDominoMeshById(current.Value) is GameObject newMesh)
-            selections.Add(StartCoroutine(layout.SelectDominoRoutine(newMesh, true)));
+        {
+            // An overfull hand scrolls to keep the selected tile visible.
+            int index = Current?.Hand == null ? -1 : Array.IndexOf(Current.Hand, current.Value);
+            if (index >= 0) layout.Navigator.EnsureHandVisible(index);
+            Track(StartCoroutine(layout.SelectDominoRoutine(newMesh, true)));
+        }
     }
+
+    // A selection routine that finishes at once (a tile no longer in the hand) returns no handle.
+    private void Track(Coroutine handle) { if (handle != null) selections.Add(handle); }
 
     public void Cancel()
     {
-        foreach (var routine in selections) StopCoroutine(routine);
+        foreach (var routine in selections) if (routine != null) StopCoroutine(routine);
         selections.Clear();
         if (layout != null) layout.CancelAnimations();
     }

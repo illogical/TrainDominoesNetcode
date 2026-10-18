@@ -33,13 +33,35 @@ The builder writes `/tmp/td-integration-build/Integration.app`; the runner start
 
 ## Assertions and limits
 
-The assertions cover recipient projection startup, profile-sized hands, three train identities, accepted commands, final selected-placement positions, identical-request replay, stale command rejection without mutation, thirteen-round results/winners, fresh-match score reset, and remote disconnect input suspension. Draft additionally exercises undo and end-turn through the same client APIs and real transport. Automated selection calls the production ClientSession API; pointer hit testing is not exercised. Initial Ready uses the actual generated Button.onClick listener, while tile/train actions use the production ClientSession selection API.
+The assertions cover recipient projection startup, profile-sized hands, three train identities, accepted commands, final selected-placement positions, identical-request replay, stale command rejection without mutation, thirteen-round results/winners, fresh-match score reset, and remote disconnect input suspension. Draft additionally exercises undo and end-turn through the same client APIs and real transport. Automated selection in the match scenarios calls the production ClientSession API; pointer hit testing is exercised by the view probes below, not by these matches. Initial Ready uses the actual generated Button.onClick listener, while tile/train actions use the production ClientSession selection API.
 
 A complete smoke run is not exhaustive adapter coverage. Packet loss, uncertain delivery retry, actual Lobby/Relay, joint-win fixtures, detailed reconnect/resume, synthetic presentation failure, and visual polish require separate verification. No claim of those cases follows from passing this harness. Deterministic legal play chooses the first permitted placement, then draw/pass; it does not use development legality bypasses.
 
 The eight-player harness runs on port 17899. It checks nine trains and nine tiles per hand at all eight recipients, a host action, participant disconnect suspension, disabled input, and a replacement match with the seven remaining seats. Readiness and normal commands may receive safe StalePosition rejections when participants act concurrently; the harness retries from the latest view after acknowledgment.
 
 Valid challenge penalties and explicit private-draft information-leak assertions over real serialized transport are implemented but unverified by these smoke scenarios; the source-linked boundary suite provides separate coverage. Both supported penalty settings (DrawOneTile/None) are not both exercised here.
+
+## Board navigation and presentation probes (VIEW-001–004)
+
+`ViewRuntime.cs` runs in one player per window size and player count, with no network. Copy it into the temporary project's `Assets` beside `IntegrationRuntime.cs` (which skips view mode), rebuild, then run:
+
+```sh
+python3 Tests/UnityIntegration/run_view.py                 # 1280x720, 1920x1080, 2532x1170 × 2, 3, 8 players
+python3 Tests/UnityIntegration/run_view.py --screenshots   # also saves PNGs to /tmp/td-view-shots for human review
+```
+
+Batchmode players always report a 640×480 screen. The probe therefore renders the real camera into an offscreen target of the requested size and puts the canvases in that camera's space, so overlay UI, raycasts and screenshots share one pixel space. No window opens. This simulates window sizes; it is not a resized desktop window. `--screenshots` keeps a Metal device (still batchmode). The default uses `-nographics`.
+
+The probe hides the start menu and closes the developer console, as a started match and a developer would (findings under VIEW-005). It feeds synthetic recipient views through `ClientSession.Receive`, so the production presenter, layout, navigator, row controls and state machine all run. Fixtures: one 40-tile shared train, other trains with up to 13 tiles, an eight-tile hand, and nine rows at 8 players.
+- **Layout (VIEW-002, automated part):** every visible control is on screen; action buttons, row controls, the board and the hand do not overlap; the hand is selectable; the minimum zoom keeps a tile face at least 28 px tall (scaled by dpi).
+- **Reachability (VIEW-001):** at fit and maximum zoom, scripted navigation brings every track tile and every row's playable end on screen. The production raycast (`InputManager.TileAt`) then returns that tile, and no UI covers it.
+- **Pointer input:** queued Input System `Mouse`, `Keyboard` and `Touchscreen` events. Click selects; a drag scrolls and never selects or chooses a train. The wheel zooms anchored at the cursor; Shift+wheel and sideways deltas scroll; double-click returns to the end; `F` fits. Clicking a legal row's last tile sends the Place request; its rejection shows player-facing text. For touch: tap, drag with fling inertia, double-tap, and a pinch anchored at its midpoint that never selects.
+- **Animations (VIEW-001/003):** placement, undo, a flipped opponent placement, three queued placements and a cancelled mid-flight placement, each while the board pans and zooms. Each tile must end exactly on its local target, under the right root, at hand scale.
+- **Follow policy (D4):** a following row tracks a new tile; an inspected row keeps its position and its jump control pulses; a new round resets navigation.
+- **Notices (VIEW-004):** an announcement is shown once, including after duplicate delivery and resynchronization. The owner's penalty tile appears face up in their hand and in their notice; an observer's notice names no tile.
+- **Results (VIEW-002):** a blocked-round result, joint winners ("Joint winners: Player 1 & Player 2"), score rows named "Player N", and New Match visible.
+
+These are presentation probes with synthetic input. They are not a human-visible review, a real trackpad or touch device, or a full match. The last results are in `observed-view.log`.
 
 ## Silent testing
 

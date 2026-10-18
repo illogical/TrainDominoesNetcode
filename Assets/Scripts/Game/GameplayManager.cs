@@ -26,6 +26,7 @@ public class GameplayManager : MonoBehaviour
     private bool initialized, draining;
     private int? selected;
     private readonly Queue<Batch> queue = new Queue<Batch>();
+    private readonly EventFeedback eventFeedback = new EventFeedback();
 
     private sealed class Batch
     {
@@ -46,6 +47,7 @@ public class GameplayManager : MonoBehaviour
         client.ViewChanged += ViewChanged;
         client.SelectionChanged += SelectionChanged;
         client.SessionAvailabilityChanged += AvailabilityChanged;
+        InputManager.AttachBoard(layoutManager);
         InputManager.Bind(client);
     }
 
@@ -53,6 +55,9 @@ public class GameplayManager : MonoBehaviour
     {
         // Accepted placement owns this transform now; do not launch a late deselection on it.
         if (selected.HasValue && !after.Hand.Contains(selected.Value)) selected = null;
+        // Notices are shown on receipt, exactly once, whether or not this batch is animated or snapped (VIEW-004).
+        var notices = eventFeedback.Consume(before, after, events);
+        if (notices.Count > 0) InputManager.ShowNotices(notices);
         bool terminal = after.IsSuspended || after.Phase == MatchPhase.RoundOver || after.Phase == MatchPhase.MatchOver;
         if (queue.Count >= MaximumQueuedBatches) { CancelPresentation(); Snap(after, generation); return; }
         if (replace)
@@ -154,11 +159,12 @@ public class GameplayManager : MonoBehaviour
         var last = view.RoundResults.LastOrDefault();
         var scores = (last?.Scores ?? Array.Empty<PlayerCountDto>()).ToDictionary(p => (ulong)p.Player, p => p.Count);
         var totals = (view.Totals ?? Array.Empty<PlayerCountDto>()).ToDictionary(p => (ulong)p.Player, p => p.Count);
-        string ending = last == null || last.EndingPlayer < 0 ? "Blocked round" : "Player " + (last.EndingPlayer + 1);
+        string ending = last == null ? "Round over" : PlayerText.RoundEnding(last.EndingPlayer);
         if (view.Phase == MatchPhase.MatchOver)
         {
             roundOverUI.Hide();
-            gameOverUI.Show(string.Join(" & ", view.Winners.Select(p => "Player " + (p + 1))), scores, totals);
+            // Every tied lowest total is a joint winner (RULES-005: no tiebreaker).
+            gameOverUI.Show(PlayerText.Winners(view.Winners), scores, totals);
         }
         else
         {

@@ -57,7 +57,7 @@ public class GameOverUI : MonoBehaviour
             }
 
             scoreTemplate.gameObject.SetActive(true);
-            scoreTemplate.PlayerNameText.text = playerId.ToString();
+            scoreTemplate.PlayerNameText.text = "Player " + (playerId + 1); // seats are zero-based
             scoreTemplate.PlayerScoreText.text = playerScores[playerId].ToString();
             scoreTemplate.PlayerTotalText.text = playerTotals[playerId].ToString();
         }

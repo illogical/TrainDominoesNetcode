@@ -14,6 +14,16 @@ The host creates a fixed roster from connected participants. Each participant re
 
 The seven normal classes are Pregame, RoundInitializing, PlayerAwaitingTurn, PlayerActing, PlayerActionPending, RoundOver and GameOver, plus PlayerSessionSuspended. Ordinary same-mode refreshes do not re-enter states. Pending is installed before send; matched outcomes settle it independently of view freshness. Presentation generations prevent old completion callbacks from unlocking a replacement round/match. Board input waits for local motion; permitted announcements/challenges can run while board motion continues, including initial dealing.
 
+**Board navigation and presentation (VIEW-001–004, 2026-10-18).** Navigation is local presentation state under `Assets/Scripts/Game/Navigation`; it never sends commands or decides legality, and it adds no player states.
+- `BoardNavigationState` (plain C#) holds the board-wide zoom, vertical pan and each row's scroll and follow flag.
+- `BoardNavigator` applies it to roots created at runtime: `Board` (zoom and vertical pan) → `Train row i` (horizontal scroll) → track tiles and the row label. The engine sits under `Board`, and hand tiles under `Hand`, which scrolls an overfull hand. The camera never moves.
+- `LayoutManager` lays the board out in those local spaces, so a tile in flight moves with its row. Its world-space queries remain as wrappers.
+- `BoardGestureController` reads mouse, trackpad, keyboard and touch through the Input System. A click or tap selects on release; a drag never selects.
+- `BoardRowControls` gives each row its own train button and jump-to-end button. While a tile is selected, legal rows are tinted and show a "Play" marker.
+- `EventFeedback` and `PlayerText` turn announcement, challenge and penalty events into notices shown once, and rule errors into player-facing text.
+
+The controls follow the user's decisions D1–D4 in the [VIEW plan](plans/2026-10-18-feat-view-001-004-board-navigation-presentation-plan.md): the wheel zooms at the cursor, a drag scrolls a row, a pinch zooms, and a row that was showing its end keeps following new tiles. Navigation resets on a new round or match.
+
 **Verification remains in progress.** The [legacy runtime baseline](STATE_002_RUNTIME_BASELINE.md) records an actual CLI-built, local host/client run before integration. It exposed the nested-RPC sender/readiness defect and blocked downstream legacy scenarios. It is not evidence that the replacement passes. See [verification report](RULES_ENGINE_VERIFICATION.md), [state debugging](STATE_MACHINE_DEBUGGING.md), and the CLI harness documentation in `Tests/UnityIntegration/README.md` for current commands and separately recorded outcomes. Source-linked checks do not prove real RPC serialization or animation behavior. GUI visual quality and live Lobby/Relay services are unverified.
 
 The [original engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) remains the upstream assembly/rule boundary; this integration expands its U6 / ENG-006. [State mapping](PLAYER_STATE_REVIEW.md) distinguishes selected policy, implemented responsibilities and historical gaps.

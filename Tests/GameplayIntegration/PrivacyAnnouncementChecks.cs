@@ -155,8 +155,8 @@ internal static class PrivacyAnnouncementChecks
         s.Relay.HoldCommands = false;
         s.Relay.ReleaseCommands();
         s.Relay.PresentAll();
-        var feedback = challengers.Select(c => s.Relay[c].Feedback).ToList();
-        Check(feedback.Count(f => f == "") == 1 && feedback.Count(f => f == RuleError.StalePosition.ToString() || f == RuleError.ChallengeNotAllowed.ToString()) == 1, "exactly one competing challenge wins: " + string.Join(",", feedback));
+        var feedback = challengers.Select(c => s.Relay[c].LastRejection).ToList();
+        Check(feedback.Count(f => f == RuleError.None) == 1 && feedback.Count(f => f == RuleError.StalePosition || f == RuleError.ChallengeNotAllowed) == 1, "exactly one competing challenge wins: " + string.Join(",", feedback));
         Check(s.Relay.Peers.All(p => Count(s.View(p), target) == 2), "every peer sees the target holding the penalty tile");
         Check(s.Any.BoneyardCount == boneyard - 1, "the penalty takes exactly one tile from the boneyard");
         int penalty = s.HostView(targetPeer).Hand.Except(targetHand).Single();

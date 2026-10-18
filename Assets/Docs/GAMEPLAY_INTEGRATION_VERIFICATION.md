@@ -162,8 +162,30 @@ Implements the [entry-path and reconnect plan](plans/2026-10-18-feat-net-003-004
   - Both players ran on one machine, so this is evidence for the services and the code path, not for real-world latency or loss.
 - **Test correction found by the live run:** the forged-claim assertion required an unchanged match revision, but the host can legitimately resume first. It now checks the seat, the client's secret, and that the view did not go backwards. Localhost reconnect passed again afterward.
 
+## VIEW-001–004 board navigation and presentation (2026-10-18)
+
+Implements the [VIEW plan](plans/2026-10-18-feat-view-001-004-board-navigation-presentation-plan.md). Navigation is local presentation state; the authority, wire contract and player states are unchanged.
+
+| Check | Type | Outcome |
+| --- | --- | --- |
+| `Tests/BoardPresentation` (new) | Console | 98 checks: navigation model, gestures, hand strip, player-facing text, exactly-once notices |
+| Core NUnit; `Tests/StateMachine`, `Tests/ClientInteraction`, `Tests/GameplayIntegration` | Console | 48; 17; passed; all assertions passed. Feedback checks now compare `LastRejection`, not enum text. |
+| `run_view.py`, 3 sizes × 2/3/8 players | Unity CLI player, offscreen target, synthetic input | 576 assertions passed. Every tile and playable end is reachable by real raycast at fit and maximum zoom. Covers mouse, keyboard and touch gestures, animations while navigating, the follow policy, notices, and blocked-round and joint-winner results. |
+| `run_view.py --screenshots`, 2 sizes × 2/8 players | Unity CLI player with Metal | Passed; PNGs saved for human review. UI text does not appear in these captures. |
+| Immediate, Draft, presentation-only, `--challenge`, `--challenge --penalty-none`, `--reconnect`, eight-player | Unity CLI localhost | All passed; no NGO parenting errors (35 per match before the fix) |
+
+Bugs found and fixed while verifying:
+- The domino prefab's leftover `NetworkObject` undid local reparenting (learning guide M15, MAINT-004).
+- `ZoomAt` lost its anchor over a row that was following its end.
+- The label space pushed the last tile off screen at high zoom.
+- Board smoothing stalled at very high frame rates.
+- A selection routine that finished at once returned a null handle, and `Cancel` then threw.
+- `PointerGesture` measured idleness after updating its timestamp, so a paused pointer could still fling.
+
+Not established: real window resizing (batchmode keeps 640×480, so sizes are offscreen targets), a real trackpad or touch device, human-visible layout and motion review (VIEW-002/003), and vertical overflow at fit in the Unity fixtures.
+
 ## Remaining limits
 
-Human-visible layout/motion quality, pointer/raycast usability, behavior on slow or lossy real networks, host migration, recovery after an app restart and deliberate joint-winner fixtures are not established by these runs. Packet loss below the reliable transport is simulated only. Competing challenges among three or more players and empty-pile penalties are covered by console checks only. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.
+Human-visible layout/motion quality (VIEW-002/003), real trackpad and touch devices, behavior on slow or lossy real networks, host migration and recovery after an app restart are not established by these runs. Pointer/raycast selection and joint-winner presentation now have CLI player evidence (VIEW-001/002 fixtures). Packet loss below the reliable transport is simulated only. Competing challenges among three or more players and empty-pile penalties are covered by console checks only. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.
 
 Settings GUI, final art, payload compaction, persistent recovery and detailed reconnect UX remain deferred. No gameplay decision depends on animation completion. No task is considered complete merely because its source compiles or its graph is present.

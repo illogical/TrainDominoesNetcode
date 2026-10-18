@@ -2,9 +2,13 @@ using Assets.Scripts.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Assets.Scripts.Models;
+using Assets.Scripts.Game.Navigation;
 using UnityEngine;
 
+/// <summary>
+/// Board and hand layout. Track and engine positions are local to the navigation roots (VIEW-001), so panning or
+/// zooming during an animation carries a moving tile along with its row. World-space queries remain as wrappers.
+/// </summary>
 public class LayoutManager : MonoBehaviour
 {
     [Range(0, 1)]
@@ -12,9 +16,9 @@ public class LayoutManager : MonoBehaviour
     [SerializeField] private float BottomSideMargin = 0.01f;
     [SerializeField] private float SelectionRaiseAmount = 0.02f;
     [Range(0, 2)]
-    [SerializeField] private float TrackMargin = 0f; // distance from engine
+    [SerializeField] private float TrackMargin = 0f; // distance between rows
     [Range(0, 1.5f)]
-    [SerializeField] private float CenterLeftYOffset = 0f; // can be used to prevent the tracks from running into the bottom line of boxes
+    [SerializeField] private float CenterLeftYOffset = 0f; // vertical offset of the stacked rows
     [SerializeField] private GameObject DominoPrefab;   // used for measuring domino size
     [Header("Animations")]
     public AnimationDefinition EngineSlideIn;
@@ -26,11 +30,31 @@ public class LayoutManager : MonoBehaviour
     public AnimationDefinition RearrangePlayerDominoes;
     public AnimationDefinition SelectionEase;
 
+    public static readonly Quaternion HandRotation = Quaternion.Euler(-90, 0, 180);
+    public static readonly Quaternion TrackRotation = Quaternion.Euler(0, -90, -90);
+    /// <summary>Board units of space after a row's last tile, for its label.</summary>
+    private const float EndPaddingTiles = 3f;
+
     private Camera mainCamera;
-    private float playerYPosition;
+    private Vector3 tileSize, baseScale = Vector3.one;
     private readonly List<Coroutine> motion = new List<Coroutine>();
 
-    private void Awake() { mainCamera = Camera.main; }
+    public BoardNavigator Navigator { get; private set; }
+    public Vector3 TileSize => tileSize;
+    public float SelectionRaise => SelectionRaiseAmount;
+    public float HandSideMargin => BottomSideMargin;
+    /// <summary>Distance between neighbouring rows in board units.</summary>
+    public float RowSpacing => tileSize.x + TrackMargin;
+    public float HandLocalY => PositionHelper.GetPlayerDominoYPosition(tileSize, mainCamera);
+
+    private void Awake()
+    {
+        mainCamera = Camera.main;
+        tileSize = PositionHelper.GetObjectDimensions(DominoPrefab);
+        baseScale = DominoPrefab.transform.localScale;
+        Navigator = gameObject.AddComponent<BoardNavigator>();
+        Navigator.Initialize(this, mainCamera);
+    }
 
     // Every child belongs to this layout, including parallel rotations. Cancellation never
     // stops unrelated gameplay coroutines on a shared MonoBehaviour.
@@ -64,188 +88,183 @@ public class LayoutManager : MonoBehaviour
         foreach (var handle in handles) yield return handle;
     }
 
+    private static void Attach(Transform tile, Transform parent)
+    {
+        if (tile.parent != parent) tile.SetParent(parent, true);
+    }
+
+    // ---- Local board layout (board units; one unit is one world unit at zoom 1) ----
+
+    public float RowLocalY(int slot, int count)
+    {
+        float centerOffset = (count - 1) * RowSpacing / 2;
+        return CenterLeftYOffset + slot * RowSpacing - centerOffset;
+    }
+
+    /// <summary>The engine's centre: half a tile in from the board's left edge.</summary>
+    public Vector3 EngineLocalPosition => new Vector3(tileSize.x / 2, 0, 0);
+
+    /// <summary>Centre of the tile at <paramref name="index"/> along a row, after the engine and a one-and-a-half tile gap.</summary>
+    public float TrackLocalX(int index) => 2f * tileSize.x + tileSize.y * index;
+
+    /// <summary>From the board's left edge to the right edge of the last tile (or where the first would go).</summary>
+    public float RowContentLength(int tiles) => TrackLocalX(Mathf.Max(1, tiles) - 1) + tileSize.y / 2;
+
+    /// <summary>Space shown after a row's last tile, for its label.</summary>
+    public float RowTrailingSpace => tileSize.y * EndPaddingTiles;
+
+    public Vector3 TrackLocalPosition(int index) => new Vector3(TrackLocalX(index), 0, 0);
+
+    public Vector3 LabelLocalPosition(int tiles) => tiles <= 0 ? TrackLocalPosition(0) : TrackLocalPosition(tiles - 1) + new Vector3(tileSize.y / 2 + 0.003f, 0, 0);
+
+    public Transform Row(int slot, int count)
+    {
+        Navigator.SetRowCount(count);
+        return Navigator.Row(slot);
+    }
+
+    // ---- World-space queries (wrappers through the current roots) ----
+
+    public Vector3 GetEnginePosition(GameObject engine) => Navigator.BoardRoot.TransformPoint(EngineLocalPosition);
+    public Vector3 GetTrackLeftPosition(int trackIndex, int trackCount) => Row(trackIndex, trackCount).TransformPoint(TrackLocalPosition(0));
+    public Vector3 GetTrackPosition(int trackDominoIndex, int trackIndex, int trackCount) => Row(trackIndex, trackCount).TransformPoint(TrackLocalPosition(trackDominoIndex));
+
     public List<Vector3> GetHandPositions(int count)
     {
-        var positions = PositionHelper.GetLayoutAcrossScreen(PositionHelper.GetObjectDimensions(DominoPrefab), mainCamera, count, BottomSideMargin);
-        if (positions.Count > 0) playerYPosition = positions[0].y;
+        var positions = new List<Vector3>();
+        foreach (var local in GetHandLocalPositions(count)) positions.Add(Navigator.HandRoot.TransformPoint(local));
         return positions;
     }
+
+    /// <summary>Hand positions under the hand root. Overfull hands keep a minimum spacing and scroll (VIEW-001/U4).</summary>
+    public List<Vector3> GetHandLocalPositions(int count)
+    {
+        Navigator.ConfigureHand(count);
+        var positions = new List<Vector3>();
+        float y = HandLocalY;
+        for (int i = 0; i < count; i++) positions.Add(new Vector3(Navigator.Hand.LocalX(i), y, 0));
+        return positions;
+    }
+
+    // ---- Immediate placement (snap to the latest view) ----
+
+    public void SnapEngine(Transform engine)
+    {
+        Attach(engine, Navigator.BoardRoot);
+        engine.localPosition = EngineLocalPosition; engine.localRotation = HandRotation; engine.localScale = baseScale;
+    }
+
+    public void SnapToTrack(Transform tile, int index, int slot, int count)
+    {
+        Attach(tile, Row(slot, count));
+        tile.localPosition = TrackLocalPosition(index); tile.localRotation = TrackRotation; tile.localScale = baseScale;
+    }
+
+    public void SnapToHand(Transform tile, Vector3 local)
+    {
+        Attach(tile, Navigator.HandRoot);
+        tile.localPosition = local; tile.localRotation = HandRotation; tile.localScale = baseScale;
+    }
+
+    public void PlaceLabel(GameObject label, int slot, int count, int tiles)
+    {
+        var row = Row(slot, count);
+        if (label.transform.parent != row) label.transform.SetParent(row, false);
+        label.transform.localPosition = LabelLocalPosition(tiles);
+    }
+
+    // ---- Animated placement ----
 
     public IEnumerator PlaceInitialPlayerDominoesRoutine(List<GameObject> dominoes)
     {
         if (dominoes.Count == 0) yield break;
-        PositionHelper.LayoutAcrossAndUnderScreen(dominoes, mainCamera, BottomSideMargin);
-        var positions = GetHandPositions(dominoes.Count);
+        var positions = GetHandLocalPositions(dominoes.Count);
+        float under = PositionHelper.GetPlayerDominoYPosition(tileSize, mainCamera) - tileSize.y * 1.5f;
         var routines = new List<IEnumerator>();
         for (int i = 0; i < dominoes.Count; i++)
-            routines.Add(AnimationHelper.MoveOverSeconds(dominoes[i].transform, positions[i],
+        {
+            var tile = dominoes[i].transform;
+            SnapToHand(tile, new Vector3(positions[i].x, under, 0));
+            routines.Add(AnimationHelper.MoveLocalOverSeconds(tile, positions[i], null, null,
                 PlayerDominoSlideIn != null ? PlayerDominoSlideIn.Duration : 0,
                 PlayerDominoSlideIn != null ? PlayerDominoSlideIn.Delay * i : 0, PlayerDominoSlideIn));
+        }
         yield return Together(routines.ToArray());
     }
 
-    public void PlaceInitialPlayerDominoes(List<GameObject> dominoes) { Run(PlaceInitialPlayerDominoesRoutine(dominoes)); }
-    public IEnumerator PlaceEngineRoutine(GameObject engine) { yield return AnimationHelper.MoveOverSeconds(engine.transform, GetEnginePosition(engine), EngineSlideIn); }
-    public void PlaceEngine(GameObject engine, Action afterComplete = null) { Run(Complete(PlaceEngineRoutine(engine), afterComplete)); }
+    public IEnumerator PlaceEngineRoutine(GameObject engine)
+    {
+        Attach(engine.transform, Navigator.BoardRoot);
+        yield return AnimationHelper.MoveLocalOverSeconds(engine.transform, EngineLocalPosition, HandRotation, baseScale,
+            EngineSlideIn != null ? EngineSlideIn.Duration : 0, EngineSlideIn != null ? EngineSlideIn.Delay : 0, EngineSlideIn);
+    }
+
     public IEnumerator SelectDominoRoutine(GameObject domino, bool selected)
     {
-        var destination = new Vector3(domino.transform.position.x, playerYPosition + (selected ? SelectionRaiseAmount : 0), domino.transform.position.z);
-        yield return AnimationHelper.MoveOverSeconds(domino.transform, destination, selected ? PlayerDominoSelection : PlayerDominoDeselection);
-    }
-    public void SelectDomino(GameObject domino) { Run(SelectDominoRoutine(domino, true)); }
-    public void DeselectDomino(GameObject domino) { Run(SelectDominoRoutine(domino, false)); }
-    public Vector3 GetEnginePosition(GameObject engine)
-    {
-        return PositionHelper.GetScreenLeftCenterPositionForObject(PositionHelper.GetObjectDimensions(engine), mainCamera, 0);
-    }
-    private IEnumerator Complete(IEnumerator routine, Action afterComplete)
-    {
-        yield return routine;
-        afterComplete?.Invoke();
-    }
-
-    public Vector3 GetTrackLeftPosition(int trackIndex, int trackCount)
-    {
-        return new Vector3(GetTrackStartXPosition(), GetTrackYPosition(trackIndex, trackCount), 0);
-    }
-
-    public Vector3 GetTrackPosition(int trackDominoIndex, int trackIndex, int trackCount)
-    {
-        return new Vector3(GetTrackXPosition(trackDominoIndex, trackIndex, trackCount), GetTrackYPosition(trackIndex, trackCount), 0);
-    }
-
-    private float GetTrackStartXPosition()
-    {
-        var dominoSize = PositionHelper.GetObjectDimensions(DominoPrefab);
-        Vector3 leftCenterPos = PositionHelper.GetScreenLeftCenterPositionForObject(dominoSize, mainCamera, 0);
-        var xOffset = 0f;
-
-        float centerObjectSize = dominoSize.x + dominoSize.x / 2;
-        float marginFromLeftCenter = centerObjectSize + xOffset;
-
-        return leftCenterPos.x + marginFromLeftCenter;
-    }
-
-    private float GetTrackXPosition(int trackObjectIndex, int trackIndex, int trackCount)
-    {
-        var objLength = PositionHelper.GetObjectDimensions(DominoPrefab);
-
-        Vector3 trackStartPosition = GetTrackLeftPosition(trackIndex, trackCount);
-
-        return trackStartPosition.x + (objLength.y * trackObjectIndex);
-    }
-
-    private float GetTrackYPosition(int trackIndex, int trackCount)
-    {
-        var objLength = PositionHelper.GetObjectDimensions(DominoPrefab).x;
-        var leftSide = PositionHelper.GetScreenLeftCenter(mainCamera);
-
-        float totalLength = ((trackCount - 1) * TrackMargin) + ((trackCount - 1) * objLength);
-        float centerOffset = totalLength / 2;
-
-        var centerPos = leftSide.y + CenterLeftYOffset;
-        var trackIndexLength = trackIndex * objLength + (TrackMargin * trackIndex);
-
-        return centerPos + trackIndexLength - centerOffset;
-    }
-
-    public IEnumerator UpdateTrackPosition(GameObject currentObj, float duration, int trackCount)
-    {
-        // A single transform has one destination, rather than competing moves per track.
-        yield return SlideToPosition(currentObj.transform, GetTrackLeftPosition(0, trackCount), duration, 0);
+        var tile = domino.transform;
+        if (tile.parent != Navigator.HandRoot) yield break; // only hand tiles lift
+        var destination = new Vector3(tile.localPosition.x, HandLocalY + (selected ? SelectionRaiseAmount : 0), tile.localPosition.z);
+        yield return AnimationHelper.MoveLocalOverSeconds(tile, destination, null, selected ? PlayerDominoSelection : PlayerDominoDeselection);
     }
 
     public IEnumerator PlaceOnTrackRoutine(Transform domino, int index, int slot, int count)
     {
+        // Reparent first, keeping the world pose; the move then targets the row's local space.
+        Attach(domino, Row(slot, count));
         yield return Together(
-            AnimationHelper.RotateOverSeconds(domino, Quaternion.Euler(0, -90, -90),
+            AnimationHelper.RotateLocalOverSeconds(domino, TrackRotation,
                 DominoRotateToTrack != null ? DominoRotateToTrack.Duration : 0,
                 DominoRotateToTrack != null ? DominoRotateToTrack.Delay : 0, DominoRotateToTrack),
-            AnimationHelper.MoveOverSeconds(domino, GetTrackPosition(index, slot, count), DominoSlideToTrack));
+            AnimationHelper.MoveLocalOverSeconds(domino, TrackLocalPosition(index), baseScale, DominoSlideToTrack));
     }
 
-    private IEnumerator SlideToPosition(Transform target, Vector3 end, float duration, float delay)
+    private IEnumerator SlideLocal(Transform target, Vector3 end, float duration, float delay, Vector3? scale = null)
     {
-        yield return AnimationHelper.MoveOverSeconds(target, end, duration, delay, SelectionEase);
+        yield return AnimationHelper.MoveLocalOverSeconds(target, end, null, scale, duration, delay, SelectionEase);
     }
 
-    public IEnumerator AddDominoToNewTrackAndUpdateTrackPositions(Transform domino, int id, List<List<int>> tracks, MeshManager meshes, float duration, Action afterComplete = null)
-    {
-        yield return Together(UpdateTrackPositions(tracks, meshes, duration, id), PlaceOnTrackRoutine(domino, 0, tracks.Count - 1, tracks.Count));
-        afterComplete?.Invoke();
-    }
-    public IEnumerator AddDominoToExistingTrack(Transform domino, List<List<int>> tracks, int slot, Action afterComplete = null)
-    {
-        yield return PlaceOnTrackRoutine(domino, tracks[slot].Count - 1, slot, tracks.Count);
-        afterComplete?.Invoke();
-    }
-    private IEnumerator UpdateTrackPositions(List<List<int>> tracks, MeshManager meshes, float duration, int? ignore = null)
-    {
-        var routines = new List<IEnumerator>();
-        for (int slot = 0; slot < tracks.Count; slot++)
-            for (int index = 0; index < tracks[slot].Count; index++)
-                if (tracks[slot][index] != ignore)
-                    routines.Add(SlideToPosition(meshes.GetDominoMeshById(tracks[slot][index]).transform, GetTrackPosition(index, slot, tracks.Count), duration, 0));
-        yield return Together(routines.ToArray());
-    }
-
-    public void AddNewDominoForPlayer(Dictionary<int, Transform> hand, int id) { Run(AddNewDominoForPlayerRoutine(hand, id)); }
-    public void ReturnDominoToPlayer(Dictionary<int, Transform> hand, int id) { Run(ReturnDominoToPlayerRoutine(hand, id)); }
     public IEnumerator AddNewDominoForPlayerRoutine(Dictionary<int, Transform> hand, int id) { yield return Introduce(hand, id, false); }
     public IEnumerator ReturnDominoToPlayerRoutine(Dictionary<int, Transform> hand, int id) { yield return Introduce(hand, id, true); }
+
     private IEnumerator Introduce(Dictionary<int, Transform> hand, int id, bool returning)
     {
         var target = hand[id];
-        if (!returning) target.rotation = Quaternion.Euler(-90, 180, 180);
+        Attach(target, Navigator.HandRoot);
+        if (!returning) target.localRotation = Quaternion.Euler(-90, 180, 180);
+        // The reveal point is the centre of the screen, close to the camera.
+        var reveal = Navigator.HandRoot.InverseTransformPoint(new Vector3(0, 0, -0.015f));
         yield return Together(
-            SlideToPosition(target, new Vector3(0, 0, -0.015f), returning ? 0.25f : 1f, returning ? 0 : 0.4f),
-            AnimationHelper.RotateOverSeconds(target, Quaternion.Euler(-90, 0, 180), returning ? 0.15f : 0.5f, returning ? 0.2f : 0.5f, SelectionEase));
+            SlideLocal(target, reveal, returning ? 0.25f : 1f, returning ? 0 : 0.4f, baseScale),
+            AnimationHelper.RotateLocalOverSeconds(target, HandRotation, returning ? 0.15f : 0.5f, returning ? 0.2f : 0.5f, SelectionEase));
         yield return new WaitForSeconds(returning ? 0.25f : 2f);
-        var positions = GetHandPositions(hand.Count);
+        var positions = GetHandLocalPositions(hand.Count);
         var routines = new List<IEnumerator>();
         int index = 0;
         foreach (var item in hand)
         {
             var destination = positions[index++];
-            routines.Add(item.Key == id
-                ? AnimationHelper.MoveOverSecondsWithDepthReturn(item.Value, destination, 0.3f, 0.1f, -0.0135f, SelectionEase)
-                : SlideToPosition(item.Value, destination, 0.3f, 0.1f));
+            Attach(item.Value, Navigator.HandRoot);
+            routines.Add(item.Key == id ? ReturnWithDepth(item.Value, destination) : SlideLocal(item.Value, destination, 0.3f, 0.1f, baseScale));
         }
         yield return Together(routines.ToArray());
     }
+
+    private IEnumerator ReturnWithDepth(Transform tile, Vector3 destination)
+    {
+        yield return SlideLocal(tile, destination + new Vector3(0, 0, -0.0135f), 0.3f, 0.1f, baseScale);
+        yield return SlideLocal(tile, destination, 0.15f, 0);
+    }
+
     public IEnumerator UpdatePlayerPositions(Dictionary<int, Transform> hand)
     {
-        var positions = GetHandPositions(hand.Count);
+        var positions = GetHandLocalPositions(hand.Count);
         var routines = new List<IEnumerator>();
         int index = 0;
         foreach (var item in hand)
-            routines.Add(AnimationHelper.MoveOverSeconds(item.Value, positions[index++], RearrangePlayerDominoes));
+        {
+            Attach(item.Value, Navigator.HandRoot);
+            routines.Add(AnimationHelper.MoveLocalOverSeconds(item.Value, positions[index++], baseScale, RearrangePlayerDominoes));
+        }
         yield return Together(routines.ToArray());
-    }
-    public IEnumerator UpdateStationPositionsRoutine(List<List<int>> tracks, Dictionary<int, Transform> transforms)
-    {
-        var routines = new List<IEnumerator>();
-        for (int slot = 0; slot < tracks.Count; slot++)
-            for (int index = 0; index < tracks[slot].Count; index++)
-                routines.Add(PlaceOnTrackRoutine(transforms[tracks[slot][index]], index, slot, tracks.Count));
-        yield return Together(routines.ToArray());
-    }
-    public void UpdateStationPositions(List<List<int>> tracks, Dictionary<int, Transform> transforms, Action afterComplete = null)
-    {
-        Run(Complete(UpdateStationPositionsRoutine(tracks, transforms), afterComplete));
-    }
-    public Vector3 GetTrackLabelPosition(Vector3 lastPosition)
-    {
-        return lastPosition + new Vector3(PositionHelper.GetObjectDimensions(DominoPrefab).y / 2 + 0.003f, 0, 0);
-    }
-    public void MoveTrackLabelToEndOfTrack(GameObject label, Vector3 position)
-    {
-        Run(AnimationHelper.MoveOverSeconds(label.transform, position, DominoRotateToTrack));
-    }
-    public void UpdateTrackLabelPositions(Station station, Dictionary<int, GameObject> labels, Dictionary<int, Vector3> destinations)
-    {
-        for (int i = 0; i < station.Tracks.Count; i++)
-            if (labels.TryGetValue(i, out var label) && destinations.TryGetValue(i, out var destination))
-                MoveTrackLabelToEndOfTrack(label, destination);
     }
 }

@@ -36,6 +36,51 @@ public static class AnimationHelper
         transform.position = endPos;
     }
 
+    /// <summary>
+    /// Moves in the parent's local space (VIEW-001). A tile under a board row keeps travelling with that row while
+    /// the player pans or zooms, so it lands on its target instead of where the target was when the move began.
+    /// Rotation and scale are optional and share the same timing.
+    /// </summary>
+    public static IEnumerator MoveLocalOverSeconds(Transform transform, Vector3 endLocal, Quaternion? endRotation, Vector3? endScale, float seconds, float delay, AnimationDefinition curve)
+    {
+        if (delay > 0) yield return new WaitForSeconds(delay);
+        float elapsedTime = 0;
+        var startPos = transform.localPosition;
+        var startRotation = transform.localRotation;
+        var startScale = transform.localScale;
+        while (elapsedTime < seconds)
+        {
+            float t = Ease(curve, elapsedTime / seconds);
+            transform.localPosition = Vector3.Lerp(startPos, endLocal, t);
+            if (endRotation.HasValue) transform.localRotation = Quaternion.Lerp(startRotation, endRotation.Value, t);
+            if (endScale.HasValue) transform.localScale = Vector3.Lerp(startScale, endScale.Value, t);
+            elapsedTime += Time.deltaTime;
+            yield return new WaitForEndOfFrame();
+        }
+        transform.localPosition = endLocal;
+        if (endRotation.HasValue) transform.localRotation = endRotation.Value;
+        if (endScale.HasValue) transform.localScale = endScale.Value;
+    }
+
+    public static IEnumerator MoveLocalOverSeconds(Transform transform, Vector3 endLocal, Vector3? endScale, AnimationDefinition definition)
+    {
+        return MoveLocalOverSeconds(transform, endLocal, null, endScale, definition != null ? definition.Duration : 0, definition != null ? definition.Delay : 0, definition);
+    }
+
+    public static IEnumerator RotateLocalOverSeconds(Transform transform, Quaternion endRotation, float seconds, float delay, AnimationDefinition curve)
+    {
+        if (delay > 0) yield return new WaitForSeconds(delay);
+        float elapsedTime = 0;
+        var startRotation = transform.localRotation;
+        while (elapsedTime < seconds)
+        {
+            transform.localRotation = Quaternion.Lerp(startRotation, endRotation, Ease(curve, elapsedTime / seconds));
+            elapsedTime += Time.deltaTime;
+            yield return new WaitForEndOfFrame();
+        }
+        transform.localRotation = endRotation;
+    }
+
     public static IEnumerator ScaleOverSeconds(Transform transform, float scale, AnimationDefinition animationDefinition)
     {
         yield return new WaitForSeconds((animationDefinition != null ? animationDefinition.Delay : 0));

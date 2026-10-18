@@ -179,7 +179,7 @@ internal static class AdversarialChecks
         s.Relay.HeldProjections.Clear(); // Dropped: the client still shows the pre-draw view.
         Check(client.View.Token.Revision == stale.Token.Revision && client.BoardEnabled, "client shows a stale but enabled board");
         Check(client.Submit(CommandKind.Draw), "client submits from the stale view");
-        Check(client.Pending == null && client.Feedback == RuleError.StalePosition.ToString(), "stale rejection settles the request with feedback");
+        Check(client.Pending == null && client.LastRejection == RuleError.StalePosition && client.Feedback == PlayerText.Rejection(RuleError.StalePosition), "stale rejection settles the request with feedback");
         // The rejection reply carries the sender's current view, so the client catches up from the rejection itself.
         Check(client.View.Token.Revision == s.HostView(active).Token.Revision, "a rejection reply installs the current view, not an older or blank one");
         // The observer lost its copy of the draw too; it recovers through its own synchronization.

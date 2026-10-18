@@ -19,6 +19,8 @@ namespace Assets.Scripts.Game.Integration
         public long PresentationGeneration { get; private set; }
         public int? SelectedTile { get; private set; }
         public string Feedback { get; private set; } = "Host: start a match with 2–8 connected players.";
+        /// <summary>The error of the most recently settled request, or None if it was accepted. Feedback holds its player-facing text.</summary>
+        public RuleError LastRejection { get; private set; }
         /// <summary>
         /// The latest seat credential (NET-004). Unlike the view, it survives <see cref="BeginConnection"/>, so a
         /// client that loses its connection can reclaim its seat. Held in memory only; it does not survive a restart.
@@ -120,7 +122,8 @@ namespace Assets.Scripts.Game.Integration
             if (settled)
             {
                 Pending = null; IsUncertain = false;
-                Feedback = packet.Outcome.Accepted ? "" : packet.Outcome.Error == RuleError.AnnouncementNotRequired ? "No announcement is needed." : packet.Outcome.Error.ToString();
+                LastRejection = packet.Outcome.Accepted ? RuleError.None : packet.Outcome.Error;
+                Feedback = PlayerText.Rejection(LastRejection);
             }
             if (newer)
             {

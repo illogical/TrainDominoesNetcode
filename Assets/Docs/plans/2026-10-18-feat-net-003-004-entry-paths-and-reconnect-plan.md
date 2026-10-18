@@ -16,7 +16,7 @@ origin: Assets/Docs/plans/2026-10-18-feat-net-001-005-006-multiplayer-validation
 - host-issued seat secrets for reconnecting;
 - implementing directly.
 
-Live Lobby/Relay checks wait for the user's permission. The user confirmed the project never used Steam's relay: git history shows Unity Relay and Lobby since 2023-08. Evidence: [verification report](../GAMEPLAY_INTEGRATION_VERIFICATION.md#net-003-maint-003-net-004-2026-10-18). Entry paths: [NETWORKING_ENTRY_PATHS.md](../NETWORKING_ENTRY_PATHS.md). Lessons: [netcode learning guide](../NETCODE_LEARNING_GUIDE.md).
+Live Lobby/Relay checks were run afterward with the user's permission (see Outcome). The user confirmed the project never used Steam's relay: git history shows Unity Relay and Lobby since 2023-08. Evidence: [verification report](../GAMEPLAY_INTEGRATION_VERIFICATION.md#net-003-maint-003-net-004-2026-10-18). Entry paths: [NETWORKING_ENTRY_PATHS.md](../NETWORKING_ENTRY_PATHS.md). Lessons: [netcode learning guide](../NETCODE_LEARNING_GUIDE.md).
 
 ## Decisions
 
@@ -73,9 +73,13 @@ Live Lobby/Relay checks wait for the user's permission. The user confirmed the p
 - **All other CLI scenarios and console suites still pass**, and mutation (removing the secret check) is caught.
 - **Defined behavior found:** a request that never reached the host is resubmitted while the match is suspended, so it is rejected (`Suspended`) and is never applied later; the player acts again after resuming. A request that did arrive replays its cached outcome.
 
+## Live verification (2026-10-18, user permission, free tier)
+
+`run_players.py --live` passed twice (real sign-in, lobby, DTLS Relay, 13-round match), and `--live --reconnect` passed (drop, `RejoinRelay`, seat reclaim, resume, finish). The run exposed one test race, fixed in the harness: the forged-claim check required an unchanged revision, but the host can resume first. No production defect was found.
+
 ## Not covered
 
-- **Live Lobby/Relay:** the online path and `RejoinRelay` need `run_players.py --live` and the user's permission. NET-003 stays open until then.
+- **Slow or lossy real networks:** the live runs used two players on one machine.
 - **Visual review:** a person has not looked at the reconnect status text.
 - **Host loss:** host migration and reconnecting after the host itself is lost are out of scope.
 - **Restart recovery:** recovery after an app restart is out of scope (secrets are in memory only).

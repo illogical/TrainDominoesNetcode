@@ -250,6 +250,8 @@ Both outcomes are safe, and the tests pin both down.
 
 **Why no new player state?** The existing suspended state already had Resume, New Match and Retry. Making Retry reconnect when the connection is gone added the feature without touching the state machine, and the strict state-map comparison confirms the topology did not change. Reusing an existing control is usually cheaper and safer than adding a state.
 
+**Live testing finds timing assumptions that localhost hides.** The first `--live --reconnect` run failed one assertion, and the product was fine. The test required the match revision to be unchanged after a forged claim, but over the real Relay the host had time to resume first, which legitimately advances the revision. The fix was to assert what an impersonation attempt could actually break (same seat, same secret, view never goes backwards). **Next time:** assert the property you care about, not an incidental one that only holds when everything is instantaneous. Round-trip delays over a real service are slow enough to expose such races.
+
 **Developing a package migration safely:** the Editor had the project open, so changing the manifest there would have triggered an immediate re-import mid-change. The migration was made and verified in an isolated copy (compile, every CLI scenario), then applied to the real project in one step.
 
 ## Libraries: versions and upgrade notes

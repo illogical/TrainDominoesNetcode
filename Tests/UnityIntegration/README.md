@@ -25,7 +25,7 @@ python3 Tests/UnityIntegration/run_players.py --reconnect
 
 `--reconnect` (NET-004): after three actions, the client submits a move and drops its connection before the answer arrives. It reconnects through the Retry action under a new transport ID and must reclaim the same seat with a rotated secret. A forged claim for the other seat is sent over a real RPC and must be refused. The host must report the missing seat, then everyone back, and resume. The match then finishes.
 
-`--live` (NET-003) connects through the real Unity Lobby + Relay path (`SimpleMatchmaking`) with separate anonymous profiles (`--ugs-profile td-host` and `td-client`). **It uses network services: run it only with the user's permission.**
+`--live` (NET-003) connects through the real Unity Lobby + Relay path (`SimpleMatchmaking`) with separate anonymous profiles (`--ugs-profile td-host` and `td-client`). `--live --reconnect` adds the drop, Relay rejoin and seat reclaim. **They use network services (free tier): run them only with the user's permission.** Both modes share the `reconnect` log names, so copy `observed-reconnect-*.log` aside before running the localhost `--reconnect` again; the 2026-10-18 live reconnect logs are `observed-live-reconnect-*.log`.
 
 The two `--challenge` modes (NET-005) play complete Immediate matches without announcing. The player who sees an open window challenges, after first ignoring one window to prove the next accepted action closes it. They check self and repeated challenge rejections, penalty application and allowance, and private penalty delivery. Every mode checks privacy invariants on each received view.
 

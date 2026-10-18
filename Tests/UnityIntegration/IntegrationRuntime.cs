@@ -219,12 +219,14 @@ public sealed class IntegrationRuntime:MonoBehaviour
         Mark("in-flight request "+(change==0?"was not applied (or a pass)":"applied once, hand "+(change>0?"+":"")+change));
         Assert(Math.Abs(change)<=1,"hand-preserved-request-applied-at-most-once");
         // A forged claim for the other seat over a real RPC is refused and changes nothing here.
-        long revision=Client.View.Token.Revision;
+        long revision=Client.View.Token.Revision;string secretBefore=Client.Credential.Secret;
         var forged=new ReclaimRequest{MatchId=Client.Credential.MatchId,Seat=1-seat,Secret=new string('0',32)};
         Assert(GameSession.Wire.TryEncode(forged,out var claim,out _),"forged-claim-encoded");
         typeof(GameSession).GetMethod("ReclaimSeatServerRpc",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(session,new object[]{claim,"",default(RpcParams)});
         yield return Wait(()=>Client.Feedback=="Could not rejoin your seat.","forged-claim-answered");
-        Assert(Client.View.Player==seat && Client.View.Token.Revision==revision,"impersonation-rejected-over-rpc");
+        // The host may legitimately resume (advancing the revision) while the claim is in flight, so the check is that
+        // the forged claim changed nothing for this client: same seat, same secret, and the view never went backwards.
+        Assert(Client.View.Player==seat && Client.Credential.Seat==seat && Client.Credential.Secret==secretBefore && Client.View.Token.Revision>=revision,"impersonation-rejected-over-rpc");
         Mark("reconnect-complete; waiting for the host to resume");
     }
     // Every received view: only my own provisional tiles, my hand matches my public count, all 90 tiles accounted for.

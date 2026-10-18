@@ -156,10 +156,14 @@ Implements the [entry-path and reconnect plan](plans/2026-10-18-feat-net-003-004
   - A forged claim for the other seat over a real RPC is refused with no state change.
   - The host reported "Player 2 missing", then "everyone back", resumed, and the match completed 13 rounds.
 - **Sources match:** the isolated project's `Assets/Scripts` matched the working tree, and its hash is in `Tests/UnityIntegration/production-source-net004.sha256`.
-- **Not yet verified live:** the online Lobby + Relay path and `RejoinRelay`. They need network access and the user's permission (`run_players.py --live`).
+- **Live service (user permission granted, free tier), 2026-10-18:**
+  - `run_players.py --live` passed twice: two anonymous profiles through the real `SimpleMatchmaking`, lobby and DTLS Relay, with a full 13-round match.
+  - `run_players.py --live --reconnect` passed: the client dropped mid-move, rejoined Relay, reclaimed its seat, and the match completed.
+  - Both players ran on one machine, so this is evidence for the services and the code path, not for real-world latency or loss.
+- **Test correction found by the live run:** the forged-claim assertion required an unchanged match revision, but the host can legitimately resume first. It now checks the seat, the client's secret, and that the view did not go backwards. Localhost reconnect passed again afterward.
 
 ## Remaining limits
 
-Human-visible layout/motion quality, pointer/raycast usability, live Lobby/Relay (including Relay rejoin), host migration, recovery after an app restart and deliberate joint-winner fixtures are not established by these runs. Packet loss below the reliable transport is simulated only. Competing challenges among three or more players and empty-pile penalties are covered by console checks only. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.
+Human-visible layout/motion quality, pointer/raycast usability, behavior on slow or lossy real networks, host migration, recovery after an app restart and deliberate joint-winner fixtures are not established by these runs. Packet loss below the reliable transport is simulated only. Competing challenges among three or more players and empty-pile penalties are covered by console checks only. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.
 
 Settings GUI, final art, payload compaction, persistent recovery and detailed reconnect UX remain deferred. No gameplay decision depends on animation completion. No task is considered complete merely because its source compiles or its graph is present.

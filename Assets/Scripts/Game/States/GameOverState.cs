@@ -6,7 +6,6 @@ namespace Assets.Scripts.Game.States
     public class GameOverState : GameStateBase
     {
         public GameOverState(GameStateContext gameContext) : base(gameContext) { }
-        public override string Name => nameof(GameOverState);
 
         public override void EnterState()
         {
@@ -26,6 +25,7 @@ namespace Assets.Scripts.Game.States
 
         private void ShowGameOverUI()
         {
+            using var trace = TraceExecution();
             ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetGameWinnerClientId();
             if (!winnerClientId.HasValue)
             {
@@ -42,7 +42,8 @@ namespace Assets.Scripts.Game.States
 
         private void InputManager_NewGameButtonClicked(object sender, EventArgs e)
         {
-            ctx.SwitchState(new GameStartedState(ctx));
+            using var trace = TraceExecution();
+            ctx.SwitchState(c => new GameStartedState(c), reuse: false);
         }
     }
 }

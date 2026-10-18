@@ -2,11 +2,13 @@
 
 Inspection date: 2026-10-17. Source baseline: commit `852f223`.
 
-This is a static inspection of source, serialized scene settings, package manifests, and Git history. No Unity play session, build, automated gameplay tests, or live multiplayer services were run. Descriptions below explain code paths, not verified runtime correctness or an agreed rules specification.
+The original baseline below is a static inspection of source, serialized scene settings, package manifests, and Git history. No Unity play session, build, automated gameplay tests, or live multiplayer services were run. Descriptions below explain code paths, not verified runtime correctness or an agreed rules specification.
 
 Start with [TASKS.md](../../TASKS.md) for priorities and [AGENTS.md](../../AGENTS.md) for coding guidance.
 
 **Design update after the initial inspection:** the user selected [Puremco rules](TRAIN_DOMINOES_RULEBOOK.md), superseding earlier recollections/preferences. The [state review](PLAYER_STATE_REVIEW.md) and [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) now define the target: 2–8 players, one shared train plus personal trains, sequential turns from the beginning, and Puremco double follow-ups. Existing group-turn behavior described below is legacy implementation to refactor, not the selected rule. No gameplay was changed by this update.
+
+State-infrastructure update (2026-10-17): constructor-injected lazy factories now replace per-state context fields; bounded diagnostics and Off/Transitions/Verbose logging are implemented. The source-linked state checks pass, and gameplay scripts compile against installed Unity references. No Unity Play Mode/host-client verification was performed. See [state debugging and verification](STATE_MACHINE_DEBUGGING.md). This does not close STATE-001 or implement its proposed behavior.
 
 ## Purpose and development context
 
@@ -27,7 +29,7 @@ The user is separately preparing four colored domino sets for four players. Inte
 | Unity Test Framework | `1.8.0`; installed package alone does not establish project tests |
 | Build scene | `Assets/Scenes/GameScene.unity` |
 | Saved development settings | `IgnoreDominoComparisons: 1`, `StartAtRound: 2`, `DominoStartCount: 12` |
-| Project tests / assembly boundaries | No project-owned automated tests or `.asmdef` files found in tracked files |
+| Project tests / assembly boundaries | Focused package-free `Tests/StateMachine` checks link actual state sources with adapter stubs; no project-owned `.asmdef` or rules-core harness yet |
 
 Package versions come from [manifest.json](../../Packages/manifest.json). The scene settings bypass matching checks in `GameplayManager.ServerCompareDominoToEngine` and `ServerCompareDominoToTrackDomino`. A successful move under these settings is not evidence of legal matching. `StartAtRound` feeds both engine indexing and round initialization; their exact alignment needs characterization rather than assuming the label proves the expected engine.
 
@@ -66,25 +68,25 @@ The main station represents committed tracks. Per-player turn stations hold prov
 
 ## Player-state inventory
 
-“Registered” below means instantiated and retained by `GameStateContext`. Expected conditions describe what callers appear to assume; the states do not independently enforce all of them.
+“Cached on first use” below means reached through a typed factory and retained by `GameStateContext`; no per-state registration list is required. Expected conditions describe what callers appear to assume; the states do not independently enforce all of them.
 
 All three turn states inherit these `EndTurnStateBase` transitions: `AwaitTurn` or `PlayerTurnEnded` → `PlayerAwaitingTurnState`; `PlayerHasWonRound` → `RoundOverState`; `PlayerHasWonGame` → `GameOverState`. Each removes its subscriptions on exit. These shared transitions also allow an awaiting player to receive round/game completion.
 
 | Concrete state | Entry behavior and available actions | Events / exits | Expected conditions and gaps |
 | --- | --- | --- | --- |
-| `PregameState` — registered | Subscribes to `GameSession.OnPlayerJoined`; does not explicitly set gameplay button availability | Join event calls `PlayerJoinedServerRpc`, then switches to `GameStartedState` | Assumes network spawn arrives after subscription. No all-player readiness gate; join RPC is effectively a stub. `Name` incorrectly returns `GameStartedState`, so logs can misidentify it |
-| `GameStartedState` — registered, declared in `GameStartState.cs` | Requests engine placement via `PlaceEngineServerRpc`, immediately enters `PlayerTurnStartedState` | Immediate transition; does not wait for placement acknowledgment | Assumes session/managers/engine are ready. Initial dealing remains manual through Draw |
-| `PlayerTurnStartedState` — registered | Enables Draw, disables End Turn; subscribes to domino clicks, Draw, End Turn, `PlayerAddedDomino`, and `PlayerTurnStarted` | Draw sends RPC and toggles buttons immediately; `PlayerAddedDomino` → `PlayerMadeMoveState` only outside group play; `PlayerTurnStarted` re-enters itself; shared exits above | Used both for opening group play and the active individual player. No distinct selected/drawn/pending phase. Group placements remain here. Button state is not authoritative validation |
-| `PlayerMadeMoveState` — registered | Disables Draw, enables End Turn; forwards domino clicks to server; subscribes to undo and End Turn | `PlayerReversedMove` → `PlayerTurnStartedState`; End Turn requests RPC and disables its button; shared exits above | Assumes an individual-turn provisional move. Server identifies the undoable domino. Undo re-entry enables Draw again without a preserved draw-used flag |
-| `PlayerAwaitingTurnState` — registered | Disables Draw and End Turn; listens for turn start; no domino-click handler of its own | `PlayerTurnStarted` → `PlayerTurnStartedState`; shared exits above | Can mean waiting for others to finish group play or waiting for the next individual turn. Correct event targeting depends on RPC routing |
-| `RoundOverState` — registered | Reads winner/scores and requests round-over UI; listens for Ready and all-ready events | Ready sends `PlayerReadyForNextRoundServerRpc`; all-ready resets local tracker/turn data and meshes, then constructs a new `GameStartedState` | Assumes scores/winner synchronized. Returns without showing UI if winner missing. No turn-base subscriptions or input reset of its own; relies on round UI and server coordination |
-| `GameOverState` — registered | Reads winner/scores, enables restart-ready button, shows game-over UI; subscribes to New Game | New Game constructs a new `GameStartedState` | Shared restart/reset/readiness protocol remains unfinished. Restart-ready emits `ReadyButtonClicked` through input, but this state only subscribes to New Game. No draw/end-button reset of its own |
+| `PregameState` — cached on first use | Subscribes to `GameSession.OnPlayerJoined`; does not explicitly set gameplay button availability | Join event calls `PlayerJoinedServerRpc`, then switches to `GameStartedState` | Assumes network spawn arrives after subscription. No all-player readiness gate; join RPC is effectively a stub. Name now comes from the concrete type, correctly reporting Pregame |
+| `GameStartedState` — cached on first use, declared in `GameStartState.cs` | Requests engine placement via `PlaceEngineServerRpc`, immediately enters `PlayerTurnStartedState` | Immediate transition; does not wait for placement acknowledgment | Assumes session/managers/engine are ready. Initial dealing remains manual through Draw |
+| `PlayerTurnStartedState` — cached on first use | Enables Draw, disables End Turn; subscribes to domino clicks, Draw, End Turn, `PlayerAddedDomino`, and `PlayerTurnStarted` | Draw sends RPC and toggles buttons immediately; `PlayerAddedDomino` → `PlayerMadeMoveState` only outside group play; `PlayerTurnStarted` re-enters itself; shared exits above | Used both for opening group play and the active individual player. No distinct selected/drawn/pending phase. Group placements remain here. Button state is not authoritative validation |
+| `PlayerMadeMoveState` — cached on first use | Disables Draw, enables End Turn; forwards domino clicks to server; subscribes to undo and End Turn | `PlayerReversedMove` → `PlayerTurnStartedState`; End Turn requests RPC and disables its button; shared exits above | Assumes an individual-turn provisional move. Server identifies the undoable domino. Undo re-entry enables Draw again without a preserved draw-used flag |
+| `PlayerAwaitingTurnState` — cached on first use | Disables Draw and End Turn; listens for turn start; no domino-click handler of its own | `PlayerTurnStarted` → `PlayerTurnStartedState`; shared exits above | Can mean waiting for others to finish group play or waiting for the next individual turn. Correct event targeting depends on RPC routing |
+| `RoundOverState` — cached on first use | Reads winner/scores and requests round-over UI; listens for Ready and all-ready events | Ready sends `PlayerReadyForNextRoundServerRpc`; all-ready resets local tracker/turn data and meshes, then constructs a new `GameStartedState` | Assumes scores/winner synchronized. Returns without showing UI if winner missing. No turn-base subscriptions or input reset of its own; relies on round UI and server coordination |
+| `GameOverState` — cached on first use | Reads winner/scores, enables restart-ready button, shows game-over UI; subscribes to New Game | New Game constructs a new `GameStartedState` | Shared restart/reset/readiness protocol remains unfinished. Restart-ready emits `ReadyButtonClicked` through input, but this state only subscribes to New Game. No draw/end-button reset of its own |
 | `GameJoinedState` — unregistered placeholder | Empty entry/exit implementations, with a comment proposing button changes | No event subscriptions or transitions | Not constructed by the context; no active flow role found |
 
 ### Shared infrastructure
 
-- `GameStateBase` defines `Name`, entry/exit, and an optional update hook.
-- `GameStateContext` constructs seven registered states, enters Pregame, and switches by leaving the old state before entering the new one. Some round/game restart paths construct fresh started-state instances rather than reuse the registered one.
+- `GameStateBase` derives `Name` from the concrete type and defines entry/exit, an optional update hook, and a handler-trace scope.
+- `GameStateContext` enters Pregame, creates further state types on demand, and switches by leaving the old state before entering the new one. Repeated typed factories reuse a per-context instance; same-state transitions still leave/re-enter. Round/game restarts explicitly request a fresh uncached started-state instance with `reuse: false`. Disposal removes active subscriptions; GameSession disposes the context on destruction. Diagnostics retain the last 128 enabled records with optional handler/lifecycle scopes.
 - `EndTurnStateBase` centralizes waiting and winner-event handling; it is abstract, not a playable phase.
 - `GameStateContext.Update()` exists, but no forwarding call was found in `GameSession`. The current concrete states are event-driven; verify update wiring before relying on future per-frame state logic.
 

@@ -8,7 +8,7 @@ updated: 2026-10-17
 
 This is the first STATE-001 review artifact. The user selected Puremco rules after withdrawing preferences based on uncertain memory. Use the [rulebook](TRAIN_DOMINOES_RULEBOOK.md) as the behavioral authority and the [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) for implementation. The [project overview](PROJECT_STATE.md) remains a dated record of current code.
 
-**Current code was statically inspected; nothing in this document is a successful play-test claim.** Proposed class changes below have not been made. Published baseline selection is settled; review the matrix and the rulebook's explicitly labeled app policies before state implementation.
+**Current code was statically inspected; nothing in this document is a successful play-test claim.** Rule-driven class/behavior changes below have not been made. The separately authorized factory/logging infrastructure refactor is implemented; see [debugging and verification](STATE_MACHINE_DEBUGGING.md). Published baseline selection is settled; review the matrix and the rulebook's explicitly labeled app policies before state implementation.
 
 ## Three different meanings of state
 
@@ -22,23 +22,23 @@ Do not add a class for every combination of markers, selections, drawn tiles, an
 
 ## Existing concrete states
 
-Source: [states folder](../Scripts/Game/States), [GameSession](../Scripts/GameSession.cs), and [GameplayManager](../Scripts/Game/GameplayManager.cs). “Registered” means instantiated and retained by `GameStateContext`.
+Source: [states folder](../Scripts/Game/States), [GameSession](../Scripts/GameSession.cs), and [GameplayManager](../Scripts/Game/GameplayManager.cs). “Cached” means retained on first use by `GameStateContext`; transitions no longer require a central registration list.
 
 | State | Current entry / actions / transitions | Expected conditions and gaps | Planned disposition |
 | --- | --- | --- | --- |
-| `PregameState` — registered | Subscribes to join; calls join RPC and immediately enters Started. No explicit gameplay-button policy | Readiness/roster start gate missing; `Name` incorrectly reports Started; event startup ordering needs verification | Retain for setup, use authoritative readiness/start result; R-001, R-015 |
-| `GameStartedState` — registered, file `GameStartState.cs` | Requests engine display, then immediately enters Turn Started | Does not await authoritative deal/setup. Current all-player entry serves group opening | Retain as round initialization; send only active seat to active play, all others to waiting; R-001, R-004–R-006 |
-| `PlayerTurnStartedState` — registered | Enables Draw, disables End Turn. Forwards select/draw/end requests; draw toggles buttons immediately. Placement enters Made Move outside group play; during group play remains here | No selected/draw-used/follow-up model. Group branch conflicts with selected rules. Client can re-enter and reset buttons without a rule transition | Retain as active interaction, derive permissions from engine; R-003, R-005–R-012, R-017 |
-| `PlayerMadeMoveState` — registered | Disables Draw, enables End Turn; forwards clicks/end; undo event returns to Turn Started | Assumes placement completes ordinary turn. Unconditional End Turn conflicts with double follow-up; one played-ID field cannot describe the two-double exception | Retain for a draft ready to commit; return to active interaction when additional play is required; R-007, R-011, R-016–R-017 |
-| `PlayerAwaitingTurnState` — registered | Disables Draw/End Turn; turn-start event enters Turn Started | Receives shared round/game end events. No explicit round-initialization reason | Retain for other-player turns and setup wait; no group-submission wait in selected rules; R-004, R-015 |
-| `RoundOverState` — registered | Reads winner/scores, shows UI; Ready sends RPC; all-ready resets local managers/meshes and constructs Started | Assumes a single round winner; blocked round may have none. Shared host/client reset path and readiness list need testing | Retain as presentation of a round result with reason, scores, and zero/one ending player; R-013–R-015 |
-| `GameOverState` — registered | Shows scores/winner, enables restart-ready, listens to New Game; New Game constructs Started | No complete coordinated reset; restart-ready emits an event this state does not consume; single-winner model loses ties | Retain, display winner list and await coordinated new match; R-014–R-015 |
+| `PregameState` — cached | Subscribes to join; calls join RPC and immediately enters Started. No explicit gameplay-button policy | Readiness/roster start gate missing; event startup ordering needs verification | Retain for setup, use authoritative readiness/start result; R-001, R-015 |
+| `GameStartedState` — cached, file `GameStartState.cs` | Requests engine display, then immediately enters Turn Started | Does not await authoritative deal/setup. Current all-player entry serves group opening | Retain as round initialization; send only active seat to active play, all others to waiting; R-001, R-004–R-006 |
+| `PlayerTurnStartedState` — cached | Enables Draw, disables End Turn. Forwards select/draw/end requests; draw toggles buttons immediately. Placement enters Made Move outside group play; during group play remains here | No selected/draw-used/follow-up model. Group branch conflicts with selected rules. Client can re-enter and reset buttons without a rule transition | Retain as active interaction, derive permissions from engine; R-003, R-005–R-012, R-017 |
+| `PlayerMadeMoveState` — cached | Disables Draw, enables End Turn; forwards clicks/end; undo event returns to Turn Started | Assumes placement completes ordinary turn. Unconditional End Turn conflicts with double follow-up; one played-ID field cannot describe the two-double exception | Retain for a draft ready to commit; return to active interaction when additional play is required; R-007, R-011, R-016–R-017 |
+| `PlayerAwaitingTurnState` — cached | Disables Draw/End Turn; turn-start event enters Turn Started | Receives shared round/game end events. No explicit round-initialization reason | Retain for other-player turns and setup wait; no group-submission wait in selected rules; R-004, R-015 |
+| `RoundOverState` — cached | Reads winner/scores, shows UI; Ready sends RPC; all-ready resets local managers/meshes and constructs Started | Assumes a single round winner; blocked round may have none. Shared host/client reset path and readiness list need testing | Retain as presentation of a round result with reason, scores, and zero/one ending player; R-013–R-015 |
+| `GameOverState` — cached | Shows scores/winner, enables restart-ready, listens to New Game; New Game constructs Started | No complete coordinated reset; restart-ready emits an event this state does not consume; single-winner model loses ties | Retain, display winner list and await coordinated new match; R-014–R-015 |
 | `GameJoinedState` — unregistered | Empty entry/exit and no transitions | No active role; not created by context | Remove only after a full reference search; no replacement state required |
 
 ### Infrastructure
 
-- `GameStateBase`: entry/exit plus optional update hook. Preserve balanced subscriptions.
-- `GameStateContext`: constructs seven registered states, starts in Pregame, leaves old state before entering the next. Its Update hook is not forwarded by `GameSession`; current concrete logic is event-driven.
+- `GameStateBase`: concrete-type name, entry/exit, optional update hook, and handler tracing. Preserve balanced subscriptions.
+- `GameStateContext`: starts in Pregame, creates/caches states through typed factories, and leaves the old state before entering the next. Self re-entry and explicit fresh restart entries are preserved. It exposes current state, bounded trace history and verbose execution scopes; destruction disposes active subscriptions. Its Update hook is not forwarded by `GameSession`; current concrete logic is event-driven.
 - `EndTurnStateBase`: common Await/TurnEnded → Awaiting, RoundWon → RoundOver, GameWon → GameOver subscriptions for all three current turn states. Refactor to authoritative **result** notifications so blocked rounds and joint winners are representable. It is not itself a phase.
 
 ## Required phase/action matrix

@@ -1,9 +1,8 @@
-﻿namespace Assets.Scripts.Game.States
+namespace Assets.Scripts.Game.States
 {
     public class PlayerAwaitingTurnState : EndTurnStateBase
     {
         public PlayerAwaitingTurnState(GameStateContext gameContext) : base(gameContext) { }
-        public override string Name => nameof(PlayerAwaitingTurnState);
 
         public override void EnterState()
         {
@@ -22,7 +21,8 @@
 
         private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
         {
-            ctx.SwitchState(ctx.PlayerTurnStartedState);
+            using var trace = TraceExecution();
+            ctx.SwitchState(c => new PlayerTurnStartedState(c));
         }
     }
 }

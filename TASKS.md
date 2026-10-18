@@ -2,7 +2,7 @@
 
 Start here: [project state and player-state inventory](Assets/Docs/PROJECT_STATE.md). Follow [coding guidance](AGENTS.md).
 
-The user selected the [Puremco baseline](Assets/Docs/TRAIN_DOMINOES_RULEBOOK.md), replacing the earlier personal-only/group-opening/strict-cover proposals. The [first state review](Assets/Docs/PLAYER_STATE_REVIEW.md) and [engine plan](Assets/Docs/RULES_ENGINE_IMPLEMENTATION_PLAN.md) are saved. Target 2–8 players, one personal train each plus one shared train, sequential first turns, and Puremco double follow-ups. Review proposed app controls separately from published rules; no engine or player-state changes are implemented yet.
+The user selected the [Puremco baseline](Assets/Docs/TRAIN_DOMINOES_RULEBOOK.md), replacing the earlier personal-only/group-opening/strict-cover proposals. The [first state review](Assets/Docs/PLAYER_STATE_REVIEW.md) and [engine plan](Assets/Docs/RULES_ENGINE_IMPLEMENTATION_PLAN.md) are saved. Target 2–8 players, one personal train each plus one shared train, sequential first turns, and Puremco double follow-ups. Review proposed app controls separately from published rules; rule-driven state changes and the engine remain unimplemented. The separately authorized state factory/logging refactor preserves the legacy gameplay flow; see [state debugging](Assets/Docs/STATE_MACHINE_DEBUGGING.md).
 
 Use stable IDs when discussing work. Check a task only when its completion criteria are met; record evidence or a linked decision/test report beside it. Completed documentation does not mean the documented gameplay has been verified. Priorities below are intentional: agree on rules and states before adding more states, and integrate final art late.
 
@@ -58,6 +58,13 @@ These stable subtasks expand the existing RULES/STATE work; they do not replace 
 ## Late priority: integrate final domino assets
 
 - [ ] **ART-001 — Integrate four colored player domino sets.** Depends on RULES-004, STATE-004, NET-001, and availability of the user's assets. Replace placeholder models and labels as appropriate, preserving domino values/identity, player ownership/color, orientation, selection/click targeting, hand/track layout, and animations. **Done when:** all four sets display and behave correctly in relevant multiplayer views, including placement, flip, undo, and round reset; art does not change rule behavior or imply a new player limit.
+
+## Lowest priority: optional Unity state-machine debugging UI
+
+Logging comes first and may be sufficient; implement this section only if additional visual feedback is still useful. These tools observe the local player interaction states, not the authoritative rules engine. They come after all priorities above, including final art integration.
+
+- [ ] **DEBUG-001 — Add an optional Play Mode state debugger window.** Reuse `GameStateContext.CurrentState` and the bounded `Diagnostics.History`; do not introduce a second transition model or central list of state classes. Show the selected local session/client, current state, executing/last handler, and timestamped, filterable transition/execution history. Preserve a clear distinction between a running synchronous handler and a completed handler or outstanding RPC. **Done when:** the Unity window works during testing, can be closed/disabled easily, cleans up observers across Play Mode sessions, and disabling it does not affect gameplay. Reassess necessity after using the existing Off/Transitions/Verbose logging.
+- [ ] **DEBUG-002 — Visualize observed state transitions during testing.** Depends on DEBUG-001. Add a diagram highlighting the current state and recent transitions, including self-transitions and event reasons, using the same diagnostic history. Label observed transitions as observed; they are not an exhaustive legal-transition specification. Include a simple pause/clear/filter workflow and an easy visualization toggle. **Done when:** startup, ordinary turns, undo, and round/game transitions can be followed in Play Mode, repeated transitions remain legible, and visualization has no gameplay dependency or required release-build UI.
 
 ## Maintaining this checklist
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace Assets.Scripts.Game.States
@@ -9,7 +9,6 @@ namespace Assets.Scripts.Game.States
     public class PlayerTurnStartedState : EndTurnStateBase
     {
         public PlayerTurnStartedState(GameStateContext gameContext) : base(gameContext) { }
-        public override string Name => nameof(PlayerTurnStartedState);
 
         public override void EnterState()
         {
@@ -47,11 +46,13 @@ namespace Assets.Scripts.Game.States
         /// <param name="clientId"></param>
         private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
         {
-            ctx.SwitchState(ctx.PlayerTurnStartedState);
+            using var trace = TraceExecution();
+            ctx.SwitchState(c => new PlayerTurnStartedState(c));
         }
 
         private void InputManager_DominoClicked(object sender, int dominoId)
         {
+            using var trace = TraceExecution();
             // the server decides which type of domino was clicked
             ctx.GameplayManager.SoundManager.PlayRandomClickSound();
             ctx.GameSession.SelectDominoServerRpc(dominoId);
@@ -60,6 +61,7 @@ namespace Assets.Scripts.Game.States
         // TODO: how to prevent needing to repeat this across all states? It is different for first state vs subsequent states
         private void InputManager_DrawButtonClicked(object sender, EventArgs e)
         {
+            using var trace = TraceExecution();
             ctx.GameSession.DrawDominoesServerRpc();
             ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true);
@@ -67,16 +69,18 @@ namespace Assets.Scripts.Game.States
         
         private void GameplayManager_PlayerAddedDomino(object sender, int selectedDominoId)
         {
+            using var trace = TraceExecution();
             if (ctx.GameplayManager.TurnManager.IsGroupTurn) // IsGroupTurn was specifically sync'd across clients
             {
                 // during the group turn, allow the player to keep adding dominoes
                 return;
             }
-            ctx.SwitchState(ctx.PlayerMadeMoveState);
+            ctx.SwitchState(c => new PlayerMadeMoveState(c));
         }
         
         private void InputManager_EndTurnClicked(object sender, EventArgs e)
         {
+            using var trace = TraceExecution();
             ctx.GameSession.EndTurnServerRpc(); // keep in mind this does not happen immediately
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
         }

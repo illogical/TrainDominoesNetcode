@@ -1,58 +1,92 @@
-﻿using UnityEngine;
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace Assets.Scripts.Game.States
 {
-    public class GameStateContext
+    /// <summary>Owns local interaction states, not authoritative game rules.</summary>
+    public class GameStateContext : IDisposable
     {
-        public GameSession GameSession { get; private set; }
-        public GameplayManager GameplayManager { get; private set; }
-        
-        public PregameState PregameState;
-        public GameStartedState GameStartedState;
-        public PlayerTurnStartedState PlayerTurnStartedState;
-        public PlayerMadeMoveState PlayerMadeMoveState;
-        public PlayerAwaitingTurnState PlayerAwaitingTurnState;
-        public RoundOverState RoundOverState;
-        public GameOverState GameOverState;
+        public GameSession GameSession { get; }
+        public GameplayManager GameplayManager { get; }
+        public GameStateBase CurrentState { get; private set; }
+        public GameStateDiagnostics Diagnostics { get; }
 
-        private GameStateBase currentState;
+        private readonly Dictionary<Type, GameStateBase> states = new Dictionary<Type, GameStateBase>();
+        private bool disposed;
 
-        public GameStateContext(GameSession gameSession, GameplayManager gameplayManager)
+        public GameStateContext(GameSession gameSession, GameplayManager gameplayManager,
+            GameStateDiagnostics diagnostics = null)
         {
-            PregameState = new PregameState(this);
-            GameStartedState = new GameStartedState(this);
-            PlayerTurnStartedState = new PlayerTurnStartedState(this);
-            PlayerMadeMoveState = new PlayerMadeMoveState(this);
-            PlayerAwaitingTurnState = new PlayerAwaitingTurnState(this);
-            RoundOverState = new RoundOverState(this);
-            GameOverState = new GameOverState(this);
-
-
             GameSession = gameSession;
             GameplayManager = gameplayManager;
+            Diagnostics = diagnostics ?? new GameStateDiagnostics(message => Debug.Log(message, gameSession));
+            SwitchState(c => new PregameState(c), reason: "Initialize");
+        }
 
-            currentState = PregameState;
-            currentState.EnterState();
+        /// <summary>
+        /// Creates a state on first use, then reuses it within this context. Constructors must
+        /// have no subscription/entry side effects. Set reuse:false for a fresh, uncached entry.
+        /// Switching to the current type still leaves and re-enters it.
+        /// </summary>
+        public void SwitchState<T>(Func<GameStateContext, T> factory, bool reuse = true,
+            [CallerMemberName] string reason = null) where T : GameStateBase
+        {
+            ThrowIfDisposed();
+            if (factory == null) throw new ArgumentNullException(nameof(factory));
+
+            if (!reuse || !states.TryGetValue(typeof(T), out var state))
+            {
+                state = factory(this);
+                if (state == null || state.Context != this)
+                    throw new InvalidOperationException("The state factory must return a state belonging to this context.");
+                if (reuse) states.Add(typeof(T), state);
+            }
+
+            var previous = CurrentState;
+            if (previous != null) Execute(previous, nameof(GameStateBase.LeaveState), previous.LeaveState);
+            CurrentState = state;
+            Diagnostics.RecordTransition(previous, state, reason);
+            Execute(state, nameof(GameStateBase.EnterState), state.EnterState);
         }
 
         public void Update()
         {
-            currentState.UpdateState();
+            ThrowIfDisposed();
+            Execute(CurrentState, nameof(GameStateBase.UpdateState), CurrentState.UpdateState);
         }
 
-        public void SwitchState(GameStateBase state)
+        public void Dispose()
         {
-            currentState.LeaveState();
-            currentState = state;
-
-            LogStateChanged(state.Name);
-
-            state.EnterState();
+            if (disposed) return;
+            disposed = true;
+            var previous = CurrentState;
+            CurrentState = null;
+            try
+            {
+                if (previous != null) Execute(previous, nameof(GameStateBase.LeaveState), previous.LeaveState);
+                Diagnostics.RecordTransition(previous, null, nameof(Dispose));
+            }
+            finally { states.Clear(); }
         }
 
-        public void LogStateChanged(string stateName)
+        private void Execute(GameStateBase state, string operation, Action action)
         {
-            Debug.Log($"<b><color=green>STATE:</color> {stateName}</b>");
+            using (Diagnostics.TraceExecution(state, operation))
+            {
+                try { action(); }
+                catch (Exception exception)
+                {
+                    Diagnostics.RecordFault(state, operation, exception);
+                    throw;
+                }
+            }
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (disposed) throw new ObjectDisposedException(nameof(GameStateContext));
         }
     }
 }

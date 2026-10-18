@@ -15,6 +15,20 @@ public class GameSession : NetworkBehaviour
 
     [SerializeField] private GameplayManager gameplayManager;
 
+    [Tooltip("Off: no state tracing. Transitions: state changes and lifecycle faults. Verbose: also trace handler/lifecycle execution.")]
+    [SerializeField] private StateTraceLevel stateTraceLevel = StateTraceLevel.Transitions;
+
+    public GameStateContext PlayerStateContext => gameState;
+    public StateTraceLevel StateTracing
+    {
+        get => stateTraceLevel;
+        set
+        {
+            stateTraceLevel = value;
+            if (gameState != null) gameState.Diagnostics.Level = value;
+        }
+    }
+
     private GameStateContext gameState;
     private List<ulong> readyPlayers = new List<ulong>();
 
@@ -33,10 +47,29 @@ public class GameSession : NetworkBehaviour
     private void Start()
     {
         gameStarted = true;
-        gameState = new GameStateContext(this, gameplayManager);
+        var diagnostics = new GameStateDiagnostics(LogStateTrace) { Level = stateTraceLevel };
+        gameState = new GameStateContext(this, gameplayManager, diagnostics);
     }
 
-   
+    private void OnValidate()
+    {
+        // Apply Inspector changes during Play Mode without adding a per-frame poll.
+        if (gameState != null) gameState.Diagnostics.Level = stateTraceLevel;
+    }
+
+    private void LogStateTrace(string message)
+    {
+        var manager = NetworkManager;
+        string client = manager != null && manager.IsListening ? manager.LocalClientId.ToString() : "not-listening";
+        string role = IsHost ? "host" : IsServer ? "server" : IsClient ? "client" : "offline";
+        Debug.Log($"[session={GetEntityId()} client={client} role={role}] {message}", this);
+    }
+
+    public override void OnDestroy()
+    {
+        try { gameState?.Dispose(); }
+        finally { base.OnDestroy(); }
+    }
 
     public override void OnNetworkSpawn()
     {

@@ -1,24 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
+using System.Runtime.CompilerServices;
 
 namespace Assets.Scripts.Game.States
 {
     public abstract class GameStateBase
     {
-        protected GameStateContext ctx;
+        protected readonly GameStateContext ctx;
+        internal GameStateContext Context => ctx;
 
         public GameStateBase(GameStateContext gameContext)
         {
-            ctx = gameContext;
+            ctx = gameContext ?? throw new ArgumentNullException(nameof(gameContext));
         }
 
         /// <summary>
         /// Used for logging state changes
         /// </summary>
-        public abstract string Name { get; }
+        public virtual string Name => GetType().Name;
+
+        /// <summary>Use a using scope in handlers to trace work even when no transition occurs.</summary>
+        protected IDisposable TraceExecution([CallerMemberName] string operation = null)
+            => ctx.Diagnostics.TraceExecution(this, operation);
         /// <summary>
         /// Setup current state
         /// </summary>

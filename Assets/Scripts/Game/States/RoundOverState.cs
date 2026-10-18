@@ -5,7 +5,6 @@ namespace Assets.Scripts.Game.States
     public class RoundOverState : GameStateBase
     {
         public RoundOverState(GameStateContext gameContext) : base(gameContext) { }
-        public override string Name => nameof(RoundOverState);
         public override void EnterState()
         {
             ctx.GameplayManager.InputManager.ReadyButtonClicked += InputManager_ReaadyButtonClicked;
@@ -22,6 +21,7 @@ namespace Assets.Scripts.Game.States
     
         private void ShowRoundOverUI()
         {
+            using var trace = TraceExecution();
             ulong? winnerClientId = ctx.GameplayManager.TurnManager.GetRoundWinnerClientId();
             if (!winnerClientId.HasValue)
             {
@@ -36,11 +36,13 @@ namespace Assets.Scripts.Game.States
     
         private void InputManager_ReaadyButtonClicked(object sender, EventArgs e)
         {
+            using var trace = TraceExecution();
             ctx.GameSession.PlayerReadyForNextRoundServerRpc();
         }
     
         private void GameplayManager_AllPlayersReadyForNextRound(object sender, EventArgs e)
         {
+            using var trace = TraceExecution();
             ctx.GameplayManager.DominoTracker.Reset();
             ctx.GameplayManager.TurnManager.ResetForNextRound();
 
@@ -48,7 +50,7 @@ namespace Assets.Scripts.Game.States
             // destroy all meshes
             ctx.GameplayManager.ClientResetForNextRound();
         
-            ctx.SwitchState(new GameStartedState(ctx));
+            ctx.SwitchState(c => new GameStartedState(c), reuse: false);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Assets.Scripts.Game.States
 {
@@ -6,8 +6,6 @@ namespace Assets.Scripts.Game.States
     public class PregameState : GameStateBase
     {
         public PregameState(GameStateContext gameContext) : base(gameContext) { }
-
-        public override string Name => nameof(GameStartedState);
 
         public override void EnterState()
         {
@@ -18,10 +16,11 @@ namespace Assets.Scripts.Game.States
 
         private void GameSession_OnPlayerJoined(object sender, EventArgs e)
         {
+            using var trace = TraceExecution();
             // register the player with the server
             ctx.GameSession.PlayerJoinedServerRpc();
 
-            ctx.SwitchState(ctx.GameStartedState);
+            ctx.SwitchState(c => new GameStartedState(c));
         }
 
         public override void UpdateState()

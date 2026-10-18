@@ -33,6 +33,9 @@
 ExportedObj/
 .consulo/
 *.csproj
+!/Tests/StateMachine/StateMachine.Checks.csproj
+/Tests/StateMachine/bin/
+/Tests/StateMachine/obj/
 *.unityproj
 *.sln
 *.slnx

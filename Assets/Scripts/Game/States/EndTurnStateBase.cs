@@ -7,7 +7,6 @@ namespace Assets.Scripts.Game.States
     /// </summary>
     public abstract class EndTurnStateBase : GameStateBase
     {
-        public override string Name => nameof(EndTurnStateBase);
         public EndTurnStateBase(GameStateContext gameContext) : base(gameContext)
         {
         }
@@ -31,25 +30,29 @@ namespace Assets.Scripts.Game.States
 
         private void GameplayManager_AwaitTurn(object sender, EventArgs e)
         {
-            ctx.SwitchState(ctx.PlayerAwaitingTurnState);
+            using var trace = TraceExecution();
+            ctx.SwitchState(c => new PlayerAwaitingTurnState(c));
         }
     
         private void GameplayManagerPlayerHasWonRound(object sender, ulong winnerClientId)
         {
-            ctx.SwitchState(ctx.RoundOverState);
+            using var trace = TraceExecution();
+            ctx.SwitchState(c => new RoundOverState(c));
         }
     
         private void GameplayManager_PlayerHasWonGame(object sender, ulong e)
         {
-            ctx.SwitchState(ctx.GameOverState);
+            using var trace = TraceExecution();
+            ctx.SwitchState(c => new GameOverState(c));
         }
     
         private void GameplayManager_PlayerTurnEnded(object sender, EventArgs e)
         {
+            using var trace = TraceExecution();
             // when a player ends their turn, why would it matter if a track had been laid?
 
             //ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
-            ctx.SwitchState(ctx.PlayerAwaitingTurnState);
+            ctx.SwitchState(c => new PlayerAwaitingTurnState(c));
         }
     }
 }

@@ -9,7 +9,6 @@ namespace Assets.Scripts.Game.States
     public class PlayerMadeMoveState : EndTurnStateBase
     {
         public PlayerMadeMoveState(GameStateContext gameContext) : base(gameContext) { }
-        public override string Name => nameof(PlayerMadeMoveState);
         public override void EnterState()
         {
             base.EnterState();
@@ -32,6 +31,7 @@ namespace Assets.Scripts.Game.States
 
         private void InputManager_DominoClicked(object sender, int dominoId)
         {
+            using var trace = TraceExecution();
             // TODO: only take action if this is the domino that was added to a track this turn
         
             // the server decides which type of domino was clicked
@@ -41,14 +41,16 @@ namespace Assets.Scripts.Game.States
         
         private void GameplayManager_PlayerReversedMove(object sender, int returnedDominoId)
         {
+            using var trace = TraceExecution();
             // server should have already reset this player's turn on the server
             // animation was triggered by the server calling a ClientRpc
             
-            ctx.SwitchState(ctx.PlayerTurnStartedState);
+            ctx.SwitchState(c => new PlayerTurnStartedState(c));
         }
     
         private void InputManager_EndTurnClicked(object sender, EventArgs e)
         {
+            using var trace = TraceExecution();
             ctx.GameSession.EndTurnServerRpc();
             ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
         }

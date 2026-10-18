@@ -26,8 +26,8 @@ The state runner remains flat and factory-cached. The eight concrete modes are P
 1. `InputManager.Update` raycasts a domino and emits `DominoClicked`. `PlayerActingState.TileClicked` calls `ClientSession.ClickTile`. Selecting a hand tile changes `SelectedTile` locally; `GameplayManager.SelectionChanged` asks `GameplayPresenter.Select` to animate it. No selection RPC exists.
 2. A generated train Button emits `TrainChosen`; `PlayerActingState.TrainChosen` calls `ClientSession.ChooseTrain`. A legal local preview submits `CommandKind.Place` with an explicit domino ID and `TrainIdDto`. The server still revalidates it.
 3. `ClientSession.Submit` captures the current token, creates a request ID, assigns `Pending`, and raises `RequestChanged` **before** calling the transport delegate. `PlayerStateCoordinator` enters Pending before an immediate host response can arrive.
-4. `GameSession.SubmitCommandServerRpc` parses the bounded JSON request and supplies `rpc.Receive.SenderClientId` to `AuthoritativeMatchCoordinator.Submit`. The coordinator maps that authenticated identity to a seat through `SeatRegistry` and reconstructs the original submitted token. Under its lock, `Core.Apply` accepts or rejects the command.
-5. Accepted results replace only the host snapshot. `RecipientProjection.Build` obtains each seat's `Core.GetPlayerView` and filters event audiences before DTO serialization. Only the sender receives its correlated outcome. `ProjectionClientRpc` calls `ClientSession.Receive`.
+4. `GameSession.SubmitCommandServerRpc` decodes the request through `WireCodec` (version, size and presence checks; see below) and supplies `rpc.Receive.SenderClientId` to `AuthoritativeMatchCoordinator.Submit`. The coordinator maps that authenticated identity to a seat through `SeatRegistry` and reconstructs the original submitted token. Under its lock, `Core.Apply` accepts or rejects the command.
+5. Accepted results replace only the host snapshot. `RecipientProjection.Build` obtains each seat's `Core.GetPlayerView` and filters event audiences before DTO serialization. Only the sender receives its correlated outcome. `GameSession.Send` encodes each packet through `WireCodec`; `ProjectionClientRpc` decodes it and calls `ClientSession.Receive`, or reports the failure and requests a bounded number of resynchronizations.
 6. The client settles matching pending delivery independently of installing a newer view. `PresentationRequested` queues the captured before/after views. `GameplayPresenter.Present` compares visible placement identities and animates newly visible placements through `LayoutManager.PlaceOnTrackRoutine`; sealing a private Draft does not replay its actor's already-visible motion.
 7. `PlayerStateCoordinator.Reconcile` chooses Acting, Waiting or a result from the latest view. `BoardEnabled` stays false until the final queued batch completes. `CompletePresentation` checks the generation; it never sends End Turn or changes core state.
 
@@ -59,7 +59,18 @@ Announcement/challenge handlers are shared by Acting, Waiting and RoundInitializ
 
 `GameSession.Disconnected` suspends authority when a frozen participant disappears. A local unavailable session cancels presentation and routes to Suspended. Resume is host-only and requires every original transport identity connected; synchronized usable views restore availability. Otherwise the host may start a fresh match with remaining connected seats. Detailed reconnect transport, seat reauthentication and recovery UX are deferred; merely reconnecting a transport is not a completed recovery implementation.
 
-The server never serializes raw `MatchState`. Views include only the recipient's hand and permitted private Draft plus public board/counts/results. `RecipientProjection.EventsFor` assigns event source indexes before filtering audiences. JSON is the new gameplay DTO boundary; migration of unrelated legacy serialization is a separate concern. Never broadcast one player's projection to all clients.
+The server never serializes raw `MatchState`. Views include only the recipient's hand and permitted private Draft plus public board/counts/results. `RecipientProjection.EventsFor` assigns event source indexes before filtering audiences. Never broadcast one player's projection to all clients.
+
+### Wire contract (NET-002)
+
+`WireCodec` is the only place payloads become strings. JSON comes from `JsonUtility` in Unity (`GameSession.Wire`) and from System.Text.Json in the console checks. The codec has four rules:
+
+- **Absence is explicit.** In memory an absent nested value is `null`. On the wire it is a `Has*` flag (`HasView`, `HasOutcome`, `HasRequiredTrain`, `HasExpected`, `HasTrain`), because `JsonUtility` decodes a null nested class as a default instance. Decoding restores `null` and makes every array non-null.
+- **Versioned.** `WireVersion` must equal `WireCodec.Version`; bump it when the shape changes.
+- **Bounded.** Projections up to 64 KB and commands up to 4 KB on the wire (two bytes per character for a `string` RPC argument). These are adapter guards; Unity Transport streams reliable RPCs, so its 6144-byte `MaxPayloadSize` applies only to unreliable sends.
+- **Never throws.** Malformed input is rejected with a reason; an over-budget outbound packet is logged and the recipient is told, never silently dropped.
+
+Measured sizes and the fixtures that tie the two JSON implementations together are in the [verification report](GAMEPLAY_INTEGRATION_VERIFICATION.md#net-002-wire-contract-2026-10-18). The [netcode learning guide](NETCODE_LEARNING_GUIDE.md) explains the reasoning.
 
 ## Verification and remaining limits
 

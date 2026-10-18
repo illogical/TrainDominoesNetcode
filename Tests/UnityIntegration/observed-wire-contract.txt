@@ -1,0 +1,43 @@
+OBSERVED raw JsonUtility: null nested View decodes as a default instance
+OBSERVED raw JsonUtility: null view arrays decode as empty arrays (length 0)
+OBSERVED raw JsonUtility: null CommandRequest.Train decodes as a default instance (IsShared=False, Owner=-1)
+OBSERVED raw JsonUtility: out-of-range enum decodes as 99; unknown fields are ignored
+OBSERVED raw JsonUtility: malformed JSON throws ArgumentException
+PASS unseated reply decodes with an absent view
+PASS client installs no view from an unseated reply
+PASS absent required train and outcome stay absent
+PASS present values survive
+PASS re-encoding a decoded projection is byte-identical
+PASS present required train survives
+PASS draw keeps an absent train
+PASS place keeps a present train
+PASS command rejected without throwing: <null>
+PASS command rejected without throwing: 
+PASS command rejected without throwing: {
+PASS command rejected without throwing: null
+PASS command rejected without throwing: []
+PASS command rejected without throwing: 42
+PASS command rejected without throwing: {"RequestId":"d","Expected":{"MatchId":"…
+PASS command rejected without throwing: {"RequestId":"d","Expected":{"MatchId":"…
+PASS command rejected without throwing: {"RequestId":"d","Expected":{"MatchId":"…
+PASS command rejected without throwing: {"RequestId":"d","Expected":{"MatchId":"…
+PASS projection rejected without throwing: <null>
+PASS projection rejected without throwing: 
+PASS projection rejected without throwing: {
+PASS projection rejected without throwing: null
+PASS projection rejected without throwing: {"View":{"ProfileVersion":"PuremcoWeb-Ap…
+PASS projection rejected without throwing: {"View":{"ProfileVersion":"PuremcoWeb-Ap…
+PASS projection rejected without throwing: {"WireVersion":1}
+PASS oversized command rejected
+PASS decoded ready accepted
+PASS decoded retry replays without effect
+MEASURED players=2 matches=20 packets=188668 largestProjection=9451 chars / 18906 wire bytes (3.47x headroom) largestCommand=566 wire bytes
+PASS 2-player worst case fits the projection guard
+PASS 2-player commands fit the command guard
+MEASURED players=4 matches=20 packets=284176 largestProjection=10077 chars / 20158 wire bytes (3.25x headroom) largestCommand=566 wire bytes
+PASS 4-player worst case fits the projection guard
+PASS 4-player commands fit the command guard
+MEASURED players=8 matches=20 packets=524496 largestProjection=11176 chars / 22356 wire bytes (2.93x headroom) largestCommand=564 wire bytes
+PASS 8-player worst case fits the projection guard
+PASS 8-player commands fit the command guard
+34 assertions, 0 failures.

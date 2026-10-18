@@ -30,6 +30,9 @@ namespace Assets.Scripts.Game.Integration
         public int DominoId = -1;
         public TrainIdDto Train;
         public int Target = -1;
+        // Wire-only fields, written and read by WireCodec. In memory, absence is null.
+        public int WireVersion;
+        public bool HasExpected, HasTrain;
     }
     [Serializable] public sealed class CommandOutcome
     {
@@ -71,6 +74,8 @@ namespace Assets.Scripts.Game.Integration
         public LegalPlacementDto[] LegalPlacements;
         public RoundResultDto[] RoundResults;
         public int[] Winners;
+        /// <summary>Wire-only presence of <see cref="RequiredTrain"/>, written and read by WireCodec.</summary>
+        public bool HasRequiredTrain;
         public static PlayerViewDto From(PlayerView v) => new PlayerViewDto
         {
             ProfileVersion = v.ProfileVersion,
@@ -118,6 +123,14 @@ namespace Assets.Scripts.Game.Integration
             => counts.Select(p => new PlayerCountDto { Player = p.Key.Value, Count = p.Value }).ToArray();
     }
     [Serializable] public sealed class PresentationEventDto { public int SourceIndex; public EventKind Kind; public int Player = -1; public int DominoId = -1; }
-    [Serializable] public sealed class ProjectionPacket { public PlayerViewDto View; public PresentationEventDto[] Events = Array.Empty<PresentationEventDto>(); public CommandOutcome Outcome; }
+    [Serializable] public sealed class ProjectionPacket
+    {
+        public PlayerViewDto View;
+        public PresentationEventDto[] Events = Array.Empty<PresentationEventDto>();
+        public CommandOutcome Outcome;
+        // Wire-only fields, written and read by WireCodec. In memory, absence is null.
+        public int WireVersion;
+        public bool HasView, HasOutcome;
+    }
     public sealed class RecipientPacket { public ulong Recipient; public ProjectionPacket Packet; }
 }

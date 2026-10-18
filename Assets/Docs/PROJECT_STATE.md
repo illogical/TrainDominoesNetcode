@@ -76,7 +76,7 @@ This indicates an unfinished turn/state refactor followed by presentation work, 
 
 The main station represents committed tracks. Per-player turn stations hold provisional arrangements; RPCs update the acting player's presentation, then turn completion merges and broadcasts station data. During opening group play, multiple players build provisional tracks before the merge. Hands are mutated while moves are provisional, so extraction must characterize both commit and undo behavior.
 
-`NetworkSerializer<T>` uses `BinaryFormatter` for several DTO payloads. `JsonContainer` separately serializes score dictionaries as JSON through Netcode. Serializer replacement belongs in a separate task with payload compatibility tests, not an incidental rules refactor.
+Historically, `NetworkSerializer<T>` used `BinaryFormatter` for several DTO payloads, and `JsonContainer` serialized score dictionaries as JSON. Both were unreferenced after the gameplay integration and were removed on 2026-10-18 under NET-002. Gameplay payloads now pass through `WireCodec` (see [GAMEPLAY_INTEGRATION.md](GAMEPLAY_INTEGRATION.md#wire-contract-net-002)).
 
 ## Player-state inventory
 

@@ -9,10 +9,13 @@ using Assets.Scripts.Game.Integration;
 /// AuthoritativeMatchCoordinator through an encode/decode step. Delivery can be held, dropped,
 /// duplicated or reordered to simulate faults. Simulated faults are not live transport evidence.
 /// </summary>
-/// <remarks>Uses System.Text.Json until NET-002 selects the portable production wire codec.</remarks>
+/// <remarks>Payloads pass through the production <see cref="WireCodec"/>; System.Text.Json stands in for
+/// JsonUtility, which exists only inside Unity. The Unity batch wire check covers JsonUtility itself.</remarks>
 internal sealed class LoopbackRelay
 {
     private static readonly JsonSerializerOptions Options = new JsonSerializerOptions { IncludeFields = true };
+    /// <summary>The production codec over System.Text.Json.</summary>
+    public static readonly WireCodec Codec = new WireCodec(v => JsonSerializer.Serialize(v, v.GetType(), Options), (json, type) => JsonSerializer.Deserialize(json, type, Options));
     private readonly Dictionary<ulong, ClientSession> clients = new Dictionary<ulong, ClientSession>();
 
     public sealed class Message
@@ -44,7 +47,7 @@ internal sealed class LoopbackRelay
     public ulong PeerForSeat(int seat) => clients.First(c => c.Value.View.Player == seat).Key;
 
     /// <summary>The explicit synchronization path: a current projection delivered directly, never held.</summary>
-    public void Synchronize(ulong peer) => clients[peer].Receive(Decode<ProjectionPacket>(Encode(Host.GetProjection(peer))), true);
+    public void Synchronize(ulong peer) => clients[peer].Receive(DecodeProjection(Encode(Host.GetProjection(peer))), true);
 
     /// <summary>Releases each client's local presentation mask as if its animations finished.</summary>
     public void PresentAll()
@@ -64,7 +67,7 @@ internal sealed class LoopbackRelay
 
     private void DeliverCommand(Message command)
     {
-        foreach (var packet in Host.Submit(command.Peer, Decode<CommandRequest>(command.Json)))
+        foreach (var packet in Host.Submit(command.Peer, DecodeCommand(command.Json)))
         {
             var message = new Message { Peer = packet.Recipient, Json = Encode(packet.Packet) };
             if (HoldProjections) HeldProjections.Add(message);
@@ -72,7 +75,7 @@ internal sealed class LoopbackRelay
         }
     }
 
-    private void DeliverProjection(Message projection) => clients[projection.Peer].Receive(Decode<ProjectionPacket>(projection.Json));
+    private void DeliverProjection(Message projection) => clients[projection.Peer].Receive(DecodeProjection(projection.Json));
 
     private static void Release(List<Message> held, IEnumerable<Message> order, Action<Message> deliver)
     {
@@ -81,6 +84,9 @@ internal sealed class LoopbackRelay
         foreach (var message in batch) deliver(message);
     }
 
-    private static string Encode<T>(T value) => JsonSerializer.Serialize(value, Options);
-    private static T Decode<T>(string json) => JsonSerializer.Deserialize<T>(json, Options);
+    // The relay fails loudly: a codec rejection here means a fixture produced an invalid payload.
+    private static string Encode(CommandRequest value) => Codec.TryEncode(value, out var json, out var error) ? json : throw new InvalidOperationException(error);
+    private static string Encode(ProjectionPacket value) => Codec.TryEncode(value, out var json, out var error) ? json : throw new InvalidOperationException(error);
+    private static CommandRequest DecodeCommand(string json) => Codec.TryDecodeCommand(json, out var value, out var error) ? value : throw new InvalidOperationException(error);
+    private static ProjectionPacket DecodeProjection(string json) => Codec.TryDecodeProjection(json, out var value, out var error) ? value : throw new InvalidOperationException(error);
 }

@@ -28,7 +28,10 @@ public class GameSession : NetworkBehaviour
     private bool hooked;
     private float requestSentAt;
     private bool disposed;
-    private const int MaximumCommandCharacters = 16384;
+    private int decodeFailures;
+    private const int MaximumDecodeResynchronizations = 3;
+    /// <summary>The production wire contract; every RPC payload goes through it.</summary>
+    public static readonly WireCodec Wire = new WireCodec(JsonUtility.ToJson, JsonUtility.FromJson);
 
     private void Awake()
     {
@@ -76,12 +79,24 @@ public class GameSession : NetworkBehaviour
     private void SendCommand(CommandRequest request)
     {
         if (!IsSpawned || !IsClient) { Client.MarkUncertain(); return; }
-        SubmitCommandServerRpc(JsonUtility.ToJson(request));
+        if (!Wire.TryEncode(request, out var json, out var error))
+        {
+            Debug.LogError("Command not sent: " + error, this);
+            Client.MarkUncertain();
+            return;
+        }
+        SubmitCommandServerRpc(json);
     }
     private void RequestInitialMatch() { if (IsSpawned) CreateMatchServerRpc(false); }
     private void RequestNewMatch() { if (IsSpawned) CreateMatchServerRpc(true); }
     private void RequestResume() { if (IsSpawned) ResumeServerRpc(); }
-    private void RequestSynchronization() { if (IsSpawned) SynchronizeServerRpc(Client.Pending == null ? "" : JsonUtility.ToJson(Client.Pending)); }
+    private void RequestSynchronization()
+    {
+        if (!IsSpawned) return;
+        // A pending request that cannot be encoded is dropped from the sync; the view still resynchronizes.
+        string pending = Client.Pending != null && Wire.TryEncode(Client.Pending, out var json, out _) ? json : "";
+        SynchronizeServerRpc(pending);
+    }
 
     [ServerRpc(RequireOwnership = false)]
     private void CreateMatchServerRpc(bool replacement, ServerRpcParams rpc = default)
@@ -129,7 +144,7 @@ public class GameSession : NetworkBehaviour
         if (!string.IsNullOrEmpty(pending) && TryRead(pending, out var request)) Dispatch(authority.Submit(sender, request));
         var packet = authority.GetProjection(sender);
         if (packet == null) { FeedbackClientRpc("You are not seated in this match. Wait for a fresh match.", To(sender)); return; }
-        ProjectionClientRpc(JsonUtility.ToJson(packet), true, To(sender));
+        Send(sender, packet, true);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -143,7 +158,7 @@ public class GameSession : NetworkBehaviour
             return;
         }
         Dispatch(authority.Suspend(false));
-        foreach (var id in authority.Participants) ProjectionClientRpc(JsonUtility.ToJson(authority.GetProjection(id)), true, To(id));
+        foreach (var id in authority.Participants) Send(id, authority.GetProjection(id), true);
     }
 
     private void Disconnected(ulong id)
@@ -157,12 +172,11 @@ public class GameSession : NetworkBehaviour
         }
     }
 
-    private static bool TryRead(string json, out CommandRequest request)
+    private bool TryRead(string json, out CommandRequest request)
     {
-        request = null;
-        if (string.IsNullOrEmpty(json) || json.Length > MaximumCommandCharacters) return false;
-        try { request = JsonUtility.FromJson<CommandRequest>(json); return request != null; }
-        catch (ArgumentException) { return false; }
+        if (Wire.TryDecodeCommand(json, out request, out var error)) return true;
+        if (stateTraceLevel != StateTraceLevel.Off) Debug.LogWarning("Rejected command payload: " + error, this);
+        return false;
     }
 
     private void Dispatch(IReadOnlyList<RecipientPacket> packets)
@@ -172,7 +186,17 @@ public class GameSession : NetworkBehaviour
         if (!string.IsNullOrEmpty(authority.LastLifecycleError)) Debug.LogError("Round setup failed: " + authority.LastLifecycleError, this);
     }
 
-    private void Send(ulong id, ProjectionPacket packet) { ProjectionClientRpc(JsonUtility.ToJson(packet), false, To(id)); }
+    private void Send(ulong id, ProjectionPacket packet, bool synchronization = false)
+    {
+        if (!Wire.TryEncode(packet, out var json, out var error))
+        {
+            // Never drop silently: the recipient is told and can resynchronize once the cause is fixed.
+            Debug.LogError($"Projection for client {id} not sent: {error}", this);
+            FeedbackClientRpc("The host could not send an update. Try synchronizing.", To(id));
+            return;
+        }
+        ProjectionClientRpc(json, synchronization, To(id));
+    }
 
     private static ClientRpcParams To(ulong id) => new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { id } } };
 
@@ -180,7 +204,20 @@ public class GameSession : NetworkBehaviour
     private void ProjectionClientRpc(string json, bool synchronization, ClientRpcParams rpc = default)
     {
         InitializeClient();
-        Client.Receive(JsonUtility.FromJson<ProjectionPacket>(json), synchronization);
+        if (!Wire.TryDecodeProjection(json, out var packet, out var error))
+        {
+            Debug.LogError("Unreadable projection: " + error, this);
+            // Bounded so a persistently bad payload cannot cause a synchronization loop.
+            if (++decodeFailures <= MaximumDecodeResynchronizations)
+            {
+                Client.SetFeedback("Received an unreadable update; resynchronizing.");
+                RequestSynchronization();
+            }
+            else Client.SetFeedback("Updates from the host cannot be read. Check that both players run the same build.");
+            return;
+        }
+        decodeFailures = 0;
+        Client.Receive(packet, synchronization);
     }
 
     [ClientRpc]

@@ -33,7 +33,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
         foreach(var m in FindObjectsByType<SimpleMatchmaking>(FindObjectsSortMode.None)) m.enabled=false;
         yield return new WaitForSecondsRealtime(2);
         session=FindFirstObjectByType<GameSession>();
-        Client.RequestChanged+=(sender,args)=> { if(Client.Pending!=null) captured=JsonUtility.FromJson<CommandRequest>(JsonUtility.ToJson(Client.Pending)); };
+        Client.RequestChanged+=(sender,args)=> { if(Client.Pending!=null) captured=WireCopy(Client.Pending); };
         var net=NetworkManager.Singleton; net.GetComponent<UnityTransport>().SetConnectionData("127.0.0.1",17898);
         Assert(host?net.StartHost():net.StartClient(),"network-start");
         yield return Wait(()=>net.IsConnectedClient && session.IsSpawned,"network-spawn");
@@ -229,5 +229,8 @@ public sealed class IntegrationRuntime:MonoBehaviour
         var actual=FindFirstObjectByType<MeshManager>().GetDominoMeshById(tile).transform.position;
         Assert(!float.IsNaN(actual.x) && !float.IsNaN(actual.y) && !float.IsNaN(actual.z) && Vector3.Distance(expected,actual)<0.001f,"placement-final-transform");
     }
-    void Raw(CommandRequest request)=>typeof(GameSession).GetMethod("SubmitCommandServerRpc",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(session,new object[]{JsonUtility.ToJson(request),default(ServerRpcParams)});
+    // Copies and raw sends go through the production wire codec so retries keep the same request identity.
+    static string WireJson(CommandRequest request)=>GameSession.Wire.TryEncode(request,out var json,out var error)?json:throw new Exception("ENCODE "+error);
+    static CommandRequest WireCopy(CommandRequest request)=>GameSession.Wire.TryDecodeCommand(WireJson(request),out var copy,out var error)?copy:throw new Exception("DECODE "+error);
+    void Raw(CommandRequest request)=>typeof(GameSession).GetMethod("SubmitCommandServerRpc",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(session,new object[]{WireJson(request),default(ServerRpcParams)});
 }

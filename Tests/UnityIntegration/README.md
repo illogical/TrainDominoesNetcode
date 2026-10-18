@@ -32,4 +32,14 @@ The eight-player harness runs on port 17899. It checks nine trains and nine tile
 
 Valid challenge penalties and explicit private-draft information-leak assertions over real serialized transport are implemented but unverified by these smoke scenarios; the source-linked boundary suite provides separate coverage. Both supported penalty settings (DrawOneTile/None) are not both exercised here.
 
+## Wire contract batch check (NET-002)
+
+`WireContractBatch.cs` runs in the Editor without a player build. Copy it with `Tests/GameplayIntegration/WorstCaseMatch.cs` into the temporary project's `Assets/Editor`, then run:
+
+```sh
+/Applications/Unity/Hub/Editor/6000.6.6f1/Unity.app/Contents/MacOS/Unity -batchmode -nographics -projectPath /tmp/td-legacy-baseline -executeMethod WireContractBatch.Run -wireOut /tmp/td-wire-contract -logFile /tmp/td-wire-contract.log
+```
+
+It exits non-zero on failure. It writes `wire-contract-report.txt`, which records the raw `JsonUtility` behavior, the codec assertions and measured sizes from 20 seeded matches each at 2, 4 and 8 players. It also writes `Fixtures/*.json`. Copy the fixtures to `Tests/GameplayIntegration/Fixtures/` when the payload shape changes; the console suite decodes them. The last report is `observed-wire-contract.txt`.
+
 The focused `--presentation-only` mode performs regular real host/client startup and Ready, then runs a synthetic recipient-view regression: a tile visible on one train at revision 10 is moved to another train at revision 12. It checks generation invalidation and the final mesh position. Its logs and `production-source-gap.sha256` are separate from the earlier complete lifecycle runs.

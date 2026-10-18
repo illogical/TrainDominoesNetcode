@@ -78,8 +78,36 @@ The behavior-neutral [refactor](plans/2026-10-18-refactor-pre-priority-4-network
 
 The isolated build's `Assets/Scripts` was compared against the working tree with `diff -rq` (no differences). Its hash is in `Tests/UnityIntegration/production-source-refactor.sha256`. That hash uses a stated method that does not reproduce the earlier `.sha256` files, so compare it only with itself. Relay delivery faults are simulated and use System.Text.Json, not production `JsonUtility`. They are not live-transport evidence.
 
+## NET-002 wire contract (2026-10-18)
+
+Implements the [NET-002 plan](plans/2026-10-18-feat-net-002-gameplay-wire-contract-plan.md). `WireCodec` now owns every RPC payload, with explicit presence flags, a wire version, byte budgets and non-throwing decode. `ClientSession`, the coordinator and the rules core are unchanged; in-memory nulls keep their meaning. The dead `NetworkSerializer` (BinaryFormatter), `JsonContainer` and `Models/DTO` sources, with their `.meta` files, were removed after a reference sweep found no code, scene, prefab or asset GUID references.
+
+| Check | Outcome |
+| --- | --- |
+| Standalone NUnit core suite | 48 passed (core unchanged) |
+| `Tests/GameplayIntegration` | 26 boundary and 12 relay assertions unchanged, now through `WireCodec`; 44 new wire-contract assertions (presence, rejection, version, bounds, deduplication, sizes, JsonUtility fixture decoding) |
+| `Tests/StateMachine`, `Tests/ClientInteraction` | 17 grouped checks and client checks passed, unchanged |
+| `verify_unity_compile.py` | Passed |
+| Unity 6000.6.6f1 batch `WireContractBatch.Run` | 34 assertions, 0 failures through production `JsonUtility`. Report: `Tests/UnityIntegration/observed-wire-contract.txt` |
+| Unity CLI player build | Succeeded; only pre-existing deprecation warnings (including `RequireOwnership`) |
+| Actual CLI players | Immediate, Draft, eight-player and presentation-only all passed. Filtered logs are byte-identical to the previous runs, except that the first Immediate run hit two fewer timing-dependent stale-Place retries. Two re-runs reproduced the earlier logs exactly. |
+
+**JsonUtility, observed in Unity:** a null nested class decodes as a default instance (a null `View` becomes a blank view; a null `Train` becomes `IsShared=false, Owner=-1`). Null arrays decode as empty, out-of-range enums keep their integer, unknown fields are ignored, and malformed JSON throws `ArgumentException`. Before this change, an unseated sender's reply would have installed a blank view on the client.
+
+**Measured sizes** (JsonUtility, 20 seeded complete matches per player count, both commitment modes):
+
+| Players | Packets | Largest projection | Headroom vs 64 KB guard | Largest command |
+| --- | --- | --- | --- | --- |
+| 2 | 188,668 | 9,451 chars / 18,906 B | 3.47× | 566 B |
+| 4 | 284,176 | 10,077 chars / 20,158 B | 3.25× | 566 B |
+| 8 | 524,496 | 11,176 chars / 22,356 B | 2.93× | 564 B |
+
+The scene's UnityTransport `MaxPayloadSize` (6144) does not constrain these sizes. In the installed transport, `Reliable` delivery uses the reliable-sequenced pipeline (`UnityTransport.SelectSendPipeline`). That pipeline skips the payload-size check and streams queued bytes across MTU packets (`FillWriterWithBytes`). Payload compaction was deferred by decision; bandwidth (about 180 KB per broadcast action at eight players) is a NET-003 consideration.
+
+The source hash is in `Tests/UnityIntegration/production-source-net002.sha256`; it uses the same method as the refactor hash and reproduces that hash for `d7051d9`. The console wire checks use System.Text.Json; JsonUtility evidence comes only from the Unity batch check. None of this is live-service evidence.
+
 ## Remaining limits
 
 Human-visible layout/motion quality, pointer/raycast usability, live Lobby/Relay, packet-loss recovery, seat reauthentication/reconnect, valid announcement-penalty delivery over real RPCs, deliberate joint-winner fixtures, and exhaustive malformed/unauthorized transport cases are not established by these smoke runs. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.
 
-Settings GUI, final art, serializer migration, persistent recovery and detailed reconnect UX remain deferred. No gameplay decision depends on animation completion. No task is considered complete merely because its source compiles or its graph is present.
+Settings GUI, final art, payload compaction, persistent recovery and detailed reconnect UX remain deferred. No gameplay decision depends on animation completion. No task is considered complete merely because its source compiles or its graph is present.

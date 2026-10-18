@@ -29,7 +29,7 @@ public sealed class EightRuntime:MonoBehaviour
             yield return Wait(()=>net.ConnectedClientsIds.Count==8,"eight-peers");var ids=net.ConnectedClientsIds.OrderBy(i=>i).ToArray();
             var authority=new AuthoritativeMatchCoordinator("cli-eight",ids,0,null,round=>DominoCatalog.All.Where(d=>d.Id!=DominoCatalog.EngineForRound(round)).Select(d=>d.Id));
             typeof(GameSession).GetField("authority",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(session,authority);
-            typeof(GameSession).GetField("matchParticipants",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(session,ids);File.WriteAllText(Prefix+"ready","ready");
+            File.WriteAllText(Prefix+"ready","ready");
         }
         else yield return Wait(()=>File.Exists(Prefix+"ready"),"authority");
         Client.Synchronize();yield return Wait(()=>Client.View!=null,"view");while(Client.View.Phase!=MatchPhase.Playing) { if(Client.CanSubmit&&Client.View.Allowed.CanReady)Client.Ready();yield return null; }

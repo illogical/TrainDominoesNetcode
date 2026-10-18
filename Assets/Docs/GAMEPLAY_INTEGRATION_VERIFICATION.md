@@ -63,6 +63,21 @@ A later revision-gap regression was observed failing before a focused fix: missi
 
 Client/state regressions cover correlation and lifecycle fixes. Actual CLI transform and synthetic presentation probes cover placement/overflow/cancellation independently from perceived motion quality.
 
+## Pre-Priority-4 refactor re-verification (2026-10-18)
+
+The behavior-neutral [refactor](plans/2026-10-18-refactor-pre-priority-4-network-readiness-plan.md) added `SeatRegistry` and `RecipientProjection`, reformatted the coordinator, `PlayerViewDto.From`, `GameSession` and `GameplayManager`, and added a test-side `LoopbackRelay`. DTO field declarations are unchanged (diffed against HEAD), so JSON payload shape is unchanged. The CLI harness no longer injects the removed `GameSession.matchParticipants` field; participants come from the coordinator.
+
+| Check | Outcome |
+| --- | --- |
+| Standalone NUnit core suite | 48 passed (core sources unchanged) |
+| `Tests/GameplayIntegration` | 26 boundary assertions passed, unchanged; 12 new relay assertions passed: setup convergence, duplicated command delivery applies once, reordered projections converge, dropped projection recovers by synchronization |
+| `Tests/StateMachine`, `Tests/ClientInteraction` | 17 grouped checks and client checks passed, unchanged |
+| Strict state map/compare | State-source SHA-256 unchanged (`c039bb9f…`); no added or removed states or transitions |
+| Unity 6000.6.6f1 CLI player build | Succeeded; only the existing deprecated `RequireOwnership` RPC warnings |
+| Actual CLI players | Immediate and Draft two-player matches, eight-player deal/suspension/seven-seat replacement, and the presentation probe all passed; filtered logs identical to the earlier runs |
+
+The isolated build's `Assets/Scripts` was compared against the working tree with `diff -rq` (no differences). Its hash is in `Tests/UnityIntegration/production-source-refactor.sha256`. That hash uses a stated method that does not reproduce the earlier `.sha256` files, so compare it only with itself. Relay delivery faults are simulated and use System.Text.Json, not production `JsonUtility`. They are not live-transport evidence.
+
 ## Remaining limits
 
 Human-visible layout/motion quality, pointer/raycast usability, live Lobby/Relay, packet-loss recovery, seat reauthentication/reconnect, valid announcement-penalty delivery over real RPCs, deliberate joint-winner fixtures, and exhaustive malformed/unauthorized transport cases are not established by these smoke runs. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.

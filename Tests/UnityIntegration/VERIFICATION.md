@@ -37,3 +37,7 @@ An initial test expected fifteen tiles at two players; the correct selected core
 Headless final-transform checks establish numerical endpoints and coroutine completion, not perceived visual quality. Initial Ready invokes the actual generated button listener; tile/train selection uses the production client API rather than mouse/raycast input. Packet loss, uncertain-delivery transport recovery, real service integration, deliberate joint-winner fixtures, and reconnect/resume remain outside these CLI smoke runs. Separate .NET source-linked suites cover additional boundary cases, but are not evidence for those untested real transport scenarios.
 
 Valid challenge penalties and explicit private-draft information-leak assertions over real serialized transport are implemented but unverified by these smoke scenarios; the source-linked boundary suite provides separate coverage. Both supported penalty settings (DrawOneTile/None) are not both exercised here.
+
+## 2026-10-18 refactor re-run
+
+After the pre-Priority-4 refactor, all four scenarios (Immediate, Draft, eight-player, presentation-only) passed again from a fresh CLI build, and the filtered logs were identical. See `production-source-refactor.sha256` and the refactor section of `Assets/Docs/GAMEPLAY_INTEGRATION_VERIFICATION.md`.

@@ -15,6 +15,8 @@ origin: Assets/Docs/handoffs/2026-10-17-rules-engine-gameplay-integration.md
 
 **Authored context:** Saved on 2026-10-18 from the proposed implementation plan. This document specifies planned work; it does not assert implementation or verification completion.
 
+**Implementation note (2026-10-18):** Implemented; see [integration verification](../GAMEPLAY_INTEGRATION_VERIFICATION.md). The planned `Assets/Tests/PlayMode/*` tests and the separate `PendingRequestChecks`/`PresentationQueueChecks`/`GameplayFlowChecks`/`LifecycleChecks` files were not created: that coverage lives in `Tests/StateMachine`, `Tests/ClientInteraction`, `Tests/GameplayIntegration/CommandBoundaryChecks.cs` and the CLI player harness in `Tests/UnityIntegration`. The pending tracker and presentation sequencer were folded into `ClientSession` and `GameplayManager`. Follow-up refactoring is in the [pre-Priority-4 plan](2026-10-18-refactor-pre-priority-4-network-readiness-plan.md).
+
 ## Goal Capsule
 
 **Objective:** Developers can follow an action from player input through validation, synchronization, and animation, while players receive consistent Puremco gameplay.

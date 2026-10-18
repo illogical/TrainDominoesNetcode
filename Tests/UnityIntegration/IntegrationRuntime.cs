@@ -43,7 +43,6 @@ public sealed class IntegrationRuntime:MonoBehaviour
             var ids=net.ConnectedClientsIds.OrderBy(i=>i).ToArray();
             var authority=new AuthoritativeMatchCoordinator("cli-"+(draft?"draft":"immediate"),ids,0,new MatchSettings(draft?CommitmentMode.Draft:CommitmentMode.Immediate,AnnouncementPenalty.DrawOneTile),Deck);
             typeof(GameSession).GetField("authority",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(session,authority);
-            typeof(GameSession).GetField("matchParticipants",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(session,ids);
             File.WriteAllText(Prefix+"-ready","ready");
         }
         else yield return Wait(()=>File.Exists(Prefix+"-ready"),"authority-ready");

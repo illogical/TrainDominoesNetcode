@@ -1,7 +1,8 @@
 ---
 artifact_contract: "ce-handoff/v1"
 type: "session-handoff"
-status: "stable"
+status: "historical"
+superseded_by: "Assets/Docs/GAMEPLAY_INTEGRATION.md"
 created_at: "2026-10-18T03:47:53Z"
 title: "Integrate the standalone rules engine into Unity gameplay"
 summary: "Portable core is implemented and verified; continue with runtime characterization and the authoritative Unity adapter/state integration."
@@ -15,6 +16,8 @@ head: "0eec4e56dd974d84a02d2b33f7aa198484f180e8"
 ---
 
 # Rules engine → Unity gameplay handoff
+
+> **Historical (2026-10-18):** this handoff was consumed by the implemented integration. Use the [developer guide](../GAMEPLAY_INTEGRATION.md), [integration verification](../GAMEPLAY_INTEGRATION_VERIFICATION.md) and [TASKS.md](../../../TASKS.md) for current state; the "still awaiting" sections below describe the pre-integration source.
 
 ## Objective and captured state
 

@@ -19,6 +19,13 @@ namespace Assets.Scripts.Game.Integration
         public long PresentationGeneration { get; private set; }
         public int? SelectedTile { get; private set; }
         public string Feedback { get; private set; } = "Host: start a match with 2–8 connected players.";
+        /// <summary>
+        /// The latest seat credential (NET-004). Unlike the view, it survives <see cref="BeginConnection"/>, so a
+        /// client that loses its connection can reclaim its seat. Held in memory only; it does not survive a restart.
+        /// </summary>
+        public ReclaimRequest Credential { get; private set; }
+        /// <summary>Seats the host reports as disconnected, for the "who is missing" display.</summary>
+        public int[] MissingSeats { get; private set; } = Array.Empty<int>();
         public event EventHandler ViewChanged, RequestChanged, SessionAvailabilityChanged, PresentationChanged, SelectionChanged;
         public event Action<PlayerViewDto, PlayerViewDto, PresentationEventDto[], long, bool> PresentationRequested;
         public event Action StartMatchRequested, NewMatchRequested, SynchronizationRequested, ResumeRequested;
@@ -100,6 +107,15 @@ namespace Assets.Scripts.Game.Integration
             bool sameMatch = old != null && next != null && old.Token.MatchId == next.Token.MatchId;
             bool newer = next != null && !retiredMatches.Contains(next.Token.MatchId) && (old == null || !sameMatch || next.Token.Revision > old.Token.Revision);
             bool settled = Pending != null && packet.Outcome != null && packet.Outcome.RequestId == Pending.RequestId;
+            // Only packets at least as new as the current view may update connection details; a reordered
+            // older packet must not restore a seat secret that has since been rotated.
+            if (newer || sameMatch && next.Token.Revision >= old.Token.Revision)
+            {
+                // Connection details are not part of the ordered game state, so the latest report always applies.
+                MissingSeats = packet.MissingSeats ?? Array.Empty<int>();
+                if (!string.IsNullOrEmpty(packet.SeatSecret))
+                    Credential = new ReclaimRequest { MatchId = next.Token.MatchId, Seat = next.Player, Secret = packet.SeatSecret };
+            }
             bool requestChanged = settled;
             if (settled)
             {

@@ -109,10 +109,10 @@ Severity: **High** means it can corrupt or leak game state or crash a peer. **Me
 - **Fix:** `WireVersion` on every packet and command; a mismatch is rejected with a clear message.
 - **Next time:** version the wire format from the first networked build.
 
-### M8. Transport ID used as the seat (Medium, partly fixed)
+### M8. Transport ID used as the seat (Medium, fixed)
 
 - **What happened:** the coordinator keyed players and cached outcomes by transport `ulong`. A reconnecting player would look like a stranger.
-- **Fix so far:** `SeatRegistry` (pre-Priority-4 refactor) separates seats from transport IDs, and the outcome cache is keyed by seat. Rebinding with authentication is NET-004.
+- **Fix:** `SeatRegistry` (pre-Priority-4 refactor) separates seats from transport IDs, and the outcome cache is keyed by seat. NET-004 added authenticated rebinding with host-issued seat secrets, so a player who reconnects with a new transport ID gets the same seat, hand and history back.
 - **Next time:** model "who is playing" separately from "which connection" from the start.
 
 ### M9. Trusting the UI and nesting RPCs (High, fixed by the integration)
@@ -131,13 +131,27 @@ Severity: **High** means it can corrupt or leak game state or crash a peer. **Me
 
 Announcements, challenges and penalty draws travel to clients, but `GameplayPresenter.Present` ignores them. Players get no feedback for those actions. **Next time:** when you add a message type, add its consumer and a test in the same change.
 
-### M12. Deprecated RPC attributes (Low, open: MAINT-003)
+### M12. Deprecated RPC attributes (Low, fixed: MAINT-003)
 
-The four `[ServerRpc(RequireOwnership = false)]` RPCs compile with obsolete warnings under NGO 2.13.3. They still work, but migrate them before a future NGO removes the attribute. See the [library notes](#libraries-versions-and-upgrade-notes).
+The four `[ServerRpc(RequireOwnership = false)]` RPCs compiled with obsolete warnings under NGO 2.13.3. They are now `[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]`, and client targeting uses `[Rpc(SendTo.SpecifiedInParams)]` with `RpcTarget.Single(id, RpcTargetUse.Temp)`. **Next time:** treat obsolete warnings as a to-do list; fix them while the old and new forms both still work, so the change is small and testable.
 
-### M13. Fire-and-forget async service calls (Low, open: NET-003)
+### M13. Fire-and-forget async service calls (Low, fixed: NET-003)
 
-`SimpleMatchmaking` calls `Lobbies.Instance.SendHeartbeatPingAsync(lobbyId)` without `await` (`SimpleMatchmaking.cs:118`), so any failure is silently lost. NET-003 should await or explicitly observe it. **Next time:** never discard a `Task` from a network service call.
+`SimpleMatchmaking` called `Lobbies.Instance.SendHeartbeatPingAsync(lobbyId)` without `await`, so any failure was silently lost; the lobby leave on shutdown had the same problem. Both now await inside methods that catch and log. The `async void` button handler also catches everything, because an exception escaping `async void` cannot be caught anywhere else. **Next time:** never discard a `Task` from a network service call. When a fire-and-forget is unavoidable (`_ = Heartbeat()`), make the method itself catch and log.
+
+### M14. Online matchmaking defaults that did not match the game (Medium, fixed: NET-003)
+
+- **What happened:**
+  - The lobby and Relay allocation allowed 100 players for a 2–8 player game.
+  - Relay used unencrypted UDP (`SetHostRelayData` with `RelayServer`), although `RelayTester` already showed the DTLS setup.
+  - Every quick-join error, including a real outage, fell through to creating a new lobby.
+  - Two copies on one machine signed in as the same anonymous player, so they could not be tested together.
+- **Fix:**
+  - `MaxPlayers = 8` (the allocation counts the 7 non-host connections).
+  - `allocation.ToRelayServerData("dtls")`.
+  - Only `LobbyExceptionReason.NoOpenLobbies` falls through to creating a lobby.
+  - `--ugs-profile <name>` gives each instance its own identity.
+- **Next time:** take limits from the game's rules, choose the encrypted transport option by default, and handle the one expected exception narrowly instead of catching everything.
 
 ### Design lessons (from the pre-Priority-4 review)
 
@@ -174,17 +188,81 @@ Client.Receive(packet, synchronization);
 
 **Measured:** the largest of more than 500,000 eight-player packets was 22,356 bytes on the wire, about a third of the 64 KB guard. The largest command was 566 bytes.
 
+### NET-001, NET-005, NET-006 — validation (2026-10-18)
+
+No gameplay code changed. The work was all about *proving* the netcode, and the lessons are about testing networked games.
+
+**T1. Test as the attacker, not the UI.** The NET-001 checks send commands straight to the host (`LoopbackRelay.SubmitRaw`), skipping `ClientSession`'s own guards, because a modified client can do the same. For every rejected command, the test compares every seat's encoded projection before and after: a rejection must change nothing anywhere.
+
+**T2. Check invariants on every message, not just examples.** Instead of asserting a few hand-picked views, a hook inspects every payload a client receives:
+- no other player's provisional tile;
+- no other player's private event;
+- no tile ID that another player currently holds;
+- own hand size equal to the public count;
+- every one of the 90 tiles accounted for.
+
+One hook covers thousands of situations no one would think to write by hand.
+
+**T3. Make sure a test can fail.** Passing on the first try is suspicious. Two deliberate bugs were introduced (removing the event-audience filter, and accepting older revisions); both made the suites fail, then the code was restored. Without that, a test could silently check nothing.
+
+**T4. Separate "wrong" from "different by design."** Three early failures were mistakes in the tests:
+- **A rejection reply carries the sender's current view.** The client catches up from the rejection itself, which is good self-healing, so the test was wrong to expect the old view to remain.
+- **A private draft changes only the owner's view of its own train marker**, so "public board" comparisons must ignore markers while a draft is open, as they already ignored draft hand counts.
+- **When updates are dropped, every peer that missed them must resynchronize**, not just the one being tested.
+
+Before changing a test to pass, decide which side is wrong and write down why.
+
+**T5. Real concurrency produces legitimate races.** Over real transport, an "expired challenge" probe could be overtaken by the opponent's next move. The host then correctly rejected it as stale, or the round ended first. The harness records those runs as *inconclusive* and retries later; only a definite `ChallengeNotAllowed` counts as proof. A test that treated the race as a pass would hide bugs, and one that treated it as a failure would be flaky.
+
+**T6. Search seeds instead of hand-building states.** Fixtures such as "an open challenge window with an empty boneyard" come from playing seeded matches until the situation occurs. Fixed seeds make this deterministic, and the fixtures keep working if dealing details change.
+
+**The fault harness:** `LoopbackRelay` can hold, drop, duplicate, reorder and release commands and projections independently. `Resynchronize` mirrors `GameSession`'s synchronization (resubmitting the pending request first), and `RelayScenario.Slow` simulates a player whose animations lag. All of this is simulated delivery. It proves the protocol logic, not a real network.
+
+### NET-003, MAINT-003, NET-004 — packages, entry paths and reconnect (2026-10-18)
+
+**Before**, a dropped player was gone for good: the seat was tied to a transport ID that never comes back, so the only option was a fresh match without them.
+
+**After:**
+
+```csharp
+// Host, at match start: each seat gets a random 128-bit secret, sent only in that seat's own projection.
+packet.SeatSecret = seats.SecretFor(seat);
+
+// Client, on the new connection: present the credential that survived the disconnect.
+if (!IsServer && credential != null && Wire.TryEncode(credential, out var claim, out _))
+    ReclaimSeatServerRpc(claim, pendingJson);
+
+// Host: verify, rebind seat -> new transport, rotate the secret; only then send any projection.
+var result = authority.Reclaim(sender, request, id => !departed.Contains(id) && NetworkManager.ConnectedClients.ContainsKey(id));
+```
+
+**Why a secret, not the player's name or seat number?** Anyone can claim to be "Player 2". The secret is something only the real Player 2 was ever sent. It is checked in constant time, so response timing does not leak how many characters matched. It rotates on every reclaim, so a secret seen once cannot be replayed.
+
+**Why "seat still connected" is a rejection:** even with the right secret, a seat whose player is still connected cannot be taken over. A leaked secret then cannot kick out a playing user.
+
+**Why a failed claim gets nothing:** a projection contains the seat's hand. Sending one before the claim is verified would disclose a private hand to an impostor.
+
+**What happens to a request that was in flight when the connection dropped?** It is resubmitted with its original request ID:
+- If it had reached the host, the host replays the cached outcome, and it is never applied twice. This works because the outcome cache is keyed by *seat*, not by transport.
+- If it never arrived, it reaches the host while the match is suspended and is rejected. It cannot apply later, and the player simply acts again after resuming.
+
+Both outcomes are safe, and the tests pin both down.
+
+**Why no new player state?** The existing suspended state already had Resume, New Match and Retry. Making Retry reconnect when the connection is gone added the feature without touching the state machine, and the strict state-map comparison confirms the topology did not change. Reusing an existing control is usually cheaper and safer than adding a state.
+
+**Developing a package migration safely:** the Editor had the project open, so changing the manifest there would have triggered an immediate re-import mid-change. The migration was made and verified in an isolated copy (compile, every CLI scenario), then applied to the real project in one step.
+
 ## Libraries: versions and upgrade notes
 
-Reviewed 2026-10-18 against the installed packages (`Packages/manifest.json`, `packages-lock.json`) and public release notes. No package was upgraded.
+Reviewed 2026-10-18 against the installed packages (`Packages/manifest.json`, `packages-lock.json`) and public release notes. **Updated the same day:** with the user's approval, Lobby and Relay were migrated to Multiplayer Services 2.3.3, and the deprecated RPC attributes and find APIs were replaced (MAINT-003).
 
 | Package | Installed | Status | What an upgrade or migration would require |
 | --- | --- | --- | --- |
 | Unity Editor | 6000.6.6f1 | Pinned by `ProjectVersion.txt` | Unity 6.6 deprecates `FindFirstObjectByType`, `FindObjectsSortMode` and `FindObjectOfType` (warnings in `SimpleMatchmaking` and the CLI harness). Use `FindAnyObjectByType` or the new `FindObjectsByType` overloads (MAINT-003). |
-| Netcode for GameObjects | 2.13.3 | Current 2.13 line (2.13.0 announced July 2026) | `[ServerRpc(RequireOwnership = false)]` is obsolete. Replace it with `[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]`. Replace the `[ClientRpc]` + `ClientRpcParams` targeting with `[Rpc(SendTo.SpecifiedInParams)]` and `RpcParams`, and read the sender from `RpcParams.Receive.SenderClientId`. These attributes generate different code, so re-run the wire batch check and all four CLI player scenarios afterward. |
+| Netcode for GameObjects | 2.13.3 | Current 2.13 line (2.13.0 announced July 2026) | **Done (MAINT-003)**, with the steps listed here. `[ServerRpc(RequireOwnership = false)]` is obsolete. Replace it with `[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]`. Replace the `[ClientRpc]` + `ClientRpcParams` targeting with `[Rpc(SendTo.SpecifiedInParams)]` and `RpcParams`, and read the sender from `RpcParams.Receive.SenderClientId`. These attributes generate different code, so re-run the wire batch check and all four CLI player scenarios afterward. |
 | Unity Transport | 6.6.0 (built-in, resolved by the editor) | Built into the editor since Unity 6.5; changes ship in editor release notes | No code change needed. `MaxPayloadSize` limits only unreliable sends (see M5). The reliable pipeline window is 64 packets. If payloads grow a lot, watch the send queue (exceeding it disconnects the peer) rather than `MaxPayloadSize`. |
-| Lobby | 1.1.0 | Deprecated in Unity 6 in favor of `com.unity.services.multiplayer` | Remove `com.unity.services.lobby` and `com.unity.services.relay`, add `com.unity.services.multiplayer`, change `Lobbies.Instance` to `LobbyService.Instance` (`SimpleMatchmaking.cs:63, 93, 118`), and update any asmdef references. Decide during NET-003 whether to migrate or retire `SimpleMatchmaking`. |
-| Relay | 1.0.5 | Deprecated in favor of the same Multiplayer Services package | `RelayService.Instance` calls in `SimpleMatchmaking` and `RelayTester` move with the package. Confirm namespaces and the Relay server-data setup against the Multiplayer Services migration guide during NET-003. |
+| Lobby | 1.1.0 → **Multiplayer Services 2.3.3 (migrated)** | Deprecated in Unity 6 in favor of `com.unity.services.multiplayer` | **Done.** Remove `com.unity.services.lobby` and `com.unity.services.relay`, add `com.unity.services.multiplayer`, change `Lobbies.Instance` to `LobbyService.Instance` (`SimpleMatchmaking.cs:63, 93, 118`), and update any asmdef references. Decide during NET-003 whether to migrate or retire `SimpleMatchmaking`. |
+| Relay | 1.0.5 → **Multiplayer Services 2.3.3 (migrated)** | Deprecated in favor of the same Multiplayer Services package | **Done.** `ToRelayServerData("dtls")` replaced the manual UDP setup. `RelayService.Instance` calls in `SimpleMatchmaking` and `RelayTester` move with the package. Confirm namespaces and the Relay server-data setup against the Multiplayer Services migration guide during NET-003. |
 | Authentication | 3.8.0 (dependency) | Pulled in by the services packages | Comes along with Multiplayer Services; no direct code change expected. |
 
 Sources: [NGO 2.13.0 announcement and changelogs](https://discussions.unity.com/tag/Netcode-for-GameObjects), [Unity Transport changelog](https://docs.unity3d.com/Packages/com.unity.transport@6.5/changelog/CHANGELOG.html), [Multiplayer Services migration path](https://docs.unity.com/en-us/mps-sdk/migration-path), [Multiplayer Services FAQ](https://docs.unity.com/en-us/mps-sdk/faq). Installed behavior was read from `Library/PackageCache/com.unity.netcode.gameobjects@…/Runtime` (`UnityTransport.cs`, `FastBufferWriter.cs`, `RpcAttributes.cs`).
@@ -203,3 +281,5 @@ Sources: [NGO 2.13.0 announcement and changelogs](https://discussions.unity.com/
 - [ ] Behavior that depends on a library setting is confirmed against the installed source or with a measurement.
 - [ ] Fault cases (duplicate, drop, reorder, delay) are exercised through `LoopbackRelay` before relying on live play.
 - [ ] Simulated, localhost CLI and live-service evidence are reported separately.
+- [ ] Identity that must survive a reconnect is a seat with a secret, never a transport ID; a failed claim receives no private data.
+- [ ] Every `Task` from a service call is awaited or explicitly observed; `async void` is limited to event handlers that catch everything.

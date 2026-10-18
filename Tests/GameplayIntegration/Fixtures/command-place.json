@@ -1,1 +1,1 @@
-{"RequestId":"p","Expected":{"MatchId":"wire","RoundIndex":-1,"TurnNumber":-1,"Revision":0},"Kind":1,"DominoId":3,"Train":{"IsShared":true,"Owner":-1},"Target":-1,"WireVersion":1,"HasExpected":true,"HasTrain":true}
+{"RequestId":"p","Expected":{"MatchId":"wire","RoundIndex":-1,"TurnNumber":-1,"Revision":0},"Kind":1,"DominoId":3,"Train":{"IsShared":true,"Owner":-1},"Target":-1,"WireVersion":2,"HasExpected":true,"HasTrain":true}

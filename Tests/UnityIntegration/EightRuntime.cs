@@ -20,8 +20,9 @@ public sealed class EightRuntime:MonoBehaviour
     IEnumerator Start()
     {
         host=Environment.GetCommandLineArgs().Contains("--integration-host");
-        foreach(var m in FindObjectsByType<SimpleMatchmaking>(FindObjectsSortMode.None))m.enabled=false;
-        yield return new WaitForSecondsRealtime(2);session=FindFirstObjectByType<GameSession>();var net=NetworkManager.Singleton;
+        foreach(var m in FindObjectsByType<SimpleMatchmaking>())m.enabled=false;
+        yield return new WaitForSecondsRealtime(2);session=FindAnyObjectByType<GameSession>();var net=NetworkManager.Singleton;
+        var sound=FindAnyObjectByType<Assets.Scripts.Game.SoundManager>();Assert(sound!=null&&sound.IsMuted&&AudioListener.volume==0f,"audio-muted-for-testing");
         net.GetComponent<UnityTransport>().SetConnectionData("127.0.0.1",17899);
         Assert(host?net.StartHost():net.StartClient(),"network-start");yield return Wait(()=>net.IsConnectedClient&&session.IsSpawned,"spawn");role="seat"+net.LocalClientId;
         if(host)

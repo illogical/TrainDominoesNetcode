@@ -1,6 +1,6 @@
 ---
 artifact_contract: ce-unified-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: implemented
 product_contract_source: ce-plan-bootstrap
 execution: code
 title: Mute Game Audio During Editor Testing - Plan
@@ -9,6 +9,22 @@ date: 2026-10-18
 ---
 
 # Mute Game Audio During Editor Testing - Plan
+
+## Implementation outcome (2026-10-18)
+
+Implemented in `SoundManager`. The plan's assumption that CLI `-batchmode -nographics` players are inaudible was wrong: the user heard click sounds during harness runs on macOS. The policy (`SoundManager.IsTestingSession`) was therefore widened:
+
+- **Muted:** Editor Play Mode by default (the Inspector field `playSoundInEditor` overrides this), every batchmode player, and any player started with `--mute-audio`.
+- **Audible:** normal player builds started without the flag.
+- **Listener muted too:** when muted, `AudioListener.volume` is set to 0, so future sound paths follow the same policy. The previous volume is restored on destroy, so Editor Play Mode does not leave the listener silent.
+- **No scene edit:** the new serialized field defaults to off, which already gives the intended Editor behavior.
+- **Small fix:** `Random.Range(0, Count - 1)` never chose the last clip; it now uses `Count`.
+
+Verification:
+
+- `Tests/UnityIntegration/TestingAudioBatch.cs` passes 7/7 policy checks in a Unity batch Editor.
+- All four CLI player scenarios assert `audio-muted-for-testing` (14 player logs), and the runners also pass `--mute-audio`.
+- Not verified, because it needs audible or interactive checks the user asked to avoid: the audible click in a normal player build, and the Inspector override during real Editor Play Mode. Those paths are covered statically and by the policy matrix only.
 
 ## Goal Capsule
 

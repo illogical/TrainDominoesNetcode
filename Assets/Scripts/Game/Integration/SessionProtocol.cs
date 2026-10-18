@@ -128,9 +128,24 @@ namespace Assets.Scripts.Game.Integration
         public PlayerViewDto View;
         public PresentationEventDto[] Events = Array.Empty<PresentationEventDto>();
         public CommandOutcome Outcome;
+        /// <summary>
+        /// The recipient's own reconnect secret (NET-004). Sent only in that seat's projection; a reconnecting
+        /// client presents it to reclaim the seat from a new transport identity. Empty when not seated.
+        /// </summary>
+        public string SeatSecret;
+        /// <summary>Seats whose player is currently disconnected, so every peer can show who is missing.</summary>
+        public int[] MissingSeats = Array.Empty<int>();
         // Wire-only fields, written and read by WireCodec. In memory, absence is null.
         public int WireVersion;
         public bool HasView, HasOutcome;
+    }
+    /// <summary>A reconnecting client's claim to its earlier seat (NET-004).</summary>
+    [Serializable] public sealed class ReclaimRequest
+    {
+        public string MatchId;
+        public int Seat = -1;
+        public string Secret;
+        public int WireVersion;
     }
     public sealed class RecipientPacket { public ulong Recipient; public ProjectionPacket Packet; }
 }

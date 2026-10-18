@@ -11,6 +11,8 @@ using TrainDominoesRulesEngine;
 /// </summary>
 internal static class WireContractChecks
 {
+    private static readonly string Current = "\"WireVersion\":" + WireCodec.Version;
+    private static string Version(int v) => "\"WireVersion\":" + v;
     private static int assertions;
     private static void Check(bool condition, string message) { assertions++; if (!condition) throw new Exception(message); }
     private static readonly WireCodec Codec = LoopbackRelay.Codec;
@@ -69,8 +71,8 @@ internal static class WireContractChecks
         var valid = Encode(new CommandRequest { RequestId = "r", Kind = CommandKind.Draw });
         foreach (var bad in new[] { null, "", "{", "null", "[]", "42", "{\"Kind\":\"Draw\"}", valid.Substring(0, valid.Length / 2) })
             Check(Command(bad) == null, "malformed command rejected: " + (bad ?? "<null>"));
-        Check(Command(valid.Replace("\"WireVersion\":1", "\"WireVersion\":2")) == null, "wrong command version rejected");
-        Check(Command(valid.Replace("\"WireVersion\":1", "\"WireVersion\":0")) == null, "unversioned command rejected");
+        Check(Command(valid.Replace(Current, Version(WireCodec.Version + 1))) == null, "wrong command version rejected");
+        Check(Command(valid.Replace(Current, Version(0))) == null, "unversioned command rejected");
         Check(Command(valid.Replace("\"Kind\":2", "\"Kind\":99")) == null, "unknown command kind rejected");
         Check(Command(valid.Replace("\"HasTrain\":false", "\"HasTrain\":true")) == null, "flagged but missing train rejected");
         Check(Command(valid.Replace("\"RequestId\":\"r\"", "\"RequestId\":\"" + new string('a', WireCodec.MaximumCommandWireBytes) + "\"")) == null, "oversized command rejected before parsing");
@@ -80,8 +82,8 @@ internal static class WireContractChecks
         var packet = Encode(host.GetProjection(10));
         foreach (var bad in new[] { null, "", "{", "null", "{\"View\":7}", packet.Substring(0, packet.Length - 3) })
             Check(Projection(bad) == null, "malformed projection rejected: " + (bad ?? "<null>"));
-        Check(Projection(packet.Replace("\"WireVersion\":1", "\"WireVersion\":2")) == null, "wrong projection version rejected");
-        Check(Projection("{\"WireVersion\":1,\"HasView\":false,\"HasOutcome\":false}") == null, "empty projection rejected");
+        Check(Projection(packet.Replace(Current, Version(WireCodec.Version + 1))) == null, "wrong projection version rejected");
+        Check(Projection("{" + Current + ",\"HasView\":false,\"HasOutcome\":false}") == null, "empty projection rejected");
         Check(Projection(packet.Replace("\"MatchId\":\"wire\"", "\"MatchId\":\"\"")) == null, "view without a match position rejected");
         Check(Projection(packet.Replace("\"HasRequiredTrain\":false", "\"HasRequiredTrain\":true")) == null, "flagged but missing required train rejected");
         var huge = new ProjectionPacket { Outcome = new CommandOutcome { RequestId = new string('a', WireCodec.MaximumProjectionWireBytes), Position = new TokenDto() } };

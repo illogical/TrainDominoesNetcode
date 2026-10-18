@@ -106,8 +106,60 @@ The scene's UnityTransport `MaxPayloadSize` (6144) does not constrain these size
 
 The source hash is in `Tests/UnityIntegration/production-source-net002.sha256`; it uses the same method as the refactor hash and reproduces that hash for `d7051d9`. The console wire checks use System.Text.Json; JsonUtility evidence comes only from the Unity batch check. None of this is live-service evidence.
 
+## NET-001, NET-005, NET-006 validation (2026-10-18)
+
+Implements the [validation plan](plans/2026-10-18-feat-net-001-005-006-multiplayer-validation-plan.md). Gameplay code is unchanged. The testing audio mute changed `SoundManager`.
+
+**Console (simulated delivery through `LoopbackRelay` and the production `WireCodec`):**
+
+| Suite | Assertions | Covers |
+| --- | --- | --- |
+| `AdversarialChecks` (NET-001) | 5,603 | Raw out-of-turn commands at 2, 3 and 8 players; stale and repeated draw and end-turn; invalid tile, train, target and request IDs; unseated sender; unauthorized undo; empty-boneyard draw and pass; one shared train in every delivered view; recovery after rejection; per-step convergence over full 13-round matches (2p Immediate, 4p Draft, 8p Immediate) |
+| `PrivacyAnnouncementChecks` (NET-005) | 79 | Draft place, undo and commit privacy; draw sealing a provisional double; competing, self, repeated and expired challenges; DrawOneTile, None and empty-pile penalties; announcement during a window |
+| `DeliveryFaultChecks` (NET-006) | 75 | Delayed or dropped commands; dropped outcomes recovered by retry or synchronization; triplicated projections; projections reversed across six steps; undo and replacement revision gap; round end with a lagging presenter; suspension with queued and late commands; duplicated penalty packet |
+
+- **Privacy on every payload:** each delivered payload is checked for foreign provisional tiles, foreign private events, tiles another player holds, own-hand and public-count agreement, and 90-tile accounting.
+- **Presented once:** each fault case also checks that no (match, revision) is presented incrementally twice.
+- **The checks can fail:** two deliberate production mutations (no audience filter; accepting older revisions) made the suites fail, and both were reverted.
+
+**Real transport (Unity CLI players, localhost Netcode RPCs):**
+
+| Scenario | Outcome |
+| --- | --- |
+| Immediate, Draft, eight-player, presentation-only | Pass. Each player now checks privacy invariants on every received view, for example 946 and 988 views in the Draft run with no foreign provisional tile. Every scenario also asserts `audio-muted-for-testing`. |
+| `--challenge` (DrawOneTile, new) | Pass. 16 challenges won; the target privately received 16 penalty tiles. Self and repeated challenges were rejected, and the challenger's draw allowance was unchanged. One conclusive expired-challenge rejection; other expiry probes were overtaken by the opponent's move and are logged as inconclusive. |
+| `--challenge --penalty-none` (new) | Pass. 11 challenges won, with no tile drawn and the missed announcement shown to both players. |
+
+- **Timing variation:** the timing-dependent stale-retry lines still vary between runs, as recorded above.
+- **Sources match:** the isolated project's `Assets/Scripts` matched the working tree (`diff -rq`), and its hash is in `Tests/UnityIntegration/production-source-net001.sha256`.
+- **Not live-service evidence:** Relay/Lobby are not exercised.
+
+## NET-003, MAINT-003, NET-004 (2026-10-18)
+
+Implements the [entry-path and reconnect plan](plans/2026-10-18-feat-net-003-004-entry-paths-and-reconnect-plan.md). Packages: Lobby 1.1.0 and Relay 1.0.5 were replaced by Multiplayer Services 2.3.3. RPCs now use NGO's `[Rpc]` attributes. Seats can be reclaimed with host-issued secrets, and `WireCodec.Version` is 2.
+
+| Check | Outcome |
+| --- | --- |
+| Core NUnit / `-warnaserror` build | 48 passed; 0 warnings |
+| `Tests/GameplayIntegration` | Boundary 26, relay 12, wire 44, NET-001 5,603, NET-005 79, NET-006 75 and new NET-004 `ReconnectChecks` 52 assertions, all passed |
+| `Tests/StateMachine`, `Tests/ClientInteraction`, `verify_unity_compile.py` | Passed |
+| Strict state map, HEAD vs working tree | No added or removed states or transitions |
+| Unity batch `WireContractBatch` (version 2, fixtures regenerated) | 34/34; eight-player worst case 22,488 wire bytes (2.91× headroom) |
+| Unity batch `TestingAudioBatch` | 7/7 |
+| Unity player build | No compile errors and no obsolete-API warnings from `Assets/Scripts` or the harness |
+| CLI players on the migrated RPCs and packages | Immediate, Draft, eight-player, presentation-only, `--challenge`, `--challenge --penalty-none` and the new `--reconnect` all passed. The reconnect run passed twice. |
+| Mutation: seat-secret check removed | Caught ("a wrong secret is rejected"); restored |
+
+- **What `--reconnect` proves over real Netcode transport:**
+  - The client drops while a move is in flight, presses Retry (the existing suspended-state action), reconnects with a new transport ID and reclaims its seat; its secret rotates.
+  - The in-flight request had not reached the host and was resolved without effect.
+  - A forged claim for the other seat over a real RPC is refused with no state change.
+  - The host reported "Player 2 missing", then "everyone back", resumed, and the match completed 13 rounds.
+- **Sources match:** the isolated project's `Assets/Scripts` matched the working tree, and its hash is in `Tests/UnityIntegration/production-source-net004.sha256`.
+- **Not yet verified live:** the online Lobby + Relay path and `RejoinRelay`. They need network access and the user's permission (`run_players.py --live`).
+
 ## Remaining limits
 
-Human-visible layout/motion quality, pointer/raycast usability, live Lobby/Relay, packet-loss recovery, seat reauthentication/reconnect, valid announcement-penalty delivery over real RPCs, deliberate joint-winner fixtures, and exhaustive malformed/unauthorized transport cases are not established by these smoke runs. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.
+Human-visible layout/motion quality, pointer/raycast usability, live Lobby/Relay (including Relay rejoin), host migration, recovery after an app restart and deliberate joint-winner fixtures are not established by these runs. Packet loss below the reliable transport is simulated only. Competing challenges among three or more players and empty-pile penalties are covered by console checks only. Core and console assertions cover more cases but do not promote them to live transport evidence. Keep NET-001 and networking follow-up tasks open until their remaining criteria are met.
 
 Settings GUI, final art, payload compaction, persistent recovery and detailed reconnect UX remain deferred. No gameplay decision depends on animation completion. No task is considered complete merely because its source compiles or its graph is present.

@@ -72,7 +72,7 @@ This indicates an unfinished turn/state refactor followed by presentation work, 
 | `RoundManager` (removed) / models | Round records, cumulative totals, lowest-score winners; station and track data | Current round limit is 12; selected Puremco target is 13 engines, twelve through blank |
 | [Player states](../Scripts/Game/States) | Local subscriptions, available input, RPC requests, and UI transitions | These are local interaction states, not a complete authoritative world-state machine |
 | Presentation | `InputManager`, `MeshManager`, `LayoutManager`, UI scripts, helpers, and ScriptableObject animation/sound settings | Keep visuals and animation timing outside the future rules core |
-| Networking setup | `MyNetworkManager`, `DominoPlayer`, `NetworkManagerUI`, `SimpleMatchmaking`, `RelayTester` | Several entry paths exist; saved scene enables `SimpleMatchmaking` and disables the `RelayTester` component |
+| Networking setup | `MyNetworkManager`, `DominoPlayer`, `NetworkManagerUI`, `SimpleMatchmaking`, `RelayTester` | The saved scene enables `SimpleMatchmaking` (Lobby + DTLS Relay through Multiplayer Services since 2026-10-18). The other paths are developer tools or legacy; see [networking entry paths](NETWORKING_ENTRY_PATHS.md). |
 
 The main station represents committed tracks. Per-player turn stations hold provisional arrangements; RPCs update the acting player's presentation, then turn completion merges and broadcasts station data. During opening group play, multiple players build provisional tracks before the merge. Hands are mutated while moves are provisional, so extraction must characterize both commit and undo behavior.
 

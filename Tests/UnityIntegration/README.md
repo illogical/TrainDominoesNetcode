@@ -18,7 +18,16 @@ python3 Tests/UnityIntegration/run_players.py
 python3 Tests/UnityIntegration/run_players.py --draft
 python3 Tests/UnityIntegration/run_eight.py
 python3 Tests/UnityIntegration/run_players.py --presentation-only
+python3 Tests/UnityIntegration/run_players.py --challenge
+python3 Tests/UnityIntegration/run_players.py --challenge --penalty-none
+python3 Tests/UnityIntegration/run_players.py --reconnect
 ```
+
+`--reconnect` (NET-004): after three actions, the client submits a move and drops its connection before the answer arrives. It reconnects through the Retry action under a new transport ID and must reclaim the same seat with a rotated secret. A forged claim for the other seat is sent over a real RPC and must be refused. The host must report the missing seat, then everyone back, and resume. The match then finishes.
+
+`--live` (NET-003) connects through the real Unity Lobby + Relay path (`SimpleMatchmaking`) with separate anonymous profiles (`--ugs-profile td-host` and `td-client`). **It uses network services: run it only with the user's permission.**
+
+The two `--challenge` modes (NET-005) play complete Immediate matches without announcing. The player who sees an open window challenges, after first ignoring one window to prove the next accepted action closes it. They check self and repeated challenge rejections, penalty application and allowance, and private penalty delivery. Every mode checks privacy invariants on each received view.
 
 The builder writes `/tmp/td-integration-build/Integration.app`; the runner starts two actual player processes over `127.0.0.1:17898`. Do not run the two modes concurrently. The runner clears its own coordination files, applies a bounded deadline, terminates remaining child processes on failure, and writes filtered evidence logs only after both players pass. Unity requires access to its local Package Manager Unix socket and localhost UDP sockets, which may require sandbox escalation.
 
@@ -31,6 +40,10 @@ A complete smoke run is not exhaustive adapter coverage. Packet loss, uncertain 
 The eight-player harness runs on port 17899. It checks nine trains and nine tiles per hand at all eight recipients, a host action, participant disconnect suspension, disabled input, and a replacement match with the seven remaining seats. Readiness and normal commands may receive safe StalePosition rejections when participants act concurrently; the harness retries from the latest view after acknowledgment.
 
 Valid challenge penalties and explicit private-draft information-leak assertions over real serialized transport are implemented but unverified by these smoke scenarios; the source-linked boundary suite provides separate coverage. Both supported penalty settings (DrawOneTile/None) are not both exercised here.
+
+## Silent testing
+
+Batchmode players are muted by `SoundManager` (a batchmode macOS player otherwise still plays sound), and the runners also pass `--mute-audio`. Every scenario asserts `audio-muted-for-testing`. To check the mute policy itself, copy `TestingAudioBatch.cs` into the temporary project's `Assets/Editor` and run `-executeMethod TestingAudioBatch.Run`.
 
 ## Wire contract batch check (NET-002)
 

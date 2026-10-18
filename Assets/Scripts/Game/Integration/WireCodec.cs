@@ -15,7 +15,11 @@ namespace Assets.Scripts.Game.Integration
     public sealed class WireCodec
     {
         /// <summary>Bump when the payload shape changes. Host and clients must run the same build.</summary>
-        public const int Version = 1;
+        /// <remarks>2: projections carry the recipient's seat secret and the missing seats (NET-004).</remarks>
+        public const int Version = 2;
+
+        /// <summary>Seat secrets are 32 hex characters; anything longer is not one.</summary>
+        public const int MaximumSecretLength = 64;
 
         /// <summary>
         /// Upper bound for one projection, in on-wire bytes. Reliable RPCs are streamed by Unity Transport,
@@ -67,6 +71,24 @@ namespace Assets.Scripts.Game.Integration
             return Finish(toJson(packet), MaximumProjectionWireBytes, out json, out error);
         }
 
+        public bool TryEncode(ReclaimRequest reclaim, out string json, out string error)
+        {
+            json = null;
+            if (reclaim == null) { error = "No reclaim request to encode."; return false; }
+            reclaim.WireVersion = Version;
+            return Finish(toJson(reclaim), MaximumCommandWireBytes, out json, out error);
+        }
+
+        public bool TryDecodeReclaim(string json, out ReclaimRequest reclaim, out string error)
+        {
+            reclaim = null;
+            if (!TryParse(json, MaximumCommandWireBytes, out reclaim, out error)) return false;
+            if (reclaim.WireVersion != Version) return Fail(out error, $"Wire version {reclaim.WireVersion} does not match {Version}.", ref reclaim);
+            if (string.IsNullOrEmpty(reclaim.MatchId) || string.IsNullOrEmpty(reclaim.Secret) || reclaim.Secret.Length > MaximumSecretLength || reclaim.Seat < 0)
+                return Fail(out error, "Reclaim request is incomplete.", ref reclaim);
+            return true;
+        }
+
         public bool TryDecodeCommand(string json, out CommandRequest request, out string error)
         {
             request = null;
@@ -91,6 +113,10 @@ namespace Assets.Scripts.Game.Integration
             if (packet.HasOutcome && (packet.Outcome == null || packet.Outcome.Position == null)) return Fail(out error, "Outcome is flagged but incomplete.", ref packet);
             if (packet.Events == null) packet.Events = Array.Empty<PresentationEventDto>();
             if (packet.Events.Length > MaximumArrayLength) return Fail(out error, "Too many events.", ref packet);
+            if (packet.MissingSeats == null) packet.MissingSeats = Array.Empty<int>();
+            if (packet.MissingSeats.Length > 8) return Fail(out error, "Too many missing seats.", ref packet);
+            if (string.IsNullOrEmpty(packet.SeatSecret)) packet.SeatSecret = null; // JsonUtility writes absent strings as ""
+            else if (packet.SeatSecret.Length > MaximumSecretLength) return Fail(out error, "Seat secret is too long.", ref packet);
             if (packet.HasView && !TryNormalize(packet.View, out error)) { packet = null; return false; }
             return true;
         }

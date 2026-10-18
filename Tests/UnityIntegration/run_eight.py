@@ -10,7 +10,7 @@ for path in Path('/tmp').glob('td-eight-*'):
 processes = []
 try:
     for index in range(8):
-        command = [app, '-batchmode', '-nographics', '--integration-eight', '-logFile', f'/tmp/td-eight-{index}.log']
+        command = [app, '-batchmode', '-nographics', '--mute-audio', '--integration-eight', '-logFile', f'/tmp/td-eight-{index}.log']
         if index == 0: command.append('--integration-host')
         processes.append(subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT))
         time.sleep(1)

@@ -16,9 +16,14 @@ using UnityEngine;
 public sealed class IntegrationRuntime:MonoBehaviour
 {
     CommandRequest captured; PlayerViewDto initialView;
-    bool host,draft,gapOnly; string role; GameSession session; int actions, placements, draws, passes, undos, ends, rounds, announcements; bool undoDone;
+    bool host,draft,gapOnly,challenge,penaltyNone,live,reconnect;
+    // NET-004 over real transport.
+    bool dropped, sawMissing, resumed; string role; GameSession session; int actions, placements, draws, passes, undos, ends, rounds, announcements; bool undoDone;
+    // NET-005 over real transport: privacy invariants on every received view, and challenge/penalty bookkeeping.
+    int privacyViews, challengesWon, penaltiesReceived, missedSeen, expiredRejected; bool windowSkipped, expiryPending;
     ClientSession Client=>session.Client;
-    string Prefix=>gapOnly?"/tmp/td-integration-presentation":draft?"/tmp/td-integration-draft":"/tmp/td-integration-immediate";
+    string Mode=>reconnect?"reconnect":live?"live":gapOnly?"presentation":draft?"draft":challenge?(penaltyNone?"challenge-none":"challenge"):"immediate";
+    string Prefix=>"/tmp/td-integration-"+Mode;
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { if(!Environment.GetCommandLineArgs().Contains("--integration-eight")) new GameObject("IntegrationRuntime").AddComponent<IntegrationRuntime>(); }
     void Mark(string s)=>Debug.Log("INTEGRATION "+role+" "+s);
     void Assert(bool condition,string name) { if(!condition) throw new Exception("ASSERT "+name); Mark("PASS "+name); }
@@ -30,18 +35,41 @@ public sealed class IntegrationRuntime:MonoBehaviour
     IEnumerator Start()
     {
         host=Environment.GetCommandLineArgs().Contains("--integration-host"); draft=Environment.GetCommandLineArgs().Contains("--integration-draft"); gapOnly=Environment.GetCommandLineArgs().Contains("--presentation-only"); role=host?"host":"client";
-        foreach(var m in FindObjectsByType<SimpleMatchmaking>(FindObjectsSortMode.None)) m.enabled=false;
+        challenge=Environment.GetCommandLineArgs().Contains("--integration-challenge"); penaltyNone=Environment.GetCommandLineArgs().Contains("--integration-penalty-none");
+        // --integration-live uses the scene's real Lobby + Relay path (SimpleMatchmaking); every other mode is localhost.
+        live=Environment.GetCommandLineArgs().Contains("--integration-live");
+        reconnect=Environment.GetCommandLineArgs().Contains("--integration-reconnect");
+        if(!live) foreach(var m in FindObjectsByType<SimpleMatchmaking>()) m.enabled=false;
         yield return new WaitForSecondsRealtime(2);
-        session=FindFirstObjectByType<GameSession>();
+        session=FindAnyObjectByType<GameSession>();
+        var sound=FindAnyObjectByType<Assets.Scripts.Game.SoundManager>();Assert(sound!=null&&sound.IsMuted&&AudioListener.volume==0f,"audio-muted-for-testing");
         Client.RequestChanged+=(sender,args)=> { if(Client.Pending!=null) captured=WireCopy(Client.Pending); };
-        var net=NetworkManager.Singleton; net.GetComponent<UnityTransport>().SetConnectionData("127.0.0.1",17898);
-        Assert(host?net.StartHost():net.StartClient(),"network-start");
-        yield return Wait(()=>net.IsConnectedClient && session.IsSpawned,"network-spawn");
+        Client.ViewChanged+=(sender,args)=>CheckPrivacy(Client.View);
+        Client.PresentationRequested+=(old,next,events,generation,reconcile)=>CheckEvents(next,events);
+        var net=NetworkManager.Singleton;
+        if(live)
+        {
+            // The host creates a lobby and Relay allocation; the client then quick-joins it through the same button handler.
+            var matchmaking=FindAnyObjectByType<SimpleMatchmaking>();
+            if(!host) yield return Wait(()=>File.Exists(Prefix+"-lobby"),"host-lobby-created",60);
+            matchmaking.CreateOrJoinLobby();
+            yield return Wait(()=>net.IsListening,"relay-network-start",60);
+            Assert(host?net.IsHost:net.IsClient && !net.IsHost,"live-role-"+role);
+            if(host) File.WriteAllText(Prefix+"-lobby","lobby");
+            yield return Wait(()=>net.IsConnectedClient && session.IsSpawned,"network-spawn",60);
+            Mark("PASS live-relay-connected protocol="+net.GetComponent<UnityTransport>().Protocol);
+        }
+        else
+        {
+            net.GetComponent<UnityTransport>().SetConnectionData("127.0.0.1",17898);
+            Assert(host?net.StartHost():net.StartClient(),"network-start");
+            yield return Wait(()=>net.IsConnectedClient && session.IsSpawned,"network-spawn");
+        }
         if(host)
         {
-            yield return Wait(()=>net.ConnectedClientsIds.Count==2,"two-peers");
+            yield return Wait(()=>net.ConnectedClientsIds.Count==2,"two-peers",live?90:25);
             var ids=net.ConnectedClientsIds.OrderBy(i=>i).ToArray();
-            var authority=new AuthoritativeMatchCoordinator("cli-"+(draft?"draft":"immediate"),ids,0,new MatchSettings(draft?CommitmentMode.Draft:CommitmentMode.Immediate,AnnouncementPenalty.DrawOneTile),Deck);
+            var authority=new AuthoritativeMatchCoordinator("cli-"+Mode,ids,0,new MatchSettings(draft?CommitmentMode.Draft:CommitmentMode.Immediate,penaltyNone?AnnouncementPenalty.None:AnnouncementPenalty.DrawOneTile),Deck);
             typeof(GameSession).GetField("authority",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(session,authority);
             File.WriteAllText(Prefix+"-ready","ready");
         }
@@ -61,22 +89,43 @@ public sealed class IntegrationRuntime:MonoBehaviour
         }
         if(!host) yield return Wait(()=>File.Exists(Prefix+"-first-done"),"host-first-action");
         float started=Time.realtimeSinceStartup;
-        while(Client.View.Phase!=MatchPhase.MatchOver && Time.realtimeSinceStartup-started<300)
+        while(Client.View.Phase!=MatchPhase.MatchOver && Time.realtimeSinceStartup-started<(live?540:300))
         {
-            if(Client.View.IsSuspended) throw new Exception("unexpected suspension");
+            if(Client.View==null) { yield return null; continue; } // between a dropped connection and the reclaim
+            if(Client.View.IsSuspended)
+            {
+                if(!reconnect) throw new Exception("unexpected suspension");
+                if(host)
+                {
+                    if(Client.MissingSeats.Length>0 && !sawMissing) { sawMissing=true; Assert(Client.MissingSeats.SequenceEqual(new[]{1}),"host-sees-missing-seat"); }
+                    else if(Client.MissingSeats.Length==0 && sawMissing && !resumed)
+                    {
+                        Mark("PASS host-sees-everyone-back");resumed=true;
+                        Client.Resume(); yield return Wait(()=>!Client.View.IsSuspended,"host-resumed");
+                    }
+                }
+                yield return null; continue;
+            }
             if(Client.View.Phase==MatchPhase.RoundOver)
             {
                 rounds=Client.View.RoundResults.Length;
                 if(Client.CanSubmit && Client.View.Allowed.CanReady) Client.Ready();
                 yield return null; continue;
             }
-            if(Client.CanSubmit && Client.View.Allowed.CanAnnounce)
+            if(challenge && Client.CanSubmit && Client.View.Allowed.ChallengeTargets.Length>0)
+            {
+                // The first window is deliberately ignored so the next accepted action can be shown to close it.
+                if(!windowSkipped) { windowSkipped=true; expiryPending=true; Mark("challenge-window-left-to-expire"); }
+                else if(!expiryPending) { yield return Challenge(Client.View.Allowed.ChallengeTargets[0]); yield return null; continue; }
+            }
+            if(!challenge && Client.CanSubmit && Client.View.Allowed.CanAnnounce)
             {
                 Client.Submit(CommandKind.Announce);yield return Wait(()=>Client.Pending==null,"announce-settled");
                 if(string.IsNullOrEmpty(Client.Feedback)) {announcements++;Mark("PASS accepted-Announce");}
                 yield return null;continue;
             }
             if(!Client.BoardEnabled) { yield return null; continue; }
+            if(reconnect && !host && !dropped && actions>=3) { yield return DropAndReclaim(net); continue; }
             var view=Client.View;
             CommandKind kind; int tile=-1; TrainIdDto train=null;
             if(draft && view.Allowed.CanUndo && !undoDone) { kind=CommandKind.Undo; undoDone=true; undos++; }
@@ -92,6 +141,18 @@ public sealed class IntegrationRuntime:MonoBehaviour
             yield return Wait(()=>Client.Pending==null,"request-settled");
             if(Client.Feedback==RuleError.StalePosition.ToString()) { Mark("observed-safe-stale-"+kind+" retry-from-latest-view");yield return null;continue; }
             Assert(string.IsNullOrEmpty(Client.Feedback),"accepted-"+kind);
+            if(expiryPending && Client.View.Phase!=MatchPhase.Playing) { expiryPending=false; windowSkipped=false; } // round ended: try again next window
+            if(expiryPending)
+            {
+                expiryPending=false;
+                // My accepted play closed the window I ignored; a late challenge must now be rejected.
+                int target=1-Client.View.Player;long turn=Client.View.Token.TurnNumber;bool closed=Client.View.Allowed.ChallengeTargets.Length==0;
+                Client.Submit(CommandKind.Challenge,target:target);yield return Wait(()=>Client.Pending==null,"expired-challenge-settled");
+                if(Client.Feedback==RuleError.ChallengeNotAllowed.ToString()) { Assert(closed,"window-closed-by-next-accepted-action");Mark("PASS expired-challenge-rejected");expiredRejected++; }
+                else if(Client.View.Phase!=MatchPhase.Playing || Client.View.Token.TurnNumber!=turn || Client.Feedback==RuleError.StalePosition.ToString())
+                { Mark("expired-challenge-inconclusive-opponent-moved-first");windowSkipped=false; } // real concurrency: retry at a later window
+                else throw new Exception("ASSERT expired-challenge-rejected feedback="+Client.Feedback);
+            }
             yield return Wait(()=>!Client.IsPresentationBusy,"motion-complete");
             if(kind==CommandKind.Place && Client.View.Token.RoundIndex==view.Token.RoundIndex) AssertPlacement(tile);
             if(actions==1 && host)
@@ -111,13 +172,15 @@ public sealed class IntegrationRuntime:MonoBehaviour
         }
         Assert(Client.View.Phase==MatchPhase.MatchOver,"thirteen-round-match-complete");
         Assert(Client.View.RoundResults.Length==13 && Client.View.Winners.Length>0,"scores-and-winners");
+        Assert(privacyViews>0,"privacy-invariants-checked");
+        Mark($"PRIVACY views={privacyViews} challengesWon={challengesWon} penaltiesReceived={penaltiesReceived} missedSeen={missedSeen} expiredRejected={expiredRejected}");
         Mark($"COUNTS actions={actions} placements={placements} draws={draws} passes={passes} undos={undos} endTurns={ends} announcements={announcements}");
         File.WriteAllText(Prefix+"-"+role+"-complete","complete");
         if(host)
         {
             yield return Wait(()=>File.Exists(Prefix+"-client-complete"),"client-match-complete");
             yield return PresentationProbes();
-            Client.NewMatch(); yield return Wait(()=>Client.View.Token.MatchId!="cli-"+(draft?"draft":"immediate"),"fresh-match");
+            Client.NewMatch(); yield return Wait(()=>Client.View.Token.MatchId!="cli-"+Mode,"fresh-match");
             Assert(Client.View.RoundResults.Length==0 && Client.View.Totals.All(t=>t.Count==0),"fresh-match-clears-scores");
             File.WriteAllText(Prefix+"-reset","reset");
             yield return Wait(()=>File.Exists(Prefix+"-client-reset"),"client-reset");
@@ -133,9 +196,81 @@ public sealed class IntegrationRuntime:MonoBehaviour
         }
         Mark("PASS ALL"); yield return new WaitForSecondsRealtime(1); Application.Quit(0);
     }
+    /// <summary>NET-004: lose the connection in the middle of an action, reconnect through Retry, reclaim the seat.</summary>
+    IEnumerator DropAndReclaim(NetworkManager net)
+    {
+        dropped=true;
+        int seat=Client.View.Player,hand=Client.View.Hand.Length;string secret=Client.Credential.Secret;
+        // It is my turn: send a move and drop the connection before its answer arrives.
+        var v=Client.View;
+        if(v.LegalPlacements.Length>0) Client.Submit(CommandKind.Place,v.LegalPlacements[0].DominoId,v.LegalPlacements[0].Train);
+        else if(v.Allowed.CanDraw) Client.Submit(CommandKind.Draw);
+        else Client.Submit(CommandKind.Pass);
+        Assert(Client.Pending!=null,"request-in-flight-at-drop");
+        net.Shutdown();
+        yield return Wait(()=>!net.IsListening && !net.ShutdownInProgress,"client-dropped");
+        Assert(!Client.IsAvailable && !Client.BoardEnabled,"drop-disables-input");
+        yield return new WaitForSecondsRealtime(1);
+        Client.Synchronize(); // the Retry action: reconnects because the session is no longer spawned
+        yield return Wait(()=>net.IsConnectedClient && session.IsSpawned && Client.View!=null,"reconnected-and-reclaimed",30);
+        Assert(Client.View.Player==seat && Client.Credential.Seat==seat,"same-seat-after-reconnect");
+        Assert(Client.Credential.Secret!=secret,"secret-rotated-after-reclaim");
+        int change=Client.View.Hand.Length-hand;
+        Mark("in-flight request "+(change==0?"was not applied (or a pass)":"applied once, hand "+(change>0?"+":"")+change));
+        Assert(Math.Abs(change)<=1,"hand-preserved-request-applied-at-most-once");
+        // A forged claim for the other seat over a real RPC is refused and changes nothing here.
+        long revision=Client.View.Token.Revision;
+        var forged=new ReclaimRequest{MatchId=Client.Credential.MatchId,Seat=1-seat,Secret=new string('0',32)};
+        Assert(GameSession.Wire.TryEncode(forged,out var claim,out _),"forged-claim-encoded");
+        typeof(GameSession).GetMethod("ReclaimSeatServerRpc",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(session,new object[]{claim,"",default(RpcParams)});
+        yield return Wait(()=>Client.Feedback=="Could not rejoin your seat.","forged-claim-answered");
+        Assert(Client.View.Player==seat && Client.View.Token.Revision==revision,"impersonation-rejected-over-rpc");
+        Mark("reconnect-complete; waiting for the host to resume");
+    }
+    // Every received view: only my own provisional tiles, my hand matches my public count, all 90 tiles accounted for.
+    void CheckPrivacy(PlayerViewDto v)
+    {
+        if(v==null || v.Token.MatchId==null || !v.Token.MatchId.StartsWith("cli-")) return; // synthetic probes are exempt
+        privacyViews++;
+        if(v.Trains.Any(t=>t.Placements.Any(p=>p.IsProvisional && p.PlayedBy!=v.Player))) throw new Exception("ASSERT privacy-no-foreign-provisional");
+        if(v.Phase!=MatchPhase.Playing) return;
+        int own=v.HandCounts.Single(c=>c.Player==v.Player).Count;
+        if(own!=v.Hand.Length) throw new Exception("ASSERT privacy-own-hand-count");
+        int others=v.HandCounts.Where(c=>c.Player!=v.Player).Sum(c=>c.Count);
+        if(v.Hand.Length+others+v.Trains.Sum(t=>t.Placements.Length)+v.BoneyardCount!=90) throw new Exception("ASSERT privacy-tile-accounting");
+    }
+    void CheckEvents(PlayerViewDto next,PresentationEventDto[] events)
+    {
+        foreach(var e in events)
+        {
+            bool personal=e.Kind==EventKind.TileDrawn||e.Kind==EventKind.PenaltyTileDrawn||e.Kind==EventKind.DraftChanged;
+            if(personal && e.Player!=next.Player) throw new Exception("ASSERT privacy-foreign-private-event-"+e.Kind);
+            if(e.Kind==EventKind.PenaltyTileDrawn)
+            {
+                if(!next.Hand.Contains(e.DominoId)) throw new Exception("ASSERT penalty-tile-in-own-hand");
+                penaltiesReceived++;Mark("PASS penalty-tile-received-privately");
+            }
+            if(e.Kind==EventKind.MissedAnnouncement) missedSeen++;
+        }
+    }
+    IEnumerator Challenge(int target)
+    {
+        var before=Client.View;int count=before.HandCounts.Single(c=>c.Player==target).Count;int boneyard=before.BoneyardCount;bool drawUsed=before.DrawAttemptUsed,canDraw=before.Allowed.CanDraw;
+        Client.Submit(CommandKind.Challenge,target:before.Player);yield return Wait(()=>Client.Pending==null,"self-challenge-settled");
+        Assert(Client.Feedback==RuleError.ChallengeNotAllowed.ToString(),"self-challenge-rejected");
+        Client.Submit(CommandKind.Challenge,target:target);yield return Wait(()=>Client.Pending==null,"challenge-settled");
+        Assert(string.IsNullOrEmpty(Client.Feedback),"accepted-Challenge");challengesWon++;
+        yield return Wait(()=>!Client.IsPresentationBusy,"challenge-presented");
+        var after=Client.View;
+        bool drawn=!penaltyNone && boneyard>0;
+        Assert(after.HandCounts.Single(c=>c.Player==target).Count==count+(drawn?1:0) && after.BoneyardCount==boneyard-(drawn?1:0),penaltyNone?"no-penalty-tile-under-None":"penalty-applied-once");
+        Assert(after.DrawAttemptUsed==drawUsed && after.Allowed.CanDraw==canDraw,"penalty-does-not-use-challenger-draw-allowance");
+        Client.Submit(CommandKind.Challenge,target:target);yield return Wait(()=>Client.Pending==null,"repeat-challenge-settled");
+        Assert(Client.Feedback==RuleError.ChallengeNotAllowed.ToString(),"repeat-challenge-rejected");
+    }
         void InvokeButton(string name)
     {
-        var input=FindFirstObjectByType<InputManager>();
+        var input=FindAnyObjectByType<InputManager>();
         var buttons=(Dictionary<string,UnityEngine.UI.Button>)typeof(InputManager).GetField("actions",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(input);
         Assert(buttons[name].interactable,"button-enabled-"+name);buttons[name].onClick.Invoke();
     }
@@ -185,8 +320,8 @@ public sealed class IntegrationRuntime:MonoBehaviour
         Client.Receive(new ProjectionPacket{View=replacement});
         yield return Wait(()=>!Client.IsPresentationBusy,"cancel-replacement-complete");
         yield return new WaitForSecondsRealtime(1);
-        var mesh=FindFirstObjectByType<MeshManager>();var position=mesh.GetDominoMeshById(replacement.Hand[0]).transform.position;
-        var expected=FindFirstObjectByType<LayoutManager>().GetHandPositions(1)[0];
+        var mesh=FindAnyObjectByType<MeshManager>();var position=mesh.GetDominoMeshById(replacement.Hand[0]).transform.position;
+        var expected=FindAnyObjectByType<LayoutManager>().GetHandPositions(1)[0];
         Assert(Vector3.Distance(position,expected)<0.001f&&mesh.GetDominoMeshById(added)==null,"presentation-cancel-old-draw-one-tile-layout");
         Mark("PRESENTATION-ONLY synthetic probes end");
     }
@@ -225,12 +360,12 @@ public sealed class IntegrationRuntime:MonoBehaviour
         var train=view.Trains.FirstOrDefault(t=>t.Placements.Any(p=>p.DominoId==tile));
         if(train==null) return;
         int index=Array.FindIndex(train.Placements,p=>p.DominoId==tile);
-        var expected=FindFirstObjectByType<LayoutManager>().GetTrackPosition(index,GameplayPresenter.TrainSlot(view,train.Id),view.Players.Length+1);
-        var actual=FindFirstObjectByType<MeshManager>().GetDominoMeshById(tile).transform.position;
+        var expected=FindAnyObjectByType<LayoutManager>().GetTrackPosition(index,GameplayPresenter.TrainSlot(view,train.Id),view.Players.Length+1);
+        var actual=FindAnyObjectByType<MeshManager>().GetDominoMeshById(tile).transform.position;
         Assert(!float.IsNaN(actual.x) && !float.IsNaN(actual.y) && !float.IsNaN(actual.z) && Vector3.Distance(expected,actual)<0.001f,"placement-final-transform");
     }
     // Copies and raw sends go through the production wire codec so retries keep the same request identity.
     static string WireJson(CommandRequest request)=>GameSession.Wire.TryEncode(request,out var json,out var error)?json:throw new Exception("ENCODE "+error);
     static CommandRequest WireCopy(CommandRequest request)=>GameSession.Wire.TryDecodeCommand(WireJson(request),out var copy,out var error)?copy:throw new Exception("DECODE "+error);
-    void Raw(CommandRequest request)=>typeof(GameSession).GetMethod("SubmitCommandServerRpc",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(session,new object[]{WireJson(request),default(ServerRpcParams)});
+    void Raw(CommandRequest request)=>typeof(GameSession).GetMethod("SubmitCommandServerRpc",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(session,new object[]{WireJson(request),default(RpcParams)});
 }

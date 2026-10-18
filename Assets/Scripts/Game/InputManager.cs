@@ -94,7 +94,8 @@ public class InputManager : MonoBehaviour,IInteractionInput
         Set("End Turn",view?.Settings?.Commitment==CommitmentMode.Draft && view.Phase==MatchPhase.Playing,board && view.Allowed.CanEndTurn);
         Set("Announce",view?.Phase==MatchPhase.Playing,usable);
         Set("Retry",client.Pending!=null || !client.IsAvailable,true);
-        Set("Resume",view!=null && view.IsSuspended,true);
+        // Resume is the host's action and only works once every seat is connected again (NET-004).
+        Set("Resume",view!=null && view.IsSuspended,client.MissingSeats.Length==0 && Unity.Netcode.NetworkManager.Singleton!=null && Unity.Netcode.NetworkManager.Singleton.IsHost);
         Set("New Match",view!=null && (view.IsSuspended || view.Phase==MatchPhase.MatchOver),true);
         foreach(var button in trains) { button.gameObject.SetActive(view?.Phase==MatchPhase.Playing); button.interactable=board && client.SelectedTile.HasValue; }
         int visibleChallenge=0;
@@ -104,8 +105,13 @@ public class InputManager : MonoBehaviour,IInteractionInput
             if(can) ((RectTransform)challenges[i].transform).anchoredPosition=new Vector2(12+visibleChallenge++*195,12);
             challenges[i].gameObject.SetActive(can); challenges[i].interactable=usable;
         }
-        string phase=view==null ? "Connect players, then Ready to create the match." : view.IsSuspended || !client.IsAvailable ? "Match suspended" : view.Phase==MatchPhase.Playing ? "Player "+(view.ActivePlayer+1)+"'s turn · "+RequirementText(view.Requirement) : view.Phase==MatchPhase.AwaitingDeck ? "Preparing the next round" : view.Phase==MatchPhase.AwaitingReady ? "Ready for the next round" : "Results";
+        string phase=!client.IsAvailable && client.Credential!=null ? "Disconnected from the host · press Retry to reconnect to your seat" : view==null ? "Connect players, then Ready to create the match." : view.IsSuspended || !client.IsAvailable ? SuspendedText(client.MissingSeats) : view.Phase==MatchPhase.Playing ? "Player "+(view.ActivePlayer+1)+"'s turn · "+RequirementText(view.Requirement) : view.Phase==MatchPhase.AwaitingDeck ? "Preparing the next round" : view.Phase==MatchPhase.AwaitingReady ? "Ready for the next round" : "Results";
         status.text=phase+"\n"+(view==null ? "" : "You: Player "+(view.Player+1)+" · Boneyard: "+view.BoneyardCount+" · "+string.Join("  ",view.HandCounts.Select(p=>"P"+(p.Player+1)+": "+p.Count)))+"\n"+client.Feedback;
+    }
+    private static string SuspendedText(int[] missing)
+    {
+        if(missing.Length==0) return "Match suspended · everyone is back; the host can resume";
+        return "Match suspended · waiting for "+string.Join(", ",missing.Select(seat=>"Player "+(seat+1)))+" to reconnect";
     }
     private static string RequirementText(PlayRequirement requirement)
     {

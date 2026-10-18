@@ -17,8 +17,10 @@ namespace Assets.Scripts.Game.Integration
 
         public string LastLifecycleError { get; private set; }
 
-        /// <summary>Transport identities bound to the frozen seats, in seat order.</summary>
-        public IReadOnlyList<ulong> Participants { get; }
+        /// <summary>Transport identities currently bound to the frozen seats, in seat order. A reclaimed seat shows its new transport.</summary>
+        public IReadOnlyList<ulong> Participants { get { lock (gate) return seats.Transports.ToArray(); } }
+
+        public string MatchId { get { lock (gate) return state.Id; } }
 
         private sealed class Cached
         {
@@ -29,7 +31,6 @@ namespace Assets.Scripts.Game.Integration
         public AuthoritativeMatchCoordinator(string matchId, IEnumerable<ulong> transportIds, int startingSeat = 0, MatchSettings settings = null, Func<int, IEnumerable<int>> deckSupplier = null)
         {
             seats = new SeatRegistry(transportIds);
-            Participants = seats.Transports.ToArray();
             state = Core.CreateMatch(matchId, seats.Seats, startingSeat, settings);
             foreach (var seat in seats.Seats) cache[seat] = new Dictionary<string, Cached>(StringComparer.Ordinal);
             this.deckSupplier = deckSupplier ?? ShuffledDeck;
@@ -71,6 +72,19 @@ namespace Assets.Scripts.Game.Integration
             }
         }
 
+        /// <summary>
+        /// NET-004: a reconnecting client proves ownership of its earlier seat with the secret it last received.
+        /// On success the seat (with its history, hand and cached outcomes) moves to the new transport.
+        /// </summary>
+        public ReclaimError Reclaim(ulong transport, ReclaimRequest request, Func<ulong, bool> isConnected)
+        {
+            lock (gate)
+            {
+                if (request == null || request.MatchId != state.Id) return ReclaimError.WrongMatch;
+                return seats.TryRebind(request.Seat, request.Secret, transport, isConnected);
+            }
+        }
+
         public IReadOnlyList<RecipientPacket> Suspend(bool suspended)
         {
             lock (gate)
@@ -104,7 +118,11 @@ namespace Assets.Scripts.Game.Integration
         }
 
         private ProjectionPacket Packet(PlayerId seat, TransitionResult result, CommandOutcome outcome)
-            => RecipientProjection.Build(state, seat, result, Copy(outcome));
+        {
+            var packet = RecipientProjection.Build(state, seat, result, Copy(outcome));
+            packet.SeatSecret = seats.SecretFor(seat); // Only ever this seat's own secret.
+            return packet;
+        }
 
         private IReadOnlyList<RecipientPacket> Reply(PlayerId seat, CommandOutcome outcome)
             => new[] { new RecipientPacket { Recipient = seats.TransportFor(seat), Packet = Packet(seat, null, outcome) } };

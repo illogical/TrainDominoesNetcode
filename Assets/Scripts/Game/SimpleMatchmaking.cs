@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -13,125 +12,186 @@ using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.UI;
 
-#if UNITY_EDITOR
-//using ParrelSync;
-#endif
-
 namespace Assets.Scripts.Game
 {
-    public class SimpleMatchmaking : MonoBehaviour {
+    /// <summary>
+    /// The scene's online entry path: anonymous sign-in, then quick-join an open lobby or create one, with
+    /// Unity Relay carrying the game traffic. Uses the Multiplayer Services package (Lobby + Relay).
+    /// </summary>
+    public class SimpleMatchmaking : MonoBehaviour
+    {
+        /// <summary>The game supports 2–8 seats; the lobby and Relay allocation match that limit.</summary>
+        public const int MaxPlayers = 8;
+        private const string JoinCodeKey = "j";
+        /// <summary>Encrypted Relay transport, as used by RelayTester.</summary>
+        private const string RelayConnectionType = "dtls";
+        private const float HeartbeatSeconds = 15f;
+
         [SerializeField] private Button _startButton;
 
         private Lobby _connectedLobby;
-        private QueryResponse _lobbies;
         private UnityTransport _transport;
-        private const string JoinCodeKey = "j";
         private string _playerId;
+        private bool _busy;
+        private float _nextHeartbeat;
 
         private void Awake()
         {
-            _transport = FindObjectOfType<UnityTransport>();
+            _transport = FindAnyObjectByType<UnityTransport>();
             _startButton.onClick.AddListener(CreateOrJoinLobby);
         }
 
-        public async void CreateOrJoinLobby() {
-            await Authenticate();
-
-            _connectedLobby = await QuickJoinLobby() ?? await CreateLobby();
-
-            if (_connectedLobby != null) _startButton.gameObject.SetActive(false);
+        public async void CreateOrJoinLobby()
+        {
+            // async void is required for a button handler, so every failure must be caught here.
+            if (_busy) return;
+            _busy = true;
+            _startButton.interactable = false;
+            try
+            {
+                await Authenticate();
+                _connectedLobby = await QuickJoinLobby() ?? await CreateLobby();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Matchmaking failed: {e.Message}");
+            }
+            finally
+            {
+                _busy = false;
+                if (_connectedLobby != null) _startButton.gameObject.SetActive(false);
+                else _startButton.interactable = true;
+            }
         }
 
-        private async Task Authenticate() {
-            var options = new InitializationOptions();
-        
-#if UNITY_EDITOR
-            // Remove this if you don't have ParrelSync installed. 
-            // It's used to differentiate the clients, otherwise lobby will count them as the same
-            //options.SetProfile(ClonesManager.IsClone() ? ClonesManager.GetArgument() : "Primary");
-#endif
+        /// <summary>
+        /// Launch argument giving this instance its own anonymous identity. Two instances on one machine
+        /// otherwise sign in as the same player and Lobby treats them as one participant.
+        /// </summary>
+        public const string ProfileArgument = "--ugs-profile";
 
-            await UnityServices.InitializeAsync(options);
-
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        private async Task Authenticate()
+        {
+            if (UnityServices.State != ServicesInitializationState.Initialized)
+            {
+                var options = new InitializationOptions();
+                var profile = Profile(Environment.GetCommandLineArgs());
+                if (profile != null) options.SetProfile(profile);
+                await UnityServices.InitializeAsync(options);
+            }
+            if (!AuthenticationService.Instance.IsSignedIn)
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
             _playerId = AuthenticationService.Instance.PlayerId;
         }
 
-        private async Task<Lobby> QuickJoinLobby() {
-            try {
-                // Attempt to join a lobby in progress
-                var lobby = await Lobbies.Instance.QuickJoinLobbyAsync();
+        /// <summary>The value after <see cref="ProfileArgument"/>, if any.</summary>
+        public static string Profile(string[] arguments)
+        {
+            int index = Array.IndexOf(arguments, ProfileArgument);
+            return index >= 0 && index + 1 < arguments.Length ? arguments[index + 1] : null;
+        }
 
-                // If we found one, grab the relay allocation details
-                var a = await RelayService.Instance.JoinAllocationAsync(lobby.Data[JoinCodeKey].Value);
+        private async Task<Lobby> QuickJoinLobby()
+        {
+            Lobby lobby;
+            try
+            {
+                lobby = await LobbyService.Instance.QuickJoinLobbyAsync();
+            }
+            catch (LobbyServiceException e) when (e.Reason == LobbyExceptionReason.NoOpenLobbies)
+            {
+                Debug.Log("No open lobby to quick-join; creating one.");
+                return null;
+            }
 
-                // Set the details to the transform
-                SetTransformAsClient(a);
-
-                // Join the game room as a client
+            // A lobby was joined; a failure from here on is a real error, so leave the lobby again.
+            try
+            {
+                var allocation = await RelayService.Instance.JoinAllocationAsync(lobby.Data[JoinCodeKey].Value);
+                _transport.SetRelayServerData(allocation.ToRelayServerData(RelayConnectionType));
                 NetworkManager.Singleton.StartClient();
                 return lobby;
             }
-            catch (Exception e) {
-                Debug.Log($"No lobbies available via quick join");
-                return null;
+            catch (Exception)
+            {
+                await LeaveLobby(lobby);
+                throw;
             }
         }
 
-        private async Task<Lobby> CreateLobby() {
-            try {
-                const int maxPlayers = 100;
+        /// <summary>True when this instance joined someone else's lobby and can rejoin its Relay allocation.</summary>
+        public bool CanRejoin => _connectedLobby != null && _connectedLobby.HostId != _playerId;
 
-                // Create a relay allocation and generate a join code to share with the lobby
-                var a = await RelayService.Instance.CreateAllocationAsync(maxPlayers);
-                var joinCode = await RelayService.Instance.GetJoinCodeAsync(a.AllocationId);
-
-                // Create a lobby, adding the relay join code to the lobby data
-                var options = new CreateLobbyOptions {
-                    Data = new Dictionary<string, DataObject> { { JoinCodeKey, new DataObject(DataObject.VisibilityOptions.Public, joinCode) } }
-                };
-                var lobby = await Lobbies.Instance.CreateLobbyAsync("Useless Lobby Name", maxPlayers, options);
-
-                // Send a heartbeat every 15 seconds to keep the room alive
-                StartCoroutine(HeartbeatLobbyCoroutine(lobby.Id, 15));
-
-                // Set the game room to use the relay allocation
-                _transport.SetHostRelayData(a.RelayServer.IpV4, (ushort)a.RelayServer.Port, a.AllocationIdBytes, a.Key, a.ConnectionData);
-
-                // Start the room. I'm doing this immediately, but maybe you want to wait for the lobby to fill up
-                NetworkManager.Singleton.StartHost();
-                return lobby;
+        /// <summary>
+        /// NET-004: after a dropped connection, join the same lobby's Relay allocation again and restart the
+        /// client. The game then reclaims the earlier seat with its seat secret.
+        /// </summary>
+        public async Task<bool> RejoinRelay()
+        {
+            if (!CanRejoin) return false;
+            try
+            {
+                var allocation = await RelayService.Instance.JoinAllocationAsync(_connectedLobby.Data[JoinCodeKey].Value);
+                _transport.SetRelayServerData(allocation.ToRelayServerData(RelayConnectionType));
+                return NetworkManager.Singleton.StartClient();
             }
-            catch (Exception e) {
-                Debug.LogFormat("Failed creating a lobby");
-                return null;
+            catch (Exception e)
+            {
+                Debug.LogWarning($"Could not rejoin the Relay allocation: {e.Message}");
+                return false;
             }
         }
 
-        private void SetTransformAsClient(JoinAllocation a) {
-            _transport.SetClientRelayData(a.RelayServer.IpV4, (ushort)a.RelayServer.Port, a.AllocationIdBytes, a.Key, a.ConnectionData, a.HostConnectionData);
+        private async Task<Lobby> CreateLobby()
+        {
+            // The allocation counts connections other than the host.
+            var allocation = await RelayService.Instance.CreateAllocationAsync(MaxPlayers - 1);
+            var joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+            var options = new CreateLobbyOptions
+            {
+                Data = new Dictionary<string, DataObject> { { JoinCodeKey, new DataObject(DataObject.VisibilityOptions.Public, joinCode) } }
+            };
+            var lobby = await LobbyService.Instance.CreateLobbyAsync("Train Dominoes", MaxPlayers, options);
+            _nextHeartbeat = Time.realtimeSinceStartup + HeartbeatSeconds;
+
+            _transport.SetRelayServerData(allocation.ToRelayServerData(RelayConnectionType));
+            NetworkManager.Singleton.StartHost();
+            return lobby;
         }
 
-        private static IEnumerator HeartbeatLobbyCoroutine(string lobbyId, float waitTimeSeconds) {
-            var delay = new WaitForSecondsRealtime(waitTimeSeconds);
-            while (true) {
-                Lobbies.Instance.SendHeartbeatPingAsync(lobbyId);
-                yield return delay;
+        private void Update()
+        {
+            // The lobby service closes a hosted lobby without heartbeats; send one every 15 seconds.
+            if (_connectedLobby == null || _connectedLobby.HostId != _playerId || Time.realtimeSinceStartup < _nextHeartbeat) return;
+            _nextHeartbeat = Time.realtimeSinceStartup + HeartbeatSeconds;
+            _ = Heartbeat(_connectedLobby.Id);
+        }
+
+        private static async Task Heartbeat(string lobbyId)
+        {
+            try { await LobbyService.Instance.SendHeartbeatPingAsync(lobbyId); }
+            catch (Exception e) { Debug.LogWarning($"Lobby heartbeat failed: {e.Message}"); }
+        }
+
+        private async Task LeaveLobby(Lobby lobby)
+        {
+            try
+            {
+                if (lobby.HostId == _playerId) await LobbyService.Instance.DeleteLobbyAsync(lobby.Id);
+                else await LobbyService.Instance.RemovePlayerAsync(lobby.Id, _playerId);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"Could not leave lobby {lobby.Id}: {e.Message}");
             }
         }
 
-        private void OnDestroy() {
-            try {
-                StopAllCoroutines();
-                // todo: Add a check to see if you're host
-                if (_connectedLobby != null) {
-                    if (_connectedLobby.HostId == _playerId) Lobbies.Instance.DeleteLobbyAsync(_connectedLobby.Id);
-                    else Lobbies.Instance.RemovePlayerAsync(_connectedLobby.Id, _playerId);
-                }
-            }
-            catch (Exception e) {
-                Debug.Log($"Error shutting down lobby: {e}");
-            }
+        private void OnDestroy()
+        {
+            if (_connectedLobby == null) return;
+            // Best effort while shutting down; failures are logged inside LeaveLobby.
+            _ = LeaveLobby(_connectedLobby);
+            _connectedLobby = null;
         }
     }
 }

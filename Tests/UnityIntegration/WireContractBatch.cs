@@ -15,6 +15,8 @@ using UnityEngine;
 /// </summary>
 public static class WireContractBatch
 {
+    private static readonly string Current = "\"WireVersion\":" + WireCodec.Version;
+    private static string Version(int v) => "\"WireVersion\":" + v;
     private static readonly List<string> Report = new List<string>();
     private static int failures, assertions;
 
@@ -103,14 +105,14 @@ public static class WireContractBatch
         Fixture("command-place.json", place);
         Check(Command(place)?.Train?.IsShared == true, "place keeps a present train");
 
-        foreach (var bad in new[] { null, "", "{", "null", "[]", "42", draw.Substring(0, draw.Length / 2), draw.Replace("\"WireVersion\":1", "\"WireVersion\":2"), draw.Replace("\"Kind\":2", "\"Kind\":99"), draw.Replace("\"WireVersion\":1,", "") })
+        foreach (var bad in new[] { null, "", "{", "null", "[]", "42", draw.Substring(0, draw.Length / 2), draw.Replace(Current, Version(WireCodec.Version + 1)), draw.Replace("\"Kind\":2", "\"Kind\":99"), draw.Replace(Current + ",", "") })
         {
             bool rejected;
             try { rejected = Command(bad) == null; }
             catch (Exception) { rejected = false; }
             Check(rejected, "command rejected without throwing: " + Shorten(bad));
         }
-        foreach (var bad in new[] { null, "", "{", "null", plain.Substring(0, plain.Length - 3), plain.Replace("\"WireVersion\":1", "\"WireVersion\":0"), "{\"WireVersion\":1}" })
+        foreach (var bad in new[] { null, "", "{", "null", plain.Substring(0, plain.Length - 3), plain.Replace(Current, Version(0)), "{" + Current + "}" })
         {
             bool rejected;
             try { rejected = Projection(bad) == null; }

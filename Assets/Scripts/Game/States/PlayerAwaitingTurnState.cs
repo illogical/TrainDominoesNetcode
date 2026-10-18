@@ -1,28 +1,8 @@
 namespace Assets.Scripts.Game.States
 {
-    public class PlayerAwaitingTurnState : EndTurnStateBase
+    /// <summary>Observes another actor, but still allows manual announcement and challenge.</summary>
+    public class PlayerAwaitingTurnState : ObservingStateBase
     {
-        public PlayerAwaitingTurnState(GameStateContext gameContext) : base(gameContext) { }
-
-        public override void EnterState()
-        {
-            base.EnterState();
-            ctx.GameplayManager.PlayerTurnStarted += GameplayManager_PlayerTurnStarted;
-            
-            ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false);
-            ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false);
-        }
-
-        public override void LeaveState()
-        {
-            ctx.GameplayManager.PlayerTurnStarted -= GameplayManager_PlayerTurnStarted;
-            base.LeaveState();
-        }
-
-        private void GameplayManager_PlayerTurnStarted(object sender, ulong clientId)
-        {
-            using var trace = TraceExecution();
-            ctx.SwitchState(c => new PlayerTurnStartedState(c));
-        }
+        public PlayerAwaitingTurnState(GameStateContext context) : base(context) { }
     }
 }

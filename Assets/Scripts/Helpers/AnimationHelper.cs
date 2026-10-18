@@ -4,15 +4,17 @@ using UnityEngine;
 
 public static class AnimationHelper
 {
+    private static float Ease(AnimationDefinition definition, float progress) => definition != null && definition.Curve != null ? definition.Curve.Evaluate(progress) : progress;
+
     public static IEnumerator MoveOverSeconds(Transform transform, Vector3 endPos, AnimationDefinition animationDefinition)
     {
-        yield return new WaitForSeconds(animationDefinition.Delay);
+        yield return new WaitForSeconds((animationDefinition != null ? animationDefinition.Delay : 0));
 
         float elapsedTime = 0;
         var startPos = transform.position;
-        while (elapsedTime < animationDefinition.Duration)
+        while (elapsedTime < (animationDefinition != null ? animationDefinition.Duration : 0))
         {
-            transform.position = Vector3.Lerp(startPos, endPos, animationDefinition.Curve.Evaluate(elapsedTime / animationDefinition.Duration));
+            transform.position = Vector3.Lerp(startPos, endPos, Ease(animationDefinition, elapsedTime / animationDefinition.Duration));
             elapsedTime += Time.deltaTime;
             yield return new WaitForEndOfFrame();
         }
@@ -27,7 +29,7 @@ public static class AnimationHelper
         var startPos = transform.position;
         while (elapsedTime < seconds)
         {
-            transform.position = Vector3.Lerp(startPos, endPos, curve.Curve.Evaluate(elapsedTime / seconds));
+            transform.position = Vector3.Lerp(startPos, endPos, Ease(curve, elapsedTime / seconds));
             elapsedTime += Time.deltaTime;
             yield return new WaitForEndOfFrame();
         }
@@ -36,14 +38,14 @@ public static class AnimationHelper
 
     public static IEnumerator ScaleOverSeconds(Transform transform, float scale, AnimationDefinition animationDefinition)
     {
-        yield return new WaitForSeconds(animationDefinition.Delay);
+        yield return new WaitForSeconds((animationDefinition != null ? animationDefinition.Delay : 0));
 
         float elapsedTime = 0;
         var startSize = transform.localScale;
         var endSize = new Vector3(transform.localScale.x * scale, transform.localScale.y * scale, transform.localScale.z * scale);
-        while (elapsedTime < animationDefinition.Duration)
+        while (elapsedTime < (animationDefinition != null ? animationDefinition.Duration : 0))
         {
-            transform.localScale = Vector3.Lerp(startSize, endSize, animationDefinition.Curve.Evaluate(elapsedTime / animationDefinition.Duration));
+            transform.localScale = Vector3.Lerp(startSize, endSize, Ease(animationDefinition, elapsedTime / animationDefinition.Duration));
             elapsedTime += Time.deltaTime;
             yield return new WaitForEndOfFrame();
         }
@@ -58,7 +60,7 @@ public static class AnimationHelper
         var startRotation = transform.rotation;
         while (elapsedTime < seconds)
         {
-            transform.rotation = Quaternion.Lerp(startRotation, rotationAmount, curve.Curve.Evaluate(elapsedTime / seconds));
+            transform.rotation = Quaternion.Lerp(startRotation, rotationAmount, Ease(curve, elapsedTime / seconds));
             elapsedTime += Time.deltaTime;
             yield return new WaitForEndOfFrame();
         }
@@ -81,16 +83,9 @@ public static class AnimationHelper
 
     public static IEnumerator MoveOverSecondsWithDepthReturn(Transform transform, Vector3 endPos, float seconds, float delay, float depthOffset, AnimationDefinition animationDefinition)
     {
-        // TODO: allow depth speed to be passed in
-        float depthAnimationSeconds = 0.15f;
-
-        float startDepth = transform.position.z;
-        Vector3 startPosWithDepth = new Vector3(transform.position.x, transform.position.y, startDepth);
-        Vector3 endPosWithDepth = new Vector3(endPos.x, endPos.y, startDepth - depthOffset);
-
-        yield return MoveOverSeconds(transform, startPosWithDepth, animationDefinition);
-        yield return MoveOverSeconds(transform, endPosWithDepth, animationDefinition);
-        yield return MoveOverSeconds(transform, endPos, animationDefinition);
+        Vector3 endPosWithDepth = new Vector3(endPos.x, endPos.y, endPos.z + depthOffset);
+        yield return MoveOverSeconds(transform, endPosWithDepth, seconds, delay, animationDefinition);
+        yield return MoveOverSeconds(transform, endPos, 0.15f, 0, animationDefinition);
     }
 
     public static IEnumerator Jiggle(Transform transform, AnimationCurve curve)

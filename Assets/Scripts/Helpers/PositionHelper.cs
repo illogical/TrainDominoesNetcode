@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,6 +20,7 @@ namespace Assets.Scripts.Helpers
         /// <returns>Position for the center of the object based upon its index in the line.</returns>
         public static float GetCenterPositionByIndex(float maxLength, float objectLength, int index, int count, float marginBothSides = 0f)
         {
+            if (count <= 1) return 0f;
             return index
                 * GetDistanceFromEachOther(maxLength, objectLength, count, marginBothSides)
                 - GetGroupCenterOffset(maxLength, objectLength, marginBothSides);
@@ -47,7 +48,7 @@ namespace Assets.Scripts.Helpers
         /// <returns></returns>
         public static float GetDistanceFromEachOther(float maxLength, float objectLength, int count, float distanceBetweenObjects)
         {
-            return (maxLength - objectLength - distanceBetweenObjects) / (count - 1);
+            return count <= 1 ? 0f : (maxLength - objectLength - distanceBetweenObjects) / (count - 1);
         }
 
         /// <summary>
@@ -158,6 +159,7 @@ namespace Assets.Scripts.Helpers
         /// <param name="sideMargin">Margin spread evenly across both sides of the line of objects</param>
         public static void LayoutAcrossScreen(List<GameObject> objects, Camera camera, float yPos, float sideMargin) // TODO: margin is distance from sides of screen. Ideally should be percentages for smaller screens? or some cutoff at some point?
         {
+            if (objects.Count == 0) return;
             Vector3 objectSize = GetObjectDimensions(objects[0]);
             float objectWidth = objectSize.x;
             Vector2 screenSize = GetScreenSize(camera);
@@ -193,6 +195,7 @@ namespace Assets.Scripts.Helpers
         // TODO: begin using GetScreenBottomCenterPositionForObject() and provide a Y position
         public static void LayoutAcrossAndUnderScreen(List<GameObject> objects, Camera camera, float sideMargin)
         {
+            if (objects.Count == 0) return;
             Vector3 objectSize = GetObjectDimensions(objects[0]);
             float objectWidth = objectSize.x;
             Vector2 screenSize = GetScreenSize(camera);
@@ -234,6 +237,8 @@ namespace Assets.Scripts.Helpers
         public static List<float> GetPositionsSpreadAcrossLength(float maxLength, float objectLength, int objectCount, float endMargins)
         {
             List<float> positions = new List<float>();
+            if (objectCount <= 0) return positions;
+            if (objectCount == 1) { positions.Add(0f); return positions; }
             var distanceFromEachOther = GetDistanceFromEachOther(maxLength, objectLength, objectCount, endMargins);
             float centerOffSet = GetGroupCenterOffset(maxLength, objectLength, endMargins);
             for (int i = 0; i < objectCount; i++)

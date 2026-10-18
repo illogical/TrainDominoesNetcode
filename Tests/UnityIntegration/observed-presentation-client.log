@@ -1,0 +1,11 @@
+INTEGRATION client PASS network-start
+INTEGRATION client PASS filtered-initial-view
+INTEGRATION client PASS button-enabled-Ready
+INTEGRATION client PASS deal-profile-hand-and-three-trains
+INTEGRATION client normal-speed-setup-completed
+INTEGRATION client PRESENTATION-ONLY revision-gap probe begins
+INTEGRATION client PASS placement-final-transform
+INTEGRATION client PASS revision-gap-invalidates-incremental-generation
+INTEGRATION client PASS placement-final-transform
+INTEGRATION client PASS revision-gap-same-tile-moved-to-other-train
+INTEGRATION client PASS ALL

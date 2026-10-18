@@ -16,6 +16,7 @@ public class DominoPlayer : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         ((MyNetworkManager)NetworkManager.Singleton).Players.Remove(this);
-        ((MyNetworkManager)NetworkManager.Singleton).LocalPlayer = null;
+        if (IsOwner && ((MyNetworkManager)NetworkManager.Singleton).LocalPlayer == this)
+            ((MyNetworkManager)NetworkManager.Singleton).LocalPlayer = null;
     }
 }

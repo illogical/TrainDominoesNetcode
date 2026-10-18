@@ -1,6 +1,6 @@
 # TrainDominoesRulesEngine
 
-A standalone, deterministic Puremco Mexican Train rules library. The runtime targets .NET Standard 2.1 and C# 9, has no NuGet/runtime dependencies, and references no Unity or Netcode APIs. Unity compiles the same sources through a dedicated assembly definition. The existing game's live mutation path has **not** been switched to this library.
+A standalone, deterministic Puremco Mexican Train rules library. The runtime targets .NET Standard 2.1 and C# 9, has no NuGet/runtime dependencies, and references no Unity or Netcode APIs. Unity compiles the same sources through a dedicated assembly definition. The Unity game now uses this library through its authoritative command adapter; see [gameplay integration](../Assets/Docs/GAMEPLAY_INTEGRATION.md) and [integration verification](../Assets/Docs/GAMEPLAY_INTEGRATION_VERIFICATION.md).
 
 Behavioral authority: [rulebook](../Assets/Docs/TRAIN_DOMINOES_RULEBOOK.md). Build/integration sequence: [implementation plan](../Assets/Docs/RULES_ENGINE_IMPLEMENTATION_PLAN.md). Evidence and limits: [verification report](../Assets/Docs/RULES_ENGINE_VERIFICATION.md).
 
@@ -94,6 +94,6 @@ The one-tile notification is manual. Useful-action queries expose `CanAnnounce`;
 
 An empty boneyard ends a blocked round only when no placement is possible even after future mandatory passes open the remaining private trains. This analysis retains an inherited-double restriction and does not actually change any saved marker. Scores are remaining pips (blank zero); final lowest totals may yield joint winners.
 
-## Integration still required
+## Unity integration status
 
-The API is ready for a Unity or other .NET host. This delivery does not implement DTO serialization, RPC authentication/deduplication, UI controls, settings GUI, reconnection transport, persistence, or production bots. See ENG-006/STATE-003/NET-001 in `TASKS.md`. Keep the existing legacy authorities until that controlled switch, then remove replaced mutations so the live session has a single rule authority.
+The Unity adapter now implements recipient DTO serialization, RPC sender authentication, request deduplication, selected interaction states and action controls. Replaced legacy rule authorities are removed. Its CLI host/client evidence is separate from this library's unit suite. Exhaustive network validation, settings GUI, detailed reconnect transport, persistence and production bots remain follow-up work in `TASKS.md`. The portable library itself still has no transport or presentation dependency.

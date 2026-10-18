@@ -74,10 +74,13 @@ public class MeshManager : MonoBehaviour
         }
         
         dominoObjects.Clear();
+        engineDominoId = -1;
+        DisableAllTrackLabels();
     }
 
     private GameObject CreateDominoFromInfo(GameObject prefab, DominoEntity info, Vector3 position, PurposeType purpose)
     {
+        info.Purpose = purpose;
         var newDomino = Instantiate(prefab, position, dominoRotation);
         newDomino.name = info.ID.ToString();
 
@@ -87,6 +90,14 @@ public class MeshManager : MonoBehaviour
         dominoObjects.Add(info.ID, newDomino);
 
         return newDomino;
+    }
+
+    public void RetainDominoMeshes(ISet<int> visibleIds)
+    {
+        var remove = new List<int>();
+        foreach (var pair in dominoObjects)
+            if (!visibleIds.Contains(pair.Key)) { Destroy(pair.Value); remove.Add(pair.Key); }
+        foreach (var id in remove) dominoObjects.Remove(id);
     }
 
     public GameObject SetTrackLabelForTrack(int trackIndex, Vector3 initialPosition, string text)

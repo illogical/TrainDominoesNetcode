@@ -87,3 +87,13 @@ crashlytics-build.properties
 /RulesEngine/**/bin/
 /RulesEngine/**/obj/
 /RulesEngine/**/TestResults/
+
+# Source-linked gameplay and client integration checks.
+!/Tests/GameplayIntegration/GameplayIntegration.Checks.csproj
+!/Tests/ClientInteraction/ClientInteraction.Checks.csproj
+/Tests/**/bin/
+/Tests/**/obj/
+
+# Documentation import sidecars are generated locally; docs have no serialized Unity references.
+/Assets/Docs.meta
+/Assets/Docs/**/*.meta

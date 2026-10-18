@@ -8,5 +8,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Assets/Scripts/Game/States/*.cs" Link="States/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Game/Integration/ClientSession.cs" Link="Integration/ClientSession.cs" />
+    <Compile Include="../../Assets/Scripts/Game/Integration/SessionProtocol.cs" Link="Integration/SessionProtocol.cs" />
+    <Compile Include="../../Assets/Scripts/Game/Integration/InteractionInput.cs" Link="Integration/InteractionInput.cs" />
+    <ProjectReference Include="../../RulesEngine/TrainDominoesRulesEngine/TrainDominoesRulesEngine.csproj" />
   </ItemGroup>
 </Project>

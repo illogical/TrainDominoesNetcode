@@ -172,10 +172,16 @@ def mermaid(data):
         lines.append("    }")
     for name in sorted(n for n in nodes if not nodes[n]["abstract"] and n not in grouped):
         lines.append(f'    state "{name}" as s_{name}')
+    # Lifetime coordinator routes share an outer group, retaining nested inheritance.
+    coordinator = "PlayerStateCoordinator"
+    concrete = {n["name"] for n in nodes.values() if not n["abstract"]}
+    coordinator_edges = [e for e in data["transitions"] if e["owner"] == coordinator]
+    if coordinator_edges:
+        lines = [lines[0], f'    state "{coordinator} possible routes" as g_{coordinator} {{'] + ["    " + line for line in lines[1:]] + ["    }"]
     emitted = set()
     for edge in data["transitions"]:
         source = "[*]" if edge["source"] == "[*]" else "s_" + edge["source"]
-        shared = groups.get(edge["owner"], [])
+        shared = sorted(concrete) if edge["owner"] == coordinator else groups.get(edge["owner"], [])
         key = tuple(edge.get(k) for k in EDGE_FIELDS if k != "source")
         if edge["source"] in shared and all(any(e["source"] == child and tuple(e.get(k) for k in EDGE_FIELDS if k != "source") == key
                                                    for e in data["transitions"]) for child in shared):
@@ -209,14 +215,14 @@ def report(data):
              "", "State-source SHA-256: `" + data["sourceHash"] + "`.", "",
              "Static source inventory, not runtime verification or an authoritative rules specification. Guards are source expressions, not evaluated predicates. RPC requests do not imply acceptance.",
              "", "```mermaid", mermaid(data), "```", "",
-             "Boxes group shared inheritance; they are not additional runtime states. Shared arrows summarize matching inherited handlers; the table expands every concrete source. Self-arrows leave and re-enter the state.",
+             "Boxes group shared inheritance; they are not additional runtime states. Shared arrows summarize matching inherited handlers; the table expands every concrete source. Coordinator arrows are possible routes from every concrete state; their guards determine runtime applicability. Self-arrows denote switch requests; coordinator code may suppress same-mode re-entry.",
              "", "## Transitions", "", edge_table(data["transitions"]), "", "## Event reactions", "",
              "Includes input/actions that may send requests without changing state. Actions are direct call-site inventory; consult source for guards and indirect helper effects.", "",
              "| State | Event | Handler | Direct actions |", "| --- | --- | --- | --- |"]
     for reaction in data["reactions"]:
         lines.append("| " + " | ".join(text(v) for v in (reaction["source"], reaction["event"], reaction["handler"], "; ".join(reaction["actions"]))) + " |")
     lines += ["", "## Coverage and review", "", "No static initialization route: " + (", ".join(unreachable(data)) or "none") + ".",
-              "", "Sources are limited to `Assets/Scripts/Game/States`. External direct transitions, event emission/targeting, runtime ordering, dynamically created callbacks, and arbitrary control flow require review.", ""]
+              "", "Sources are limited to `Assets/Scripts/Game/States`. The named `PlayerStateCoordinator` lifetime router maps Start, direct Start/Dispose subscriptions, and public Reconcile; external callers of Reconcile are not traced. Other unreached SwitchState calls in these files warn. Transitions outside these files, event emission/targeting, runtime ordering, dynamically created callbacks, and arbitrary control flow require review.", ""]
     lines += ["- " + warning for warning in data["warnings"]] or ["No extractor warnings for the recognized source patterns; this is not a completeness proof."]
     return "\n".join(lines) + "\n"
 

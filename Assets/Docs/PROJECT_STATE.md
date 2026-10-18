@@ -1,22 +1,26 @@
 # TrainDominoesNetcode: current project state
 
-Inspection date: 2026-10-17. Source baseline: commit `852f223`.
+Updated: 2026-10-18. Current integration source is described below; the original static baseline is retained under the historical heading.
 
-The original baseline below is a static inspection of source, serialized scene settings, package manifests, and Git history. No Unity play session, build, automated gameplay tests, or live multiplayer services were run. Descriptions below explain code paths, not verified runtime correctness or an agreed rules specification.
+Start with [TASKS.md](../../TASKS.md), [AGENTS.md](../../AGENTS.md), the selected [Puremco rulebook](TRAIN_DOMINOES_RULEBOOK.md), and the [gameplay integration guide](GAMEPLAY_INTEGRATION.md).
 
-Start with [TASKS.md](../../TASKS.md) for priorities and [AGENTS.md](../../AGENTS.md) for coding guidance.
+## Current implementation — 2026-10-18
 
-**Design update after the initial inspection:** the user selected [Puremco rules](TRAIN_DOMINOES_RULEBOOK.md), superseding earlier recollections/preferences. The [state review](PLAYER_STATE_REVIEW.md) and [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) now define the target: 2–8 players, one shared train plus personal trains, sequential turns from the beginning, and Puremco double follow-ups. Existing group-turn behavior described below is legacy implementation to refactor, not the selected rule. No gameplay was changed by this update.
+The standalone rules engine is now wired into live gameplay. `GameSession` authenticates Netcode senders and delegates to `AuthoritativeMatchCoordinator`, which owns the server-only core snapshot and request outcome cache. Only recipient-filtered JSON views/events cross the network. `ClientSession` owns freshness, one pending request and local selection; `PlayerStateCoordinator` resolves the eight selected interaction modes. `GameplayManager` and `GameplayPresenter` project those views into controls, meshes and cancellable animation batches. They do not deal, score or advance turns.
 
-State-infrastructure update (2026-10-17): constructor-injected lazy factories now replace per-state context fields; bounded diagnostics and Off/Transitions/Verbose logging are implemented. The source-linked state checks pass, and gameplay scripts compile against installed Unity references. No Unity Play Mode/host-client verification was performed. See [state debugging and verification](STATE_MACHINE_DEBUGGING.md). This does not close STATE-001 or implement its proposed behavior.
+The selected profile remains 2–8 players, one personal train per seat plus one Mexican Train, sequential play from the first turn, Immediate placement by default, optional match-fixed Draft/undo, manual announcements/challenges, default DrawOneTile penalty, readiness sets, joint winners and suspension. Settings are serialized on `GameSession`; a settings GUI is deferred.
 
-## Standalone engine update — 2026-10-17
+The host creates a fixed roster from connected participants. Each participant readies through the core. Round initialization installs the engine/deal before local board input is enabled. A disconnect suspends the match; the host can resume only with every original transport identity present, or create a fresh match with 2–8 connected participants. This is not a complete reconnect transport or recovery UX.
 
-The selected Puremco rules now have a portable implementation in `Assets/Scripts/RulesEngine`, compiled both by a Unity assembly definition and a source-linked .NET Standard 2.1 library. External .NET 10/NUnit tests exercise actual core sources. [Verification report](RULES_ENGINE_VERIFICATION.md) and [developer guide](../../RulesEngine/README.md) record commands, coverage and limits.
+The seven normal classes are Pregame, RoundInitializing, PlayerAwaitingTurn, PlayerActing, PlayerActionPending, RoundOver and GameOver, plus PlayerSessionSuspended. Ordinary same-mode refreshes do not re-enter states. Pending is installed before send; matched outcomes settle it independently of view freshness. Presentation generations prevent old completion callbacks from unlocking a replacement round/match. Board input waits for local motion; permitted announcements/challenges can run while board motion continues, including initial dealing.
 
-The user reviewed the remaining app policies: Immediate placement by default, optional match-fixed Draft/undo, manual one-tile announcements/opponent challenges with default draw-one penalty, readiness sets, joint winners, suspension, and fresh matches with remaining seats. The selected future local inventory is seven normal states plus SessionSuspended; no extra rule-specific classes are needed.
+**Verification remains in progress.** The [legacy runtime baseline](STATE_002_RUNTIME_BASELINE.md) records an actual CLI-built, local host/client run before integration. It exposed the nested-RPC sender/readiness defect and blocked downstream legacy scenarios. It is not evidence that the replacement passes. See [verification report](RULES_ENGINE_VERIFICATION.md), [state debugging](STATE_MACHINE_DEBUGGING.md), and the CLI harness documentation in `Tests/UnityIntegration/README.md` for current commands and separately recorded outcomes. Source-linked checks do not prove real RPC serialization or animation behavior. GUI visual quality and live Lobby/Relay services are unverified.
 
-**Live gameplay still follows the legacy managers/RPCs and states described below.** No core authority switch, scene/prefab/art/package change, Play Mode test or host/client session was performed for this delivery. STATE-001 is agreed; STATE-002 and U6/ENG-006 remain open. The earlier baseline's “no rules-core harness yet” statements are historical; the current standalone harness is now present.
+The [original engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) remains the upstream assembly/rule boundary; this integration expands its U6 / ENG-006. [State mapping](PLAYER_STATE_REVIEW.md) distinguishes selected policy, implemented responsibilities and historical gaps.
+
+## Historical static baseline — 2026-10-17
+
+The remainder records source at commit `852f223` and subsequent infrastructure observations before the gameplay authority switch. References below to current group play, legacy managers or missing integration describe that dated baseline, not today's source. At that initial inspection no Unity play session or build had been performed. The later CLI characterization is recorded separately in [STATE-002](STATE_002_RUNTIME_BASELINE.md).
 
 ## Purpose and development context
 
@@ -63,9 +67,9 @@ This indicates an unfinished turn/state refactor followed by presentation work, 
 | --- | --- | --- |
 | [GameSession](../Scripts/GameSession.cs) | `NetworkBehaviour`; RPC entry points for draw, selection, placement, undo, turn completion, readiness, and scoring synchronization | Intended server authority, but validation is incomplete and rule logic is embedded in transport handlers |
 | [GameplayManager](../Scripts/Game/GameplayManager.cs) | Creates managers, bridges gameplay events, calls comparisons, and coordinates meshes, sound, layout, and UI | Mixes rule-related operations and presentation |
-| [DominoTracker](../Scripts/Game/DominoTracker.cs) | Domino catalog, boneyard, hands, selection, engine, main station, per-player provisional stations, matching, undo data, and pip totals | Principal extraction candidate; currently uses Unity randomness and mutable shared data |
-| [TurnManager](../Scripts/Game/TurnManager.cs) / [TurnStatus](../Scripts/Models/TurnStatus.cs) | Group/individual phase, player order, turn flags, last played domino, winner IDs | Turn flags are not a complete rules model; no draw-used flag exists |
-| [RoundManager](../Scripts/Game/RoundManager.cs) / models | Round records, cumulative totals, lowest-score winners; station and track data | Current round limit is 12; selected Puremco target is 13 engines, twelve through blank |
+| `DominoTracker` (removed) | Domino catalog, boneyard, hands, selection, engine, main station, per-player provisional stations, matching, undo data, and pip totals | Principal extraction candidate; currently uses Unity randomness and mutable shared data |
+| `TurnManager` (removed) / `TurnStatus` (removed) | Group/individual phase, player order, turn flags, last played domino, winner IDs | Turn flags are not a complete rules model; no draw-used flag exists |
+| `RoundManager` (removed) / models | Round records, cumulative totals, lowest-score winners; station and track data | Current round limit is 12; selected Puremco target is 13 engines, twelve through blank |
 | [Player states](../Scripts/Game/States) | Local subscriptions, available input, RPC requests, and UI transitions | These are local interaction states, not a complete authoritative world-state machine |
 | Presentation | `InputManager`, `MeshManager`, `LayoutManager`, UI scripts, helpers, and ScriptableObject animation/sound settings | Keep visuals and animation timing outside the future rules core |
 | Networking setup | `MyNetworkManager`, `DominoPlayer`, `NetworkManagerUI`, `SimpleMatchmaking`, `RelayTester` | Several entry paths exist; saved scene enables `SimpleMatchmaking` and disables the `RelayTester` component |
@@ -151,7 +155,7 @@ Start with **STATE-002** and **ENG-006** in [TASKS.md](../../TASKS.md). STATE-00
 ### Inspection sources
 
 - [State implementations](../Scripts/Game/States), [GameSession](../Scripts/GameSession.cs), [GameplayManager](../Scripts/Game/GameplayManager.cs).
-- [DominoTracker](../Scripts/Game/DominoTracker.cs), [TurnManager](../Scripts/Game/TurnManager.cs), [RoundManager](../Scripts/Game/RoundManager.cs), [models](../Scripts/Models).
+- `DominoTracker` (removed), `TurnManager` (removed), `RoundManager` (removed), [models](../Scripts/Models).
 - [InputManager](../Scripts/Game/InputManager.cs), [MeshManager](../Scripts/Game/MeshManager.cs), [LayoutManager](../Scripts/Game/LayoutManager.cs), and UI scripts.
 - [Scene](../Scenes/GameScene.unity), [build settings](../../ProjectSettings/EditorBuildSettings.asset), [editor version](../../ProjectSettings/ProjectVersion.txt), [packages](../../Packages/manifest.json).
 - Local Git history and tracked-file inventory. Recheck these findings after behavior changes; this document is a dated baseline.

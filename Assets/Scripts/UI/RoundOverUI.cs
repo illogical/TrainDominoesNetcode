@@ -36,6 +36,9 @@ public class RoundOverUI : MonoBehaviour
 
     private void DisplayScores(Dictionary<ulong, int> playerScores, Dictionary<ulong, int> playerTotals)
     {
+        foreach (var existing in _playerScoreTemplates)
+            existing.Value.gameObject.SetActive(playerScores.ContainsKey(existing.Key));
+
         foreach (var playerId in playerScores.Keys)
         {
             PlayerScoreTemplate scoreTemplate;
@@ -50,6 +53,7 @@ public class RoundOverUI : MonoBehaviour
                 scoreTemplate = _playerScoreTemplates[playerId];
             }
 
+            scoreTemplate.gameObject.SetActive(true);
             scoreTemplate.PlayerNameText.text = playerId.ToString();
             scoreTemplate.PlayerScoreText.text = playerScores[playerId].ToString();
             scoreTemplate.PlayerTotalText.text = playerTotals[playerId].ToString();

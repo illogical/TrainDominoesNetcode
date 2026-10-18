@@ -78,6 +78,39 @@ sealed class Analyzer
             if (update != null) AnalyzeMethod(state.Name, update.Value.Owner, update.Value.Method, "UpdateState (caller wiring not verified)", "", new());
         }
 
+        // The coordinator is a lifetime router, not a state. Its routes are possible
+        // from every concrete mode; guards remain source expressions, never evaluated here.
+        if (classes.TryGetValue("PlayerStateCoordinator", out var coordinator))
+        {
+            var start = FindMethod(coordinator, "Start");
+            var dispose = FindMethod(coordinator, "Dispose");
+            var reconcile = FindMethod(coordinator, "Reconcile");
+            if (start == null || dispose == null || reconcile == null)
+                Warn(coordinator, coordinator.Syntax, "Coordinator requires Start, Dispose, and Reconcile for lifetime routing coverage.");
+            var subscriptions = start == null ? new List<Binding>() : Subscriptions(coordinator, start.Value.Method, "Start", new());
+            var removals = dispose == null ? new List<Binding>() : Subscriptions(coordinator, dispose.Value.Method, "Dispose", new());
+            foreach (var binding in subscriptions)
+                if (!removals.Any(x => x.Event == binding.Event && x.Handler == binding.Handler))
+                    Warn(binding.Owner, binding.Node, $"PlayerStateCoordinator: no matching Dispose unsubscribe for {binding.Event} / {binding.Handler}");
+            foreach (var state in states.Where(x => !x.Syntax.Modifiers.Any(SyntaxKind.AbstractKeyword)))
+            {
+                if (start != null) AnalyzeMethod(state.Name, coordinator, start.Value.Method, "Start", "", new());
+                if (reconcile != null) AnalyzeMethod(state.Name, coordinator, reconcile.Value.Method,
+                    "Reconcile (public caller wiring not verified)", "", new());
+                foreach (var binding in subscriptions)
+                {
+                    var handler = FindMethod(binding.Owner, binding.Handler);
+                    if (handler == null) { Warn(binding.Owner, binding.Node, $"Unresolved event handler: {binding.Handler}"); continue; }
+                    var (owner, method) = handler.Value;
+                    reactions.Add(new(state.Name, binding.Event, binding.Handler, owner.Name, owner.File, Line(method),
+                        method.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                            .Where(x => CallName(x) != "SwitchState")
+                            .Select(x => x.NormalizeWhitespace().ToString()).Distinct().ToArray()));
+                    AnalyzeMethod(state.Name, owner, method, binding.Event, "", new());
+                }
+            }
+        }
+
         if (classes.TryGetValue("GameStateContext", out var context))
         {
             foreach (var ctor in context.Syntax.Members.OfType<ConstructorDeclarationSyntax>())
@@ -85,9 +118,9 @@ sealed class Analyzer
         }
         else warnings.Add("No GameStateContext found: initial-state mapping is unavailable.");
 
-        foreach (var info in states.Append(classes.GetValueOrDefault("GameStateContext")).Where(x => x != null))
+        foreach (var info in classes.Values)
             foreach (var call in info!.Syntax.DescendantNodes().OfType<InvocationExpressionSyntax>().Where(x => CallName(x) == "SwitchState"))
-                if (!visitedSwitches.Contains(Key(info, call))) Warn(info, call, "SwitchState call not reached through a recognized entry/update/event path; inspect manually.");
+                if (!visitedSwitches.Contains(Key(info, call))) Warn(info, call,  $"{info.Name}: SwitchState call not reached through a recognized entry/update/event/coordinator path; inspect manually.");
 
         return new(states.Select(x => new StateNode(x.Name, x.Base, x.Syntax.Modifiers.Any(SyntaxKind.AbstractKeyword), x.File, Line(x.Syntax))).ToArray(),
             transitions.Distinct().OrderBy(x => x.Source).ThenBy(x => x.Event).ThenBy(x => x.Target).ThenBy(x => x.Guard).ToArray(),
@@ -121,7 +154,7 @@ sealed class Analyzer
         if (!seen.Add(owner.Name + "." + lifecycle)) { Warn(owner, method, "Lifecycle inheritance cycle."); return result; }
         foreach (var assignment in method.DescendantNodes().OfType<AssignmentExpressionSyntax>())
         {
-            bool kind = lifecycle == "EnterState" ? assignment.IsKind(SyntaxKind.AddAssignmentExpression) : assignment.IsKind(SyntaxKind.SubtractAssignmentExpression);
+            bool kind = lifecycle is "EnterState" or "Start" ? assignment.IsKind(SyntaxKind.AddAssignmentExpression) : assignment.IsKind(SyntaxKind.SubtractAssignmentExpression);
             if (!kind) continue;
             if (assignment.Right is not IdentifierNameSyntax handler)
             { Warn(owner, assignment, "Inline/delegated event subscription needs manual mapping."); continue; }

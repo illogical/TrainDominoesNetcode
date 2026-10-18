@@ -1,5 +1,7 @@
 # Standalone rules engine verification
 
+**Later integration evidence (2026-10-18):** the Unity gameplay adapter and selected states are now implemented. See [gameplay integration verification](GAMEPLAY_INTEGRATION_VERIFICATION.md). The report below remains the dated standalone-only evidence; its unimplemented-U6 statements describe that earlier delivery.
+
 Date: 2026-10-17. Scope: accepted standalone-first engine plan, U1–U5 plus U7 manual announcements. U6 Unity gameplay integration is deferred. The staged anticipated-state document was preserved and updated with the agreed policy additions; no existing gameplay/state source, scene, prefab, asset art, or package manifest was changed.
 
 ## Delivered boundary

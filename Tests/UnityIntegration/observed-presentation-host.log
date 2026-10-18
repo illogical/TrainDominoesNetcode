@@ -1,0 +1,11 @@
+INTEGRATION host PASS network-start
+INTEGRATION host PASS filtered-initial-view
+INTEGRATION host PASS button-enabled-Ready
+INTEGRATION host PASS deal-profile-hand-and-three-trains
+INTEGRATION host normal-speed-setup-completed
+INTEGRATION host PRESENTATION-ONLY revision-gap probe begins
+INTEGRATION host PASS placement-final-transform
+INTEGRATION host PASS revision-gap-invalidates-incremental-generation
+INTEGRATION host PASS placement-final-transform
+INTEGRATION host PASS revision-gap-same-tile-moved-to-other-train
+INTEGRATION host PASS ALL

@@ -89,11 +89,11 @@ public class Mover : MonoBehaviour
             yield break;
         }
 
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(objectTransform, endPos, animationDefinition));
+        yield return AnimationHelper.MoveOverSeconds(objectTransform, endPos, animationDefinition);
     }
 
     public IEnumerator SlideToPositionByIndex(int index, Vector3 destination, float animationDuration, float delayBeforeStart, float delayStagger, AnimationDefinition animationDefinition)
     {
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(transform, destination, animationDuration, index * delayStagger + delayBeforeStart, animationDefinition));
+        yield return AnimationHelper.MoveOverSeconds(transform, destination, animationDuration, index * delayStagger + delayBeforeStart, animationDefinition);
     }
 }

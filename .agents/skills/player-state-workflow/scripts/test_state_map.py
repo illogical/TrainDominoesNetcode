@@ -77,6 +77,53 @@ class StateMapChecks(unittest.TestCase):
                 data = self.inventory(source)
                 self.assertTrue(any(expected in w for w in data["warnings"]), data["warnings"])
 
+    def test_coordinator_routes_are_expanded_from_lifetime_events_with_guards(self):
+        coordinator = """
+class PlayerStateCoordinator {
+    public void Start() {
+        model.ViewChanged += OnView;
+        model.RequestChanged += OnRequest;
+        Reconcile();
+    }
+    public void Dispose() {
+        model.ViewChanged -= OnView;
+        model.RequestChanged -= OnRequest;
+    }
+    void OnView() { Reconcile(); }
+    void OnRequest() => Reconcile();
+    public void Reconcile() {
+        if (!model.Available) { ctx.SwitchState(c => new B(c)); return; }
+        if (model.Acting) ctx.SwitchState(c => new A(c));
+        else ctx.SwitchState(c => new B(c), reuse: false);
+    }
+}
+"""
+        data = self.inventory(FIXTURE + coordinator)
+        self.assertEqual([], data["warnings"])
+        routes = [e for e in data["transitions"] if e["owner"] == "PlayerStateCoordinator"]
+        self.assertEqual({"A", "B", "Unused"}, {e["source"] for e in routes})
+        self.assertEqual({"Start", "model.ViewChanged", "model.RequestChanged", "Reconcile (public caller wiring not verified)"},
+                         {e["event"] for e in routes})
+        acting = [e for e in routes if e["target"] == "A"]
+        self.assertTrue(all(e["guard"] == "(!(!model.Available)) && (model.Acting)" for e in acting))
+        self.assertTrue(any(not e["reuse"] for e in routes))
+        self.assertIn("g_PlayerStateCoordinator --> s_A", maps.mermaid(data))
+        self.assertIn("possible routes from every concrete state", maps.report(data))
+
+    def test_coordinator_unbalanced_disposal_and_unrecognized_external_routes_warn(self):
+        source = FIXTURE + """
+class PlayerStateCoordinator {
+    public void Start() { model.ViewChanged += OnView; }
+    public void Dispose() {}
+    void OnView() { Reconcile(); }
+    public void Reconcile() { ctx.SwitchState(c => new A(c)); }
+}
+class OtherRouter { void Go() { ctx.SwitchState(c => new B(c)); } }
+"""
+        data = self.inventory(source)
+        self.assertTrue(any("no matching Dispose unsubscribe" in w for w in data["warnings"]))
+        self.assertTrue(any("OtherRouter" in w and "not reached" in w for w in data["warnings"]), data["warnings"])
+
     def test_proposal_adds_inherited_exits_and_keeps_original_unchanged(self):
         before = self.inventory()
         original = copy.deepcopy(before)

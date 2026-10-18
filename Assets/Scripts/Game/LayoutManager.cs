@@ -27,64 +27,81 @@ public class LayoutManager : MonoBehaviour
     public AnimationDefinition SelectionEase;
 
     private Camera mainCamera;
-    private float playerYPosition = 0;
-    private WaitHelper _waiter = new WaitHelper();
+    private float playerYPosition;
+    private readonly List<Coroutine> motion = new List<Coroutine>();
 
-    private void Awake()
+    private void Awake() { mainCamera = Camera.main; }
+
+    // Every child belongs to this layout, including parallel rotations. Cancellation never
+    // stops unrelated gameplay coroutines on a shared MonoBehaviour.
+    private Coroutine Run(IEnumerator routine)
     {
-        mainCamera = Camera.main;
-    }
-
-    public void PlaceInitialPlayerDominoes(List<GameObject> playerDominoes)
-    {
-        PositionHelper.LayoutAcrossAndUnderScreen(playerDominoes, mainCamera, BottomSideMargin);  //place them outside of the camera's view to allow them to slide in
-
-        var objectSize = PositionHelper.GetObjectDimensions(DominoPrefab);
-
-        // TODO: this throws a NAN error for x position when one domino is passed
-        var positions = PositionHelper.GetLayoutAcrossScreen(objectSize, mainCamera, playerDominoes.Count, BottomSideMargin); 
-
-        playerYPosition = positions[0].y;
-
-        for (int i = 0; i < playerDominoes.Count; i++)
+        Coroutine handle = null;
+        bool finished = false;
+        IEnumerator Owned()
         {
-            var domino = playerDominoes[i];
-            var mover = domino.GetComponent<Mover>();
-
-            var staggerDelay = PlayerDominoSlideIn.Delay * i;
-
-            StartCoroutine(mover.MoveOverSeconds(positions[i], PlayerDominoSlideIn.Duration, staggerDelay, PlayerDominoSlideIn.Curve));
+            try { yield return routine; }
+            finally { finished = true; if (handle != null) motion.Remove(handle); }
         }
+        handle = StartCoroutine(Owned());
+        if (!finished) motion.Add(handle);
+        return handle;
     }
 
-    public void PlaceEngine(GameObject engine, Action afterComplete = null)
+    public void CancelAnimations()
     {
-        var destination = GetEnginePosition(engine);
-
-        var mover = engine.GetComponent<Mover>();
-        StartCoroutine(mover.MoveOverSeconds(destination, EngineSlideIn, afterComplete));
+        var active = motion.ToArray();
+        motion.Clear();
+        foreach (var handle in active) StopCoroutine(handle);
     }
 
-    public void SelectDomino(GameObject domino)
-    {
-        var destination = new Vector3(domino.transform.position.x, playerYPosition + SelectionRaiseAmount, domino.transform.position.z);
+    private void OnDisable() { CancelAnimations(); }
 
-        var mover = domino.GetComponent<Mover>();
-        StartCoroutine(mover.MoveOverSeconds(destination, PlayerDominoSelection));
+    public IEnumerator Together(params IEnumerator[] routines)
+    {
+        var handles = new List<Coroutine>();
+        foreach (var routine in routines) handles.Add(Run(routine));
+        foreach (var handle in handles) yield return handle;
     }
 
-    public void DeselectDomino(GameObject domino)
+    public List<Vector3> GetHandPositions(int count)
     {
-        var destination = new Vector3(domino.transform.position.x, playerYPosition, domino.transform.position.z);
-
-        var mover = domino.GetComponent<Mover>();
-        StartCoroutine(mover.MoveOverSeconds(destination, PlayerDominoDeselection));
+        var positions = PositionHelper.GetLayoutAcrossScreen(PositionHelper.GetObjectDimensions(DominoPrefab), mainCamera, count, BottomSideMargin);
+        if (positions.Count > 0) playerYPosition = positions[0].y;
+        return positions;
     }
 
-    private Vector3 GetEnginePosition(GameObject engine)
+    public IEnumerator PlaceInitialPlayerDominoesRoutine(List<GameObject> dominoes)
     {
-        var objectSize = PositionHelper.GetObjectDimensions(engine);
-        return PositionHelper.GetScreenLeftCenterPositionForObject(objectSize, mainCamera, 0);
+        if (dominoes.Count == 0) yield break;
+        PositionHelper.LayoutAcrossAndUnderScreen(dominoes, mainCamera, BottomSideMargin);
+        var positions = GetHandPositions(dominoes.Count);
+        var routines = new List<IEnumerator>();
+        for (int i = 0; i < dominoes.Count; i++)
+            routines.Add(AnimationHelper.MoveOverSeconds(dominoes[i].transform, positions[i],
+                PlayerDominoSlideIn != null ? PlayerDominoSlideIn.Duration : 0,
+                PlayerDominoSlideIn != null ? PlayerDominoSlideIn.Delay * i : 0, PlayerDominoSlideIn));
+        yield return Together(routines.ToArray());
+    }
+
+    public void PlaceInitialPlayerDominoes(List<GameObject> dominoes) { Run(PlaceInitialPlayerDominoesRoutine(dominoes)); }
+    public IEnumerator PlaceEngineRoutine(GameObject engine) { yield return AnimationHelper.MoveOverSeconds(engine.transform, GetEnginePosition(engine), EngineSlideIn); }
+    public void PlaceEngine(GameObject engine, Action afterComplete = null) { Run(Complete(PlaceEngineRoutine(engine), afterComplete)); }
+    public IEnumerator SelectDominoRoutine(GameObject domino, bool selected)
+    {
+        var destination = new Vector3(domino.transform.position.x, playerYPosition + (selected ? SelectionRaiseAmount : 0), domino.transform.position.z);
+        yield return AnimationHelper.MoveOverSeconds(domino.transform, destination, selected ? PlayerDominoSelection : PlayerDominoDeselection);
+    }
+    public void SelectDomino(GameObject domino) { Run(SelectDominoRoutine(domino, true)); }
+    public void DeselectDomino(GameObject domino) { Run(SelectDominoRoutine(domino, false)); }
+    public Vector3 GetEnginePosition(GameObject engine)
+    {
+        return PositionHelper.GetScreenLeftCenterPositionForObject(PositionHelper.GetObjectDimensions(engine), mainCamera, 0);
+    }
+    private IEnumerator Complete(IEnumerator routine, Action afterComplete)
+    {
+        yield return routine;
+        afterComplete?.Invoke();
     }
 
     public Vector3 GetTrackLeftPosition(int trackIndex, int trackCount)
@@ -134,264 +151,101 @@ public class LayoutManager : MonoBehaviour
 
     public IEnumerator UpdateTrackPosition(GameObject currentObj, float duration, int trackCount)
     {
-        for (int i = 0; i < trackCount; i++)
-        {
-            float currentYPosition = GetTrackYPosition(i, trackCount);
-            StartCoroutine(SlideToPosition(currentObj.transform, new Vector3(GetTrackStartXPosition(), currentYPosition, 0), duration, 0));
-        }
-
-        yield return _waiter.GetWait(duration);
+        // A single transform has one destination, rather than competing moves per track.
+        yield return SlideToPosition(currentObj.transform, GetTrackLeftPosition(0, trackCount), duration, 0);
     }
 
-    private IEnumerator AddDominoToTrack(Transform dominoTransform, int trackObjectIndex, int trackIndex, int trackCount, Action afterComplete = null)
+    public IEnumerator PlaceOnTrackRoutine(Transform domino, int index, int slot, int count)
     {
-        float rotationDuration = 0.2f;
-        float rotationDelay = 0.25f;
-        
-        StartCoroutine(AnimationHelper.RotateOverSeconds(dominoTransform, Quaternion.Euler(0, -90, -90), rotationDuration, rotationDelay, SelectionEase));
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(dominoTransform, GetTrackPosition(trackObjectIndex, trackIndex, trackCount), SelectionEase));
-
-        if (afterComplete != null)
-        {
-            afterComplete();
-        }
+        yield return Together(
+            AnimationHelper.RotateOverSeconds(domino, Quaternion.Euler(0, -90, -90),
+                DominoRotateToTrack != null ? DominoRotateToTrack.Duration : 0,
+                DominoRotateToTrack != null ? DominoRotateToTrack.Delay : 0, DominoRotateToTrack),
+            AnimationHelper.MoveOverSeconds(domino, GetTrackPosition(index, slot, count), DominoSlideToTrack));
     }
 
-    private IEnumerator SlideToPosition(Transform objectTransform, Vector3 endPos, float duration, float delay)
+    private IEnumerator SlideToPosition(Transform target, Vector3 end, float duration, float delay)
     {
-        if (objectTransform.position == endPos)
-        {
-            // skip objects that are already in place
-            yield break;
-        }
-
-        yield return StartCoroutine(AnimationHelper.MoveOverSeconds(objectTransform, endPos, SelectionEase));
+        yield return AnimationHelper.MoveOverSeconds(target, end, duration, delay, SelectionEase);
     }
 
-    public IEnumerator AddDominoToNewTrackAndUpdateTrackPositions(Transform gameObjectToAdd, int addedDominoId, List<List<int>> tracksWithDomininoIds, MeshManager meshManager, float duration, Action afterComplete = null)
+    public IEnumerator AddDominoToNewTrackAndUpdateTrackPositions(Transform domino, int id, List<List<int>> tracks, MeshManager meshes, float duration, Action afterComplete = null)
     {
-        StartCoroutine(UpdateTrackPositions(tracksWithDomininoIds, meshManager, duration, addedDominoId));
-        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, 0, tracksWithDomininoIds.Count - 1, tracksWithDomininoIds.Count, afterComplete));
+        yield return Together(UpdateTrackPositions(tracks, meshes, duration, id), PlaceOnTrackRoutine(domino, 0, tracks.Count - 1, tracks.Count));
+        afterComplete?.Invoke();
+    }
+    public IEnumerator AddDominoToExistingTrack(Transform domino, List<List<int>> tracks, int slot, Action afterComplete = null)
+    {
+        yield return PlaceOnTrackRoutine(domino, tracks[slot].Count - 1, slot, tracks.Count);
+        afterComplete?.Invoke();
+    }
+    private IEnumerator UpdateTrackPositions(List<List<int>> tracks, MeshManager meshes, float duration, int? ignore = null)
+    {
+        var routines = new List<IEnumerator>();
+        for (int slot = 0; slot < tracks.Count; slot++)
+            for (int index = 0; index < tracks[slot].Count; index++)
+                if (tracks[slot][index] != ignore)
+                    routines.Add(SlideToPosition(meshes.GetDominoMeshById(tracks[slot][index]).transform, GetTrackPosition(index, slot, tracks.Count), duration, 0));
+        yield return Together(routines.ToArray());
     }
 
-    public IEnumerator AddDominoToExistingTrack(Transform gameObjectToAdd, List<List<int>> tracksWithDomininoIds, int trackIndex, Action afterComplete = null)
+    public void AddNewDominoForPlayer(Dictionary<int, Transform> hand, int id) { Run(AddNewDominoForPlayerRoutine(hand, id)); }
+    public void ReturnDominoToPlayer(Dictionary<int, Transform> hand, int id) { Run(ReturnDominoToPlayerRoutine(hand, id)); }
+    public IEnumerator AddNewDominoForPlayerRoutine(Dictionary<int, Transform> hand, int id) { yield return Introduce(hand, id, false); }
+    public IEnumerator ReturnDominoToPlayerRoutine(Dictionary<int, Transform> hand, int id) { yield return Introduce(hand, id, true); }
+    private IEnumerator Introduce(Dictionary<int, Transform> hand, int id, bool returning)
     {
-        yield return StartCoroutine(AddDominoToTrack(gameObjectToAdd, tracksWithDomininoIds[trackIndex].Count - 1, trackIndex, tracksWithDomininoIds.Count, afterComplete));
-    }
-
-    private IEnumerator UpdateTrackPositions(List<List<int>> tracksWithDomininoIds, MeshManager meshManager, float duration, int? addedDominoId = null)
-    {
-        for (int i = 0; i < tracksWithDomininoIds.Count; i++)
-        {
-            float currentYPosition = GetTrackYPosition(i, tracksWithDomininoIds.Count);
-
-            for (int j = 0; j < tracksWithDomininoIds[i].Count; j++)
-            {
-                // TODO: stagger or ease the sliding to look cool?
-
-                float currentXPosition = GetTrackXPosition(j, i, tracksWithDomininoIds.Count);
-                int currentDominoId = tracksWithDomininoIds[i][j];
-                if(currentDominoId == addedDominoId)
-                {
-                    // ignoring the domino being added to the track (so it can have its own separate animation)
-                    continue;
-                }
-
-                Transform transform = meshManager.GetDominoMeshById(currentDominoId).transform;
-                StartCoroutine(SlideToPosition(transform, new Vector3(currentXPosition, currentYPosition, 0), duration, 0));
-            }
-        }
-
-        yield return _waiter.GetWait(duration);
-    }
-
-    public void AddNewDominoForPlayer(Dictionary<int, Transform> playerDominoes, int incomingDominoId)
-    {
-        // fly in and rotate
-        StartCoroutine(SlideAndRotateToCenterThenAddToBottom(playerDominoes, incomingDominoId, () => Debug.Log("Intro animation complete")));
-    }
-    
-    public void ReturnDominoToPlayer(Dictionary<int, Transform> playerDominoes, int incomingDominoId)
-    {
-        // TODO: animation to lift domino from track (closer to camera)
-        // TODO: animation to move horizontally to its final x position
-        // TODO: animation to slide vertically back into the hand
-        // TODO: animation to make space in the hand for the domino to return to
-        
-        // rotate then fly in
-        StartCoroutine(SlideAndRotateToCenterThenReturnToBottom(playerDominoes, incomingDominoId, () => Debug.Log("Return domino animation complete")));
-    }
-
-    private IEnumerator SlideAndRotateToCenterThenAddToBottom(Dictionary<int, Transform> playerDominoes, int incomingDominoId, Action afterComplete = null)
-    {
-        float showDuration = 2f; // seconds that the box is displayed in the center before moving into its bottom position
-        float beginAnimationDelay = 0.4f;   // delay before beginning this animation
-        float rotationDelay = 0.1f;        // additional delay before rotation animation begins
-        float slideAnimationDuration = 1f;
-        float rotationAnimationDuration = 0.5f;
-        float depth = -0.015f; // z position
-
-        var newDominoTransform = playerDominoes[incomingDominoId];
-        newDominoTransform.rotation = Quaternion.Euler(new Vector3(-90, 180, 180));   // start flipped over
-
-        StartCoroutine(SlideToPosition(newDominoTransform, new Vector3(0, 0, depth), slideAnimationDuration, beginAnimationDelay));
-        yield return StartCoroutine(
-            AnimationHelper.RotateOverSeconds(
-                newDominoTransform.transform,
-                Quaternion.Euler(-90, 0, 180),
-                rotationAnimationDuration,
-                beginAnimationDelay + rotationDelay,
-                SelectionEase
-                )
-            );
-
-        yield return _waiter.GetWait(showDuration);
-
-        yield return StartCoroutine(UpdateHorizontalPositionsWithDepth(playerDominoes, incomingDominoId, depth * 0.9f));
-
-        if (afterComplete != null)
-        {
-            afterComplete();
-        }
-    }
-    
-    private IEnumerator SlideAndRotateToCenterThenReturnToBottom(Dictionary<int, Transform> playerDominoes, int incomingDominoId, Action afterComplete = null)
-    {
-        float showDuration = 0.25f; // seconds that the box is displayed in the center before moving into its bottom position
-        float beginAnimationDelay = 0f;   // delay before beginning this animation
-        float rotationDelay = 0.2f;        // additional delay before rotation animation begins
-        float slideAnimationDuration = 0.25f;
-        float rotationAnimationDuration = 0.15f;
-        float depth = -0.015f; // z position
-
-        var newDominoTransform = playerDominoes[incomingDominoId];
-
-        StartCoroutine(SlideToPosition(newDominoTransform, new Vector3(0, 0, depth), slideAnimationDuration, beginAnimationDelay));
-        yield return StartCoroutine(
-            AnimationHelper.RotateOverSeconds(
-                newDominoTransform.transform,
-                Quaternion.Euler(-90, 0, 180),
-                rotationAnimationDuration,
-                beginAnimationDelay + rotationDelay,
-                SelectionEase
-            )
-        );
-
-        yield return _waiter.GetWait(showDuration);
-
-        yield return StartCoroutine(UpdateHorizontalPositionsWithDepth(playerDominoes, incomingDominoId, depth * 0.9f));
-
-        if (afterComplete != null)
-        {
-            afterComplete();
-        }
-    }
-
-
-    private IEnumerator UpdateHorizontalPositionsWithDepth(Dictionary<int, Transform> playerDominoes, int incomingDominoId, float depthFromFinalPosition)
-    {
-        float animationDuration = 0.3f;
-        float delayBeforeAnimation = 0.1f;
-        float totalAnimationTime = delayBeforeAnimation + animationDuration;
-        float horizontalSideMargin = 0f;
-
-        var objectDimensions = PositionHelper.GetObjectDimensions(DominoPrefab);
-        Vector2 screenSize = PositionHelper.GetScreenSize(mainCamera);
-        var positionY = PositionHelper.GetPlayerDominoYPosition(objectDimensions, mainCamera);
-
-        int i = 0;
-        foreach(int dominoId in playerDominoes.Keys)
-        {
-            float endXPos = PositionHelper.GetCenterPositionByIndex(screenSize.x, objectDimensions.x, i++, playerDominoes.Count, horizontalSideMargin);
-
-            if (dominoId == incomingDominoId)
-            {
-                // moves the new domino to its final place then moves it in the Z position to its final spot
-                StartCoroutine(AnimationHelper.MoveOverSecondsWithDepthReturn(playerDominoes[dominoId].transform, new Vector3(endXPos, positionY, 0), animationDuration, delayBeforeAnimation, depthFromFinalPosition, SelectionEase));
-            }
-            else
-            {
-                StartCoroutine(SlideToPosition(playerDominoes[dominoId].transform, new Vector3(endXPos, positionY, 0), animationDuration, delayBeforeAnimation));
-            }
-        }
-
-        yield return _waiter.GetWait(totalAnimationTime);
-    }
-
-    public IEnumerator UpdatePlayerPositions(Dictionary<int,Transform> dominoTransforms)
-    {
-        yield return _waiter.GetWait(RearrangePlayerDominoes.Delay);
-        
-        var objectSize = PositionHelper.GetObjectDimensions(DominoPrefab);
-        var positions = PositionHelper.GetLayoutAcrossScreen(objectSize, mainCamera, dominoTransforms.Count, BottomSideMargin);
-
+        var target = hand[id];
+        if (!returning) target.rotation = Quaternion.Euler(-90, 180, 180);
+        yield return Together(
+            SlideToPosition(target, new Vector3(0, 0, -0.015f), returning ? 0.25f : 1f, returning ? 0 : 0.4f),
+            AnimationHelper.RotateOverSeconds(target, Quaternion.Euler(-90, 0, 180), returning ? 0.15f : 0.5f, returning ? 0.2f : 0.5f, SelectionEase));
+        yield return new WaitForSeconds(returning ? 0.25f : 2f);
+        var positions = GetHandPositions(hand.Count);
+        var routines = new List<IEnumerator>();
         int index = 0;
-        foreach(int dominoId in dominoTransforms.Keys)
+        foreach (var item in hand)
         {
-            var domino = dominoTransforms[dominoId];
-            var mover = domino.GetComponent<Mover>();
-
-            StartCoroutine(mover.MoveOverSeconds(positions[index], RearrangePlayerDominoes.Duration, 0, PlayerDominoSlideIn.Curve));
-            index++;
+            var destination = positions[index++];
+            routines.Add(item.Key == id
+                ? AnimationHelper.MoveOverSecondsWithDepthReturn(item.Value, destination, 0.3f, 0.1f, -0.0135f, SelectionEase)
+                : SlideToPosition(item.Value, destination, 0.3f, 0.1f));
         }
-        yield return _waiter.GetWait(RearrangePlayerDominoes.Duration);
+        yield return Together(routines.ToArray());
     }
-
-    public void UpdateStationPositions(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms, Action afterComplete = null)
+    public IEnumerator UpdatePlayerPositions(Dictionary<int, Transform> hand)
     {
-        StartCoroutine(MoveDominoesToStation(trackDominoIds, dominoTransforms, afterComplete));
+        var positions = GetHandPositions(hand.Count);
+        var routines = new List<IEnumerator>();
+        int index = 0;
+        foreach (var item in hand)
+            routines.Add(AnimationHelper.MoveOverSeconds(item.Value, positions[index++], RearrangePlayerDominoes));
+        yield return Together(routines.ToArray());
     }
-
-    private IEnumerator MoveDominoesToStation(List<List<int>> trackDominoIds, Dictionary<int,Transform> dominoTransforms, Action afterComplete = null)
+    public IEnumerator UpdateStationPositionsRoutine(List<List<int>> tracks, Dictionary<int, Transform> transforms)
     {
-        float staggerDeloy = 0.25f;
-
-        for (int trackIndex = 0; trackIndex < trackDominoIds.Count; trackIndex++)
-        {
-            for (int dominoIndex = 0; dominoIndex < trackDominoIds[trackIndex].Count; dominoIndex++)
-            {
-                int dominoId = trackDominoIds[trackIndex][dominoIndex];
-                // TODO: slow this animation down (make it configurable)
-                StartCoroutine(AddDominoToTrack(dominoTransforms[dominoId], dominoIndex, trackIndex, trackDominoIds.Count, afterComplete));
-            }
-        }
-        
-        yield return _waiter.GetWait(staggerDeloy);
+        var routines = new List<IEnumerator>();
+        for (int slot = 0; slot < tracks.Count; slot++)
+            for (int index = 0; index < tracks[slot].Count; index++)
+                routines.Add(PlaceOnTrackRoutine(transforms[tracks[slot][index]], index, slot, tracks.Count));
+        yield return Together(routines.ToArray());
     }
-
-    public Vector3 GetTrackLabelPosition(Vector3 lastDominoPosition)
+    public void UpdateStationPositions(List<List<int>> tracks, Dictionary<int, Transform> transforms, Action afterComplete = null)
     {
-        float margin = 0.003f;
-        var objectDimensions = PositionHelper.GetObjectDimensions(DominoPrefab);
-        float messageLeftPosition = lastDominoPosition.x + (objectDimensions.y / 2) + margin;     // domino is rotated onto its side
-        return new Vector3(messageLeftPosition, lastDominoPosition.y, lastDominoPosition.z);
+        Run(Complete(UpdateStationPositionsRoutine(tracks, transforms), afterComplete));
     }
-
-    public void MoveTrackLabelToEndOfTrack(GameObject trackMessageObject, Vector3 position)
+    public Vector3 GetTrackLabelPosition(Vector3 lastPosition)
     {
-        float duration = 0.1f;
-        var mover = trackMessageObject.GetComponent<Mover>();
-        StartCoroutine(mover.MoveOverSeconds(position, DominoRotateToTrack));
+        return lastPosition + new Vector3(PositionHelper.GetObjectDimensions(DominoPrefab).y / 2 + 0.003f, 0, 0);
     }
-
-    public void UpdateTrackLabelPositions(Station station, Dictionary<int, GameObject> trackMessageObjectsByTrackIndex, Dictionary<int, Vector3> trackLabelDestinationPositionsByTrackIndex)
+    public void MoveTrackLabelToEndOfTrack(GameObject label, Vector3 position)
+    {
+        Run(AnimationHelper.MoveOverSeconds(label.transform, position, DominoRotateToTrack));
+    }
+    public void UpdateTrackLabelPositions(Station station, Dictionary<int, GameObject> labels, Dictionary<int, Vector3> destinations)
     {
         for (int i = 0; i < station.Tracks.Count; i++)
-        {
-            if (!trackMessageObjectsByTrackIndex.ContainsKey(i))
-            {
-                // no message for this track
-                continue;
-            }
-            if (!trackLabelDestinationPositionsByTrackIndex.ContainsKey(i))
-            {
-                // caller did not include all of the message destinations
-                Debug.LogError($"trackLabelDestinationPositionsByTrackIndex is missing a position for track {i}");
-                continue;
-            }
-            
-            MoveTrackLabelToEndOfTrack(trackMessageObjectsByTrackIndex[i], trackLabelDestinationPositionsByTrackIndex[i]);
-        }
-        
+            if (labels.TryGetValue(i, out var label) && destinations.TryGetValue(i, out var destination))
+                MoveTrackLabelToEndOfTrack(label, destination);
     }
 }

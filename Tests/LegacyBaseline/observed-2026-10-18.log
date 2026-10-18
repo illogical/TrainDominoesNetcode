@@ -1,0 +1,35 @@
+--- host ---
+[session=4082:256 client=not-listening role=offline] [PlayerState #1 2026-10-18T04:05:09.0570880Z frame=1] Transition <none> -> PregameState Initialize 
+BASELINE host settings bypass=True round=2 hand=12
+[session=4082:256 client=0 role=host] [PlayerState #2 2026-10-18T04:05:12.1211020Z frame=29362] Transition PregameState -> GameStartedState GameSession_OnPlayerJoined 
+[session=4082:256 client=0 role=host] [PlayerState #3 2026-10-18T04:05:12.1253430Z frame=29362] Transition GameStartedState -> PlayerTurnStartedState EnterState 
+BASELINE host start=True
+BASELINE host connected=True peers=2
+BASELINE host startup state=PlayerTurnStartedState hand=0 group=True
+BASELINE host draw-initial state=PlayerTurnStartedState hand=12 group=True
+Player 0 is ready
+BASELINE host repeat-draw state=PlayerTurnStartedState hand=14 group=True
+Player 0 is already ready
+Intro animation complete
+Intro animation complete
+BASELINE host group-submit state=PlayerTurnStartedState hand=14 group=True
+BASELINE host placement state=PlayerTurnStartedState hand=13 group=True
+BASELINE host undo state=PlayerTurnStartedState hand=14 group=True
+BASELINE host individual-draw state=PlayerTurnStartedState hand=15 group=True
+Player 0 is already ready
+Intro animation complete
+BASELINE host individual-end state=PlayerTurnStartedState hand=15 group=True
+BASELINE host final state=PlayerTurnStartedState hand=15 group=True
+[session=4082:256 client=not-listening role=host] [PlayerState #4 2026-10-18T04:05:55.1845030Z frame=444293] Transition PlayerTurnStartedState -> <none> Dispose 
+--- client ---
+[session=4082:256 client=not-listening role=offline] [PlayerState #1 2026-10-18T04:05:09.3570880Z frame=1] Transition <none> -> PregameState Initialize 
+BASELINE client settings bypass=True round=2 hand=12
+BASELINE client start=True
+[session=4082:256 client=1 role=client] [PlayerState #2 2026-10-18T04:05:12.4651860Z frame=29505] Transition PregameState -> GameStartedState GameSession_OnPlayerJoined 
+[session=4082:256 client=1 role=client] [PlayerState #3 2026-10-18T04:05:12.4659670Z frame=29505] Transition GameStartedState -> PlayerTurnStartedState EnterState 
+BASELINE client connected=True peers=2
+BASELINE client startup state=PlayerTurnStartedState hand=0 group=True
+BASELINE client draw-initial state=PlayerTurnStartedState hand=0 group=True
+BASELINE client group-submit state=PlayerTurnStartedState hand=0 group=True
+BASELINE client final state=PlayerTurnStartedState hand=0 group=True
+[session=4082:256 client=not-listening role=client] [PlayerState #4 2026-10-18T04:05:40.4358930Z frame=299819] Transition PlayerTurnStartedState -> <none> Dispose 

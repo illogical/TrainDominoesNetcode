@@ -1,18 +1,18 @@
 ---
 type: player-state-proposal
-status: agreed-direction-integration-pending
-updated: 2026-10-17
+status: implemented-verification-in-progress
+updated: 2026-10-18
 ---
 
 # Anticipated player states for the full Puremco profile
 
-This inventories the local player interaction states anticipated for the selected [rulebook](TRAIN_DOMINOES_RULEBOOK.md). The user approved this direction and reviewed R-015–R-018 application policies on 2026-10-17. The standalone core is implemented; these Unity interaction changes remain pending. See [verification](RULES_ENGINE_VERIFICATION.md).
+This document preserves the selected Puremco interaction design agreed on 2026-10-17. The selected eight classes are now implemented; runtime verification remains in progress. The [integration guide](GAMEPLAY_INTEGRATION.md) describes actual command/presentation flow, the [state matrix](PLAYER_STATE_REVIEW.md) records current responsibility, and the [generated map](PlayerStateFlow/current.md) records source wiring.
 
-**Selected inventory: seven normal-flow states plus PlayerSessionSuspendedState under the adopted R-015 policy.** Doubles, drawing allowances, train markers, and scoring are authoritative data and rules; they do not each need a local state class.
+**Implemented inventory:** PregameState, RoundInitializingState, PlayerAwaitingTurnState, PlayerActingState, PlayerActionPendingState, RoundOverState, GameOverState and PlayerSessionSuspendedState. `PlayerStateCoordinator` selects modes from recipient views, pending delivery and presentation status. The runner remains flat. TurnStarted/MadeMove are merged into Acting; Started is replaced by RoundInitializing; the unused Joined placeholder and distributed turn/result handlers are removed.
 
-This refines the earlier [player-state review](PLAYER_STATE_REVIEW.md): merge `PlayerTurnStartedState` and `PlayerMadeMoveState` into one permission-driven `PlayerActingState`. The earlier draft retained a separate commit-ready state. The selected design uses one acting state; a separate review lifecycle remains a future option only if a distinct review screen warrants it.
+Doubles, drawing allowances, markers, Draft readiness and scoring remain authoritative data. Existing animation operations are wrapped in locally ordered/cancellable batches; completion releases board input but never advances rules. Announce/Challenge remains possible from Acting and Waiting during motion. Startup/round-replacement presentation finishes before board interaction begins.
 
-The [rules-engine implementation plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) still owns the intended authority/build boundary. The [project overview](PROJECT_STATE.md) and [generated current flow](PlayerStateFlow/current.md) describe the implementation. No gameplay classes, scenes or packages were changed for this inventory or the standalone engine. TASKS.md now records policy agreement and standalone verification separately from pending Unity integration.
+**Reading the historical sections below:** “current flow” is the pre-integration 2026-10-17 baseline; “proposed” and “remaining implementation” describe its then-agreed targets. They are preserved for before/after comparison, not current source claims. Follow the implemented matrix and generated map for today's behavior. The [legacy runtime baseline](STATE_002_RUNTIME_BASELINE.md) records a real CLI characterization, including its group-readiness blocker; it does not prove replacement behavior. Detailed reconnect transport, recovery UX, settings UI and visual-quality review remain deferred.
 
 ## Engine contract additions agreed during standalone implementation
 

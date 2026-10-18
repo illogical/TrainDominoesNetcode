@@ -69,3 +69,11 @@ The analyzer resolves state classes within the states directory by simple name a
 The coverage warnings identify recognized gaps such as dynamic factories, inline callbacks, overloads, unbalanced event removal, conditional compilation, async methods, unsupported control flow, and unmatched transition call sites. The analyzer is deliberately not a whole-program semantic/control-flow analyzer. Changes to startup, external callers, event emission, virtual dispatch, dependency injection, or complex/deferred execution require manual review even when no warnings appear. Partial classes, new syntax patterns, and indirect event wrappers may require extending the extractor.
 
 Mermaid arrows from an inheritance group summarize identical known shared edges for every member of that group. The full transition table retains the individual concrete sources. An isolated node means no static route from the recognized initialization path, not proof that nothing external can instantiate it.
+
+## Lifetime coordinator routing
+
+`PlayerStateCoordinator` is recognized by name as an orchestration entrypoint, not a state node. Its `Start()` body and named event handlers subscribed directly in `Start()` are followed through local helpers. Matching removals must exist in `Dispose()`. Public `Reconcile()` is also inventoried with an explicit caller-wiring-unverified label because external invocations are outside the source boundary. Simple if/else and early-return guards remain visible on each route.
+
+Coordinator routes expand across every concrete state as possible shared routing; the enclosing Mermaid group summarizes identical routes while the table retains each source. This deliberately does not infer current-state reachability or evaluate guards. Keep state selection in direct `ctx.SwitchState(c => new State(c), ...)` calls so the extractor can retain factory and reuse semantics. Coordinator code may suppress same-mode switches; static self-arrows alone do not establish runtime re-entry.
+
+Every `SwitchState` call in all classes within the source boundary is checked for a recognized path. Unrecognized router classes or deferred/unsupported call sites warn rather than silently omitting their transitions. Files outside `Assets/Scripts/Game/States` and external callers/event targeting still need manual review.

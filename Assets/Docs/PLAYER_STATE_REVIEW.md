@@ -1,14 +1,37 @@
 ---
 type: state-review
-status: agreed-integration-pending
-updated: 2026-10-17
+status: implemented-verification-in-progress
+updated: 2026-10-18
 ---
 
 # Player states — Puremco rules mapping
 
-STATE-001 policy/state review was agreed on 2026-10-17. The standalone core now implements the agreed rules; local state integration is pending. The user selected Puremco rules after withdrawing preferences based on uncertain memory. Use the [rulebook](TRAIN_DOMINOES_RULEBOOK.md) as the behavioral authority and the [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) for implementation. The [project overview](PROJECT_STATE.md) remains a dated record of current code.
+STATE-001 policy/state review was agreed on 2026-10-17. The selected Puremco core and its live gameplay adapter/state integration are implemented as of 2026-10-18; integration verification remains in progress. The [rulebook](TRAIN_DOMINOES_RULEBOOK.md) owns behavior, the [engine plan](RULES_ENGINE_IMPLEMENTATION_PLAN.md) owns the core boundary, and the [integration guide](GAMEPLAY_INTEGRATION.md) describes actual symbols and data flow.
 
-**Current code was statically inspected; nothing in this document is a successful play-test claim.** Rule-driven class/behavior changes below have not been made. The separately authorized factory/logging infrastructure refactor is implemented; see [debugging and verification](STATE_MACHINE_DEBUGGING.md). Published baseline and R-015–R-018 application policies are settled; see [verification](RULES_ENGINE_VERIFICATION.md). The later [anticipated-state inventory](ANTICIPATED_PLAYER_STATES.md) governs the selected seven normal states plus SessionSuspended.
+The selected inventory is implemented: seven normal states plus SessionSuspended. The [source-derived flow](PlayerStateFlow/current.md) should be regenerated after state changes; static graphs are not play-test evidence. The [legacy CLI runtime baseline](STATE_002_RUNTIME_BASELINE.md) is historical evidence of the replaced nested-RPC/group-readiness defect. Current verification outcomes belong in the [verification report](RULES_ENGINE_VERIFICATION.md).
+
+## Implemented phase/action matrix — 2026-10-18
+
+| Condition | Local mode / owner | Implemented behavior |
+| --- | --- | --- |
+| No view / initial readiness | Pregame; host session adapter | Host creates a 2–8-person fixed roster. Each seat submits Ready; join alone does not start play |
+| Awaiting deck / initial presentation | RoundInitializing; authoritative coordinator and presentation | `TryStartRound` supplies a validated deck. Interaction waits for round presentation completion |
+| Local actor | PlayerActing | Selection is local; explicit tile/train placement, Draw, Pass and Draft Undo/End Turn use core views and commands |
+| Other actor | PlayerAwaitingTurn | Observe filtered views; still forward Announce/Challenge |
+| Outstanding command | PlayerActionPending | One request installed before send; Retry preserves identity. Outcome matching and view freshness are independent |
+| Round result | RoundOver | Show ending reason, scores/totals and Ready; no local rule reset. Blocked result permits no ending player |
+| Match result | GameOver | Show all joint winners; host requests a fresh match and fresh readiness |
+| Session unavailable/suspended | PlayerSessionSuspended | Block ordinary commands, offer synchronization/resume/new match. Host requires every frozen transport identity before resume |
+| Doubles / draw / markers / Draft readiness | Core data, not state classes | `PlayerViewDto` carries requirement, legal placements and allowed actions |
+| Visual work | GameplayManager / GameplayPresenter | Ordered local batches; board input mask; terminal snap; cancellation/generation/watchdog recovery |
+
+`PlayerStateCoordinator.Reconcile` owns every normal transition, with availability first, current pending request next, then authoritative phase/setup/actor. `ClientSession.Receive` retires obsolete requests on phase replacement or suspension before notifying that coordinator. A result-phase Ready can remain pending while the result screen stays visible. Same-mode updates refresh presenters without leave/enter; explicit runner self-transitions still re-enter. Concrete states balance their own input subscriptions; `ObservingStateBase` shares only announcement/challenge handlers, not rule decisions.
+
+Selection and board masking live in `ClientSession`; its `BoardEnabled` combines active actor, playing phase, availability, pending absence and presentation readiness. `InputManager` renders real Unity Buttons cloned from its serialized Draw template for actions, train destinations and challenge targets. Button availability is advisory; the server validates every command.
+
+## Historical review and implementation targets — 2026-10-17
+
+The matrices and diagrams below preserve the original inspected code and agreed target that motivated U6 / ENG-006. Their “current coverage,” “pending,” and “proposed” wording is historical. Use the implemented matrix above and integration guide for current ownership; do not recreate the removed group-turn, TurnStarted/MadeMove or Joined states.
 
 ## Three different meanings of state
 

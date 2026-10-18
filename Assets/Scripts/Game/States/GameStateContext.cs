@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using Assets.Scripts.Game.Integration;
 
 namespace Assets.Scripts.Game.States
 {
@@ -10,6 +11,8 @@ namespace Assets.Scripts.Game.States
     {
         public GameSession GameSession { get; }
         public GameplayManager GameplayManager { get; }
+        public ClientSession Client { get; }
+        public IInteractionInput Input { get; }
         public GameStateBase CurrentState { get; private set; }
         public GameStateDiagnostics Diagnostics { get; }
 
@@ -21,6 +24,8 @@ namespace Assets.Scripts.Game.States
         {
             GameSession = gameSession;
             GameplayManager = gameplayManager;
+            Client = gameSession.Client;
+            Input = gameplayManager.InputManager;
             Diagnostics = diagnostics ?? new GameStateDiagnostics(message => Debug.Log(message, gameSession));
             SwitchState(c => new PregameState(c), reason: "Initialize");
         }

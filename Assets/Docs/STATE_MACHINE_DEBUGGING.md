@@ -48,7 +48,9 @@ Sending an RPC finishes the local handler without proving server acceptance. The
 
 ## Diagram and further modularity
 
-The existing diagram in `PLAYER_STATE_REVIEW.md` describes the proposed future rules-integrated flow, not today's execution. TASKS.md tracks an optional live viewer and observed-transition graph at the lowest priority; no UI or graph dependency was added here.
+The [source-derived current flow](PlayerStateFlow/current.md) shows today's local transition wiring, including inherited exits, guards, self-transitions, and fresh restart entries. Its expanded tables include event reactions and source locations. Regenerate it after state changes; its source hash identifies the inputs. The existing diagram in `PLAYER_STATE_REVIEW.md` describes the proposed future rules-integrated flow, not today's execution.
+
+Use the repository-local [player-state-workflow skill](../../.agents/skills/player-state-workflow/SKILL.md) for planning or changing states. It generates before/proposed-after diagrams without editing production C#, then compares actual source snapshots after implementation. Its Roslyn extractor and proposal tooling run outside Unity, with build caches in the system temporary directory. The static map does not establish runtime event targeting or rule correctness. TASKS.md still tracks the optional live Unity viewer and observed-transition graph at the lowest priority; no Unity UI was added.
 
 Unity's installed Visual Scripting package supports [State Graphs](https://docs.unity3d.com/Packages/com.unity.visualscripting@1.9/manual/vs-state-graphs-intro.html). This C# state machine is not a Visual Scripting graph; using those authoring/debugging tools would require integration or migration. A future observer window can instead consume the diagnostics already exposed. For timing work, [ProfilerMarker](https://docs.unity.com/en-us/engine/6000.6/script-reference/unity/profiling/profilermarker) provides custom Profiler samples; this refactor does not add profiler instrumentation.
 

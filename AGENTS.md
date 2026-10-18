@@ -10,6 +10,7 @@ The user selected the [Puremco rulebook baseline](Assets/Docs/TRAIN_DOMINOES_RUL
 
 ## Rules and state work
 
+- For mapping, proposing, adding, changing, or removing player states or their transition wiring, use the repository-local [player-state-workflow skill](.agents/skills/player-state-workflow/SKILL.md). Generate the current flow from source, show before/proposed-after diagrams and transition/test ramifications before gameplay edits, and compare the actual result afterward. The preview is not an additional permission gate when implementation is already authorized. Start with the [generated current flow](Assets/Docs/PlayerStateFlow/current.md), then regenerate it rather than trusting a stale snapshot.
 - Start with STATE-001. The first matrix exists in `Assets/Docs/PLAYER_STATE_REVIEW.md`; review it and the rulebook's proposed application policies before implementing state changes. Baseline selection does not imply every app-policy detail has been reviewed.
 - Keep known implementation behavior, intended rules, and proposals distinct. Do not assume generic train-dominoes rules apply without checking the agreed variant.
 - Keep the server authoritative. UI button availability is not rule validation; validate acting player, action legality, and repeated/stale commands at the authoritative boundary.
@@ -28,5 +29,7 @@ The user selected the [Puremco rulebook baseline](Assets/Docs/TRAIN_DOMINOES_RUL
 ## Verification and handoff
 
 Use focused core unit tests for rule behavior and Unity/host-client checks for adapters and transitions once those harnesses exist. No project-owned automated test suite was found in the initial inspection; do not invent a working command or infer correctness from the installed Test Framework package.
+
+The subsequent package-free `Tests/StateMachine` checks link actual state sources with adapter stubs; see [state debugging](Assets/Docs/STATE_MACHINE_DEBUGGING.md) for the runnable command and limits. They do not implement the planned rules-core/NUnit harness or replace Unity host/client verification. The state-workflow skill also includes its own source-mapping/proposal tests.
 
 Report commands/checks actually performed, their outcomes, and untested scenarios. Distinguish static inspection, local play verification, and live-service verification. Update TASKS.md only when completion criteria are met, and update the overview/state matrix when behavior changes. Keep documentation-only tasks free of gameplay, scene, asset, and package changes.

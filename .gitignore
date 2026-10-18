@@ -34,6 +34,7 @@ ExportedObj/
 .consulo/
 *.csproj
 !/Tests/StateMachine/StateMachine.Checks.csproj
+!/.agents/skills/player-state-workflow/scripts/StateMap/StateMap.csproj
 /Tests/StateMachine/bin/
 /Tests/StateMachine/obj/
 *.unityproj

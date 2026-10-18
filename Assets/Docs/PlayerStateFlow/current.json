@@ -1,0 +1,555 @@
+{
+  "states": [
+    {
+      "name": "EndTurnStateBase",
+      "base": "GameStateBase",
+      "abstract": true,
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 8
+    },
+    {
+      "name": "GameJoinedState",
+      "base": "GameStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/GameJoinedState.cs",
+      "line": 3
+    },
+    {
+      "name": "GameOverState",
+      "base": "GameStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/GameOverState.cs",
+      "line": 6
+    },
+    {
+      "name": "GameStartedState",
+      "base": "GameStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/GameStartState.cs",
+      "line": 10
+    },
+    {
+      "name": "PlayerAwaitingTurnState",
+      "base": "EndTurnStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/PlayerAwaitingTurnState.cs",
+      "line": 3
+    },
+    {
+      "name": "PlayerMadeMoveState",
+      "base": "EndTurnStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/PlayerMadeMoveState.cs",
+      "line": 9
+    },
+    {
+      "name": "PlayerTurnStartedState",
+      "base": "EndTurnStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 9
+    },
+    {
+      "name": "PregameState",
+      "base": "GameStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/PregameState.cs",
+      "line": 6
+    },
+    {
+      "name": "RoundOverState",
+      "base": "GameStateBase",
+      "abstract": false,
+      "file": "Assets/Scripts/Game/States/RoundOverState.cs",
+      "line": 5
+    }
+  ],
+  "transitions": [
+    {
+      "source": "[*]",
+      "target": "PregameState",
+      "event": "Initialize",
+      "handler": ".ctor",
+      "guard": "",
+      "reuse": true,
+      "owner": "GameStateContext",
+      "file": "Assets/Scripts/Game/States/GameStateContext.cs",
+      "line": 25
+    },
+    {
+      "source": "GameOverState",
+      "target": "GameStartedState",
+      "event": "ctx.GameplayManager.InputManager.NewGameButtonClicked",
+      "handler": "InputManager_NewGameButtonClicked",
+      "guard": "",
+      "reuse": false,
+      "owner": "GameOverState",
+      "file": "Assets/Scripts/Game/States/GameOverState.cs",
+      "line": 46
+    },
+    {
+      "source": "GameStartedState",
+      "target": "PlayerTurnStartedState",
+      "event": "EnterState",
+      "handler": "EnterState",
+      "guard": "",
+      "reuse": true,
+      "owner": "GameStartedState",
+      "file": "Assets/Scripts/Game/States/GameStartState.cs",
+      "line": 18
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "target": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.AwaitTurn",
+      "handler": "GameplayManager_AwaitTurn",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 34
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "target": "GameOverState",
+      "event": "ctx.GameplayManager.PlayerHasWonGame",
+      "handler": "GameplayManager_PlayerHasWonGame",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 46
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "target": "RoundOverState",
+      "event": "ctx.GameplayManager.PlayerHasWonRound",
+      "handler": "GameplayManagerPlayerHasWonRound",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 40
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "target": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.PlayerTurnEnded",
+      "handler": "GameplayManager_PlayerTurnEnded",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 55
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "target": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerTurnStarted",
+      "handler": "GameplayManager_PlayerTurnStarted",
+      "guard": "",
+      "reuse": true,
+      "owner": "PlayerAwaitingTurnState",
+      "file": "Assets/Scripts/Game/States/PlayerAwaitingTurnState.cs",
+      "line": 25
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "target": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.AwaitTurn",
+      "handler": "GameplayManager_AwaitTurn",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 34
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "target": "GameOverState",
+      "event": "ctx.GameplayManager.PlayerHasWonGame",
+      "handler": "GameplayManager_PlayerHasWonGame",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 46
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "target": "RoundOverState",
+      "event": "ctx.GameplayManager.PlayerHasWonRound",
+      "handler": "GameplayManagerPlayerHasWonRound",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 40
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "target": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerReversedMove",
+      "handler": "GameplayManager_PlayerReversedMove",
+      "guard": "",
+      "reuse": true,
+      "owner": "PlayerMadeMoveState",
+      "file": "Assets/Scripts/Game/States/PlayerMadeMoveState.cs",
+      "line": 48
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "target": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.PlayerTurnEnded",
+      "handler": "GameplayManager_PlayerTurnEnded",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 55
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "target": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.AwaitTurn",
+      "handler": "GameplayManager_AwaitTurn",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 34
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "target": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.PlayerAddedDomino",
+      "handler": "GameplayManager_PlayerAddedDomino",
+      "guard": "!(ctx.GameplayManager.TurnManager.IsGroupTurn)",
+      "reuse": true,
+      "owner": "PlayerTurnStartedState",
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 78
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "target": "GameOverState",
+      "event": "ctx.GameplayManager.PlayerHasWonGame",
+      "handler": "GameplayManager_PlayerHasWonGame",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 46
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "target": "RoundOverState",
+      "event": "ctx.GameplayManager.PlayerHasWonRound",
+      "handler": "GameplayManagerPlayerHasWonRound",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 40
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "target": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.PlayerTurnEnded",
+      "handler": "GameplayManager_PlayerTurnEnded",
+      "guard": "",
+      "reuse": true,
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 55
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "target": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerTurnStarted",
+      "handler": "GameplayManager_PlayerTurnStarted",
+      "guard": "",
+      "reuse": true,
+      "owner": "PlayerTurnStartedState",
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 50
+    },
+    {
+      "source": "PregameState",
+      "target": "GameStartedState",
+      "event": "ctx.GameSession.OnPlayerJoined",
+      "handler": "GameSession_OnPlayerJoined",
+      "guard": "",
+      "reuse": true,
+      "owner": "PregameState",
+      "file": "Assets/Scripts/Game/States/PregameState.cs",
+      "line": 23
+    },
+    {
+      "source": "RoundOverState",
+      "target": "GameStartedState",
+      "event": "ctx.GameplayManager.AllPlayersReadyForNextRound",
+      "handler": "GameplayManager_AllPlayersReadyForNextRound",
+      "guard": "",
+      "reuse": false,
+      "owner": "RoundOverState",
+      "file": "Assets/Scripts/Game/States/RoundOverState.cs",
+      "line": 53
+    }
+  ],
+  "reactions": [
+    {
+      "source": "GameOverState",
+      "event": "ctx.GameplayManager.InputManager.NewGameButtonClicked",
+      "handler": "InputManager_NewGameButtonClicked",
+      "owner": "GameOverState",
+      "file": "Assets/Scripts/Game/States/GameOverState.cs",
+      "line": 43,
+      "actions": []
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.AwaitTurn",
+      "handler": "GameplayManager_AwaitTurn",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 31,
+      "actions": []
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.PlayerHasWonGame",
+      "handler": "GameplayManager_PlayerHasWonGame",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 43,
+      "actions": []
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.PlayerHasWonRound",
+      "handler": "GameplayManagerPlayerHasWonRound",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 37,
+      "actions": []
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.PlayerTurnEnded",
+      "handler": "GameplayManager_PlayerTurnEnded",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 49,
+      "actions": []
+    },
+    {
+      "source": "PlayerAwaitingTurnState",
+      "event": "ctx.GameplayManager.PlayerTurnStarted",
+      "handler": "GameplayManager_PlayerTurnStarted",
+      "owner": "PlayerAwaitingTurnState",
+      "file": "Assets/Scripts/Game/States/PlayerAwaitingTurnState.cs",
+      "line": 22,
+      "actions": []
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.AwaitTurn",
+      "handler": "GameplayManager_AwaitTurn",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 31,
+      "actions": []
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.InputManager.DominoClicked",
+      "handler": "InputManager_DominoClicked",
+      "owner": "PlayerMadeMoveState",
+      "file": "Assets/Scripts/Game/States/PlayerMadeMoveState.cs",
+      "line": 32,
+      "actions": [
+        "ctx.GameSession.SelectDominoServerRpc(dominoId)"
+      ]
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.InputManager.EndTurnClicked",
+      "handler": "InputManager_EndTurnClicked",
+      "owner": "PlayerMadeMoveState",
+      "file": "Assets/Scripts/Game/States/PlayerMadeMoveState.cs",
+      "line": 51,
+      "actions": [
+        "ctx.GameSession.EndTurnServerRpc()",
+        "ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false)"
+      ]
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.PlayerHasWonGame",
+      "handler": "GameplayManager_PlayerHasWonGame",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 43,
+      "actions": []
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.PlayerHasWonRound",
+      "handler": "GameplayManagerPlayerHasWonRound",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 37,
+      "actions": []
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.PlayerReversedMove",
+      "handler": "GameplayManager_PlayerReversedMove",
+      "owner": "PlayerMadeMoveState",
+      "file": "Assets/Scripts/Game/States/PlayerMadeMoveState.cs",
+      "line": 42,
+      "actions": []
+    },
+    {
+      "source": "PlayerMadeMoveState",
+      "event": "ctx.GameplayManager.PlayerTurnEnded",
+      "handler": "GameplayManager_PlayerTurnEnded",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 49,
+      "actions": []
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.AwaitTurn",
+      "handler": "GameplayManager_AwaitTurn",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 31,
+      "actions": []
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.InputManager.DominoClicked",
+      "handler": "InputManager_DominoClicked",
+      "owner": "PlayerTurnStartedState",
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 53,
+      "actions": [
+        "ctx.GameplayManager.SoundManager.PlayRandomClickSound()",
+        "ctx.GameSession.SelectDominoServerRpc(dominoId)"
+      ]
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.InputManager.DrawButtonClicked",
+      "handler": "InputManager_DrawButtonClicked",
+      "owner": "PlayerTurnStartedState",
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 62,
+      "actions": [
+        "ctx.GameSession.DrawDominoesServerRpc()",
+        "ctx.GameplayManager.InputManager.SetDrawButtonEnabled(false)",
+        "ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(true)"
+      ]
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.InputManager.EndTurnClicked",
+      "handler": "InputManager_EndTurnClicked",
+      "owner": "PlayerTurnStartedState",
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 81,
+      "actions": [
+        "ctx.GameSession.EndTurnServerRpc()",
+        "ctx.GameplayManager.InputManager.SetEndTurnButtonEnabled(false)"
+      ]
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerAddedDomino",
+      "handler": "GameplayManager_PlayerAddedDomino",
+      "owner": "PlayerTurnStartedState",
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 70,
+      "actions": []
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerHasWonGame",
+      "handler": "GameplayManager_PlayerHasWonGame",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 43,
+      "actions": []
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerHasWonRound",
+      "handler": "GameplayManagerPlayerHasWonRound",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 37,
+      "actions": []
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerTurnEnded",
+      "handler": "GameplayManager_PlayerTurnEnded",
+      "owner": "EndTurnStateBase",
+      "file": "Assets/Scripts/Game/States/EndTurnStateBase.cs",
+      "line": 49,
+      "actions": []
+    },
+    {
+      "source": "PlayerTurnStartedState",
+      "event": "ctx.GameplayManager.PlayerTurnStarted",
+      "handler": "GameplayManager_PlayerTurnStarted",
+      "owner": "PlayerTurnStartedState",
+      "file": "Assets/Scripts/Game/States/PlayerTurnStartedState.cs",
+      "line": 47,
+      "actions": []
+    },
+    {
+      "source": "PregameState",
+      "event": "ctx.GameSession.OnPlayerJoined",
+      "handler": "GameSession_OnPlayerJoined",
+      "owner": "PregameState",
+      "file": "Assets/Scripts/Game/States/PregameState.cs",
+      "line": 17,
+      "actions": [
+        "ctx.GameSession.PlayerJoinedServerRpc()"
+      ]
+    },
+    {
+      "source": "RoundOverState",
+      "event": "ctx.GameplayManager.AllPlayersReadyForNextRound",
+      "handler": "GameplayManager_AllPlayersReadyForNextRound",
+      "owner": "RoundOverState",
+      "file": "Assets/Scripts/Game/States/RoundOverState.cs",
+      "line": 43,
+      "actions": [
+        "ctx.GameplayManager.DominoTracker.Reset()",
+        "ctx.GameplayManager.TurnManager.ResetForNextRound()",
+        "ctx.GameplayManager.ClientResetForNextRound()"
+      ]
+    },
+    {
+      "source": "RoundOverState",
+      "event": "ctx.GameplayManager.InputManager.ReadyButtonClicked",
+      "handler": "InputManager_ReaadyButtonClicked",
+      "owner": "RoundOverState",
+      "file": "Assets/Scripts/Game/States/RoundOverState.cs",
+      "line": 37,
+      "actions": [
+        "ctx.GameSession.PlayerReadyForNextRoundServerRpc()"
+      ]
+    }
+  ],
+  "warnings": [],
+  "schemaVersion": 1,
+  "status": "source",
+  "sourceLabel": "Working tree (HEAD edcdb808247c969f6426a98da83e1401024c5037)",
+  "sourceHash": "c9953e65a6c184b49351329c1db4999e4cd92bc43ef7000008d75ac51338dda6"
+}

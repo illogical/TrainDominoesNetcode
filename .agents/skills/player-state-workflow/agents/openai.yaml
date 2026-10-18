@@ -1,0 +1,4 @@
+interface:
+  display_name: "Player State Workflow"
+  short_description: "Preview state changes with source-derived flow maps"
+  default_prompt: "Use $player-state-workflow to map the current player states and preview the impact of a proposed change."

@@ -110,7 +110,7 @@ namespace Assets.Scripts.Game.Navigation
     }
 
     /// <summary>
-    /// The hand row (VIEW-001/U4). Spreads tiles across the width as before, but never closer than a minimum spacing;
+    /// The hand row. Centers fitting content with a capped gap, never closer than a minimum spacing;
     /// beyond that it becomes a horizontally scrollable strip. Positions are world x centred on the screen.
     /// </summary>
     public sealed class HandStrip
@@ -121,25 +121,33 @@ namespace Assets.Scripts.Game.Navigation
         public float Margin { get; private set; }
         public float MinSpacing { get; private set; }
         public float Offset { get; private set; }
+        public float MaxSpacing { get; private set; }
+        public float Center { get; private set; }
+        public bool Usable => ViewWidth - Margin >= TileWidth && TileWidth > 0;
 
-        public void Configure(int count, float viewWidth, float tileWidth, float margin, float minSpacing)
+        public void Configure(int count, float viewWidth, float tileWidth, float margin, float minSpacing,
+            float maxSpacing = -1, float center = 0)
         {
-            Count = Math.Max(0, count); ViewWidth = viewWidth; TileWidth = tileWidth; Margin = margin; MinSpacing = Math.Max(tileWidth, minSpacing);
+            Count = Math.Max(0, count);
+            ViewWidth = Finite(viewWidth); TileWidth = Math.Max(0, Finite(tileWidth));
+            Margin = Math.Max(0, Finite(margin)); Center = Finite(center);
+            MinSpacing = Math.Max(TileWidth, Finite(minSpacing));
+            MaxSpacing = Math.Max(MinSpacing, maxSpacing < 0 ? TileWidth * 1.16f : Finite(maxSpacing));
             Offset = Clamp(Offset);
         }
 
-        /// <summary>The spread spacing the original layout used across the full width.</summary>
+        private static float Finite(float value) => float.IsNaN(value) || float.IsInfinity(value) ? 0 : value;
         public float SpreadSpacing => Count <= 1 ? 0 : (ViewWidth - TileWidth - Margin) / (Count - 1);
         public bool Scrolls => Count > 1 && SpreadSpacing < MinSpacing;
-        public float Spacing => Scrolls ? MinSpacing : SpreadSpacing;
+        public float Spacing => Count <= 1 ? 0 : Math.Max(MinSpacing, Math.Min(MaxSpacing, SpreadSpacing));
         public float ContentWidth => Count <= 0 ? 0 : TileWidth + Spacing * (Count - 1);
         public float MinOffset => Scrolls ? Math.Min(0, (ViewWidth - Margin) - ContentWidth) : 0;
 
         public float X(int index)
         {
-            if (Count <= 1) return 0f;
-            if (!Scrolls) return index * SpreadSpacing - (ViewWidth - TileWidth - Margin) / 2;
-            float left = -ViewWidth / 2 + Margin / 2 + TileWidth / 2;
+            if (Count <= 1) return Center;
+            if (!Scrolls) return Center + (index - (Count - 1) / 2f) * Spacing;
+            float left = Center - ViewWidth / 2 + Margin / 2 + TileWidth / 2;
             return left + index * Spacing + Offset;
         }
 
@@ -147,12 +155,13 @@ namespace Assets.Scripts.Game.Navigation
         public float LocalX(int index) => X(index) - Offset;
 
         public void Pan(float delta) { Offset = Clamp(Offset + delta); }
+        public void Anchor(int index, float x) { if (Scrolls && index >= 0 && index < Count) Offset = Clamp(Offset + x - X(index)); }
 
         /// <summary>Scrolls just enough to show the tile at <paramref name="index"/> fully.</summary>
         public void EnsureVisible(int index)
         {
             if (!Scrolls || index < 0 || index >= Count) return;
-            float x = X(index), half = TileWidth / 2, left = -ViewWidth / 2 + Margin / 2, right = ViewWidth / 2 - Margin / 2;
+            float x = X(index), half = TileWidth / 2, left = Center - ViewWidth / 2 + Margin / 2, right = Center + ViewWidth / 2 - Margin / 2;
             if (x - half < left) Offset += left - (x - half);
             else if (x + half > right) Offset -= (x + half) - right;
             Offset = Clamp(Offset);
@@ -162,4 +171,22 @@ namespace Assets.Scripts.Game.Navigation
 
         private float Clamp(float value) => value > 0 ? 0 : value < MinOffset ? MinOffset : value;
     }
+    /// <summary>Unscaled, fake-clock-friendly quiet timer and shared bounded settle.</summary>
+    public sealed class HandReflowSchedule
+    {
+        private float changed;
+        public bool Pending { get; private set; }
+        public void Dirty(float now) { Pending = true; changed = now; }
+        public bool Ready(float now, float quiet) => Pending && now - changed >= quiet;
+        public void Clear() { Pending = false; }
+        public static float Settle(float elapsed, float slide, float settle)
+        {
+            float total = slide + settle;
+            if (total <= 0 || elapsed <= 0 || elapsed >= total) return 0;
+            float t = elapsed / total;
+            double wave = Math.Sin(Math.PI * 2 * t);
+            return (float)(wave * wave * (1 - t) * (1 - t));
+        }
+    }
+
 }

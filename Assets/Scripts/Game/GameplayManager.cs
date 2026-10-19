@@ -43,6 +43,9 @@ public class GameplayManager : MonoBehaviour
         client = session;
         presenter = gameObject.AddComponent<GameplayPresenter>();
         presenter.Initialize(meshManager, layoutManager, SoundManager);
+        presenter.SelectionSource = () => client.SelectedTile;
+        presenter.HandReflowAllowed = () => initialized && client.IsAvailable && !client.IsPresentationBusy
+            && client.View != null && !client.View.IsSuspended && client.View.Phase == MatchPhase.Playing;
         client.PresentationRequested += QueuePresentation;
         client.ViewChanged += ViewChanged;
         client.SelectionChanged += SelectionChanged;

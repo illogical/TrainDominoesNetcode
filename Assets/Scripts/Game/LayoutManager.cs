@@ -43,19 +43,33 @@ public class LayoutManager : MonoBehaviour
 
     public BoardNavigator Navigator { get; private set; }
     public Vector3 TileSize => tileSize;
+    public Vector3 HandBodyCenter { get; private set; }
     public float SelectionRaise => SelectionRaiseAmount;
     public float HandSideMargin => BottomSideMargin;
     /// <summary>Distance between neighbouring rows in board units.</summary>
     public float RowSpacing => tileSize.x + TrackMargin;
-    public float HandLocalY => PositionHelper.GetPlayerDominoYPosition(tileSize, mainCamera);
+    public float HandLocalY => Navigator != null ? Navigator.HandBaseline : PositionHelper.GetPlayerDominoYPosition(tileSize, mainCamera);
+    public float HandBottomPadding => Mathf.Max(0.001f, BottomYOffset);
+    [Header("Hand reflow")]
+    [Range(0, 1)] public float HandMinimumGap = 0.08f;
+    [Range(0, 1)] public float HandMaximumGap = 0.16f;
+    public bool ReduceHandMotion;
+    public float HandResizeQuietSeconds = 0.16f;
+    public float HandResizeSlideSeconds = 0.32f;
+    public float HandResizeSettleSeconds = 0.08f;
+    public AnimationCurve HandResizeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    public HandReflowController HandReflow { get; private set; }
 
     private void Awake()
     {
         mainCamera = Camera.main;
         tileSize = PositionHelper.GetObjectDimensions(DominoPrefab);
         baseScale = DominoPrefab.transform.localScale;
+        HandBodyCenter = HandRotation * Vector3.Scale(DominoPrefab.GetComponent<Renderer>().localBounds.center, baseScale);
         Navigator = gameObject.AddComponent<BoardNavigator>();
         Navigator.Initialize(this, mainCamera);
+        HandReflow = gameObject.AddComponent<HandReflowController>();
+        HandReflow.Initialize(this);
     }
 
     // Every child belongs to this layout, including parallel rotations. Cancellation never

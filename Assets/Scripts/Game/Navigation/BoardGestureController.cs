@@ -39,6 +39,7 @@ namespace Assets.Scripts.Game.Navigation
         private void OnEnable() { EnhancedTouchSupport.Enable(); }
         private void OnDisable()
         {
+            if (nav != null) nav.HandGestureActive = false;
             EnhancedTouchSupport.Disable();
             gesture = null; multiTouch = pinching = touchActive = false;
         }
@@ -70,12 +71,12 @@ namespace Assets.Scripts.Game.Navigation
             if (touches.Count >= 2)
             {
                 // A second finger turns the gesture into a pinch; no tap or drag fires until every finger lifts.
-                multiTouch = true;
+                multiTouch = true; nav.HandGestureActive = false;
                 if (gesture != null && gesture.Active) gesture.Cancel();
                 Pinch(touches[0].screenPosition, touches[1].screenPosition);
                 return;
             }
-            if (touches.Count == 0) { multiTouch = pinching = touchActive = false; return; }
+            if (touches.Count == 0) { nav.HandGestureActive = false; multiTouch = pinching = touchActive = false; return; }
             pinching = false;
             if (multiTouch) return;
             var touch = touches[0];
@@ -85,18 +86,20 @@ namespace Assets.Scripts.Game.Navigation
                 case TouchPhase.Moved:
                 case TouchPhase.Stationary: if (touchActive && gesture != null && gesture.Active) Drag(touch.screenPosition, now); break;
                 case TouchPhase.Ended: if (touchActive && gesture != null && gesture.Active) End(touch.screenPosition, now, true); touchActive = false; break;
-                case TouchPhase.Canceled: gesture?.Cancel(); touchActive = false; break;
+                case TouchPhase.Canceled: nav.HandGestureActive = false; gesture?.Cancel(); touchActive = false; break;
             }
         }
 
         private void Begin(Vector2 position, float now, bool touch)
         {
+            nav.HandGestureActive = false;
             nav.State.StopInertia();
             if (OverUi(position)) { gesture = null; return; }
             gesture = new PointerGesture(GestureMetrics.DragThreshold(Screen.dpi, touch));
             gesture.Begin(ToNum(position), now);
             region = nav.InHand(position) ? Region.Hand : nav.InBoard(position) ? Region.Board : Region.None;
             pressRow = region == Region.Board ? nav.RowAtScreen(position) : -1;
+            nav.HandGestureActive = region == Region.Hand;
         }
 
         private void Drag(Vector2 position, float now)
@@ -114,6 +117,7 @@ namespace Assets.Scripts.Game.Navigation
 
         private void End(Vector2 position, float now, bool touch)
         {
+            nav.HandGestureActive = false;
             bool tap = gesture.End(ToNum(position), now);
             if (tap)
             {

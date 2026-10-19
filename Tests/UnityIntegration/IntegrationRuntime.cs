@@ -26,7 +26,7 @@ public sealed class IntegrationRuntime:MonoBehaviour
     ClientSession Client=>session.Client;
     string Mode=>setupFailure?"setup-failure":normal?"normal":reconnect?"reconnect":live?"live":gapOnly?"presentation":draft?"draft":challenge?(penaltyNone?"challenge-none":"challenge"):"immediate";
     string Prefix=>"/tmp/td-integration-"+Mode;
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { var args=Environment.GetCommandLineArgs(); if(!args.Contains("--integration-eight") && !args.Contains("--integration-view") && !args.Contains("--integration-review")) new GameObject("IntegrationRuntime").AddComponent<IntegrationRuntime>(); }
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void Boot() { var args=Environment.GetCommandLineArgs(); if(!args.Contains("--integration-hand-reflow") && !args.Contains("--integration-eight") && !args.Contains("--integration-view") && !args.Contains("--integration-review")) new GameObject("IntegrationRuntime").AddComponent<IntegrationRuntime>(); }
     void Mark(string s)=>Debug.Log("INTEGRATION "+role+" "+s);
     void Assert(bool condition,string name) { if(!condition) throw new Exception("ASSERT "+name); Mark("PASS "+name); }
     IEnumerator Wait(Func<bool> condition,string name,float limit=25)

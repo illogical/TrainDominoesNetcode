@@ -178,7 +178,7 @@ public class InputManager : MonoBehaviour,IInteractionInput
         // Board roots move every frame while navigating; colliders must match what is drawn before hit-testing.
         Physics.SyncTransforms();
         if(Physics.Raycast(MainCamera.ScreenPointToRay(screen),out var hit))
-        { var tile=hit.transform.GetComponent<DominoEntityUI>(); if(tile?.DominoInfo!=null) return tile.DominoInfo.ID; }
+        { var tile=hit.transform.GetComponent<DominoEntityUI>(); if(tile?.DominoInfo!=null) { if (layout != null && hit.transform.IsChildOf(navigator.HandRoot) && !layout.HandReflow.CanSelect) return null; return tile.DominoInfo.ID; } }
         return null;
     }
     private static void Quit() { Application.Quit(); }

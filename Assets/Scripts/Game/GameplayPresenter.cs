@@ -15,6 +15,12 @@ public sealed class GameplayPresenter : MonoBehaviour
     private SoundManager sounds;
     private readonly List<Coroutine> selections = new List<Coroutine>();
     private string presentedRound;
+    private bool presenting;
+    private int? selected;
+    private int selectionMotions;
+    public Func<int?> SelectionSource { get; set; }
+    public Func<bool> HandReflowAllowed { get; set; }
+    private int? Selection => SelectionSource != null ? SelectionSource() : selected;
     public PlayerViewDto Current { get; private set; }
 
     public void Initialize(MeshManager meshManager, LayoutManager layoutManager, SoundManager soundManager)
@@ -22,6 +28,9 @@ public sealed class GameplayPresenter : MonoBehaviour
         meshes = meshManager;
         layout = layoutManager;
         sounds = soundManager;
+        layout.HandReflow.Bind(() => Current == null ? new List<Transform>() : Hand(Current).Values.ToList(),
+            () => Selection.HasValue && Current?.Hand != null ? Array.IndexOf(Current.Hand, Selection.Value) : -1,
+            () => presenting || selectionMotions > 0 || (HandReflowAllowed != null && !HandReflowAllowed()));
     }
 
     public static int TrainSlot(PlayerViewDto view, TrainIdDto id)
@@ -124,6 +133,7 @@ public sealed class GameplayPresenter : MonoBehaviour
         Cancel();
         if (after == null) { Snap(null); yield break; }
         Current = after;
+        presenting = true;
         bool newRound = before == null || before.Token.MatchId != after.Token.MatchId || before.Token.RoundIndex != after.Token.RoundIndex || before.EngineId != after.EngineId;
         if (newRound) presentedRound = null;
         EnterRound(after);
@@ -165,21 +175,34 @@ public sealed class GameplayPresenter : MonoBehaviour
                 yield return layout.UpdatePlayerPositions(hand);
         }
         Labels(after);
+        presenting = false;
+        layout.HandReflow.Invalidate();
     }
 
     public void Select(int? previous, int? current)
     {
+        selected = current;
+        layout.HandReflow.SelectionChanged();
+        layout.HandReflow.Invalidate();
         foreach (var routine in selections) if (routine != null) StopCoroutine(routine);
         selections.Clear();
+        selectionMotions = 0;
         if (previous.HasValue && meshes.GetDominoMeshById(previous.Value) is GameObject oldMesh)
-            Track(StartCoroutine(layout.SelectDominoRoutine(oldMesh, false)));
+            Track(StartCoroutine(SelectionMotion(oldMesh, false)));
         if (current.HasValue && meshes.GetDominoMeshById(current.Value) is GameObject newMesh)
         {
             // An overfull hand scrolls to keep the selected tile visible.
             int index = Current?.Hand == null ? -1 : Array.IndexOf(Current.Hand, current.Value);
             if (index >= 0) layout.Navigator.EnsureHandVisible(index);
-            Track(StartCoroutine(layout.SelectDominoRoutine(newMesh, true)));
+            Track(StartCoroutine(SelectionMotion(newMesh, true)));
         }
+    }
+
+    private IEnumerator SelectionMotion(GameObject tile, bool lift)
+    {
+        selectionMotions++;
+        try { yield return layout.SelectDominoRoutine(tile, lift); }
+        finally { selectionMotions = Math.Max(0, selectionMotions - 1); }
     }
 
     // A selection routine that finishes at once (a tile no longer in the hand) returns no handle.
@@ -187,8 +210,11 @@ public sealed class GameplayPresenter : MonoBehaviour
 
     public void Cancel()
     {
+        presenting = false;
+        if (layout != null) layout.HandReflow.Cancel();
         foreach (var routine in selections) if (routine != null) StopCoroutine(routine);
         selections.Clear();
+        selectionMotions = 0;
         if (layout != null) layout.CancelAnimations();
     }
     private void OnDisable() { Cancel(); }

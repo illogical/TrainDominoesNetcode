@@ -29,6 +29,8 @@ The selected inventory is implemented: seven normal states plus SessionSuspended
 
 Selection and board masking live in `ClientSession`; its `BoardEnabled` combines active actor, playing phase, availability, pending absence and presentation readiness. `InputManager` renders real Unity Buttons cloned from its serialized Draw template for actions, train destinations and challenge targets. Button availability is advisory; the server validates every command.
 
+**Local hand reflow (2026-10-18).** Resize presentation temporarily gates hand tile raycasts while its actual poses move. `GameplayPresenter`/`HandReflowController` defer to gameplay batches, selection coroutine completion, session availability and disposal. Board navigation and authoritative command permissions retain their existing owners; the state matrix and transition wiring are unchanged. [Verification and limits](../../Tests/UnityIntegration/HAND_REFLOW_VERIFICATION.md).
+
 ## Historical review and implementation targets — 2026-10-17
 
 The matrices and diagrams below preserve the original inspected code and agreed target that motivated U6 / ENG-006. Their “current coverage,” “pending,” and “proposed” wording is historical. Use the implemented matrix above and integration guide for current ownership; do not recreate the removed group-turn, TurnStarted/MadeMove or Joined states.

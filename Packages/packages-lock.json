@@ -84,6 +84,12 @@
         "com.unity.modules.uielements": "1.0.0"
       }
     },
+    "com.unity.multiplayer.playmode": {
+      "version": "3.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
     "com.unity.multiplayer.tools": {
       "version": "2.2.12",
       "depth": 0,

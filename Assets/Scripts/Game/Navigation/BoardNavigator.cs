@@ -27,6 +27,16 @@ namespace Assets.Scripts.Game.Navigation
         /// <summary>The board viewport in screen pixels: between the row controls, the action column, the status bar and the hand.</summary>
         public Rect BoardRect { get; private set; }
         public float HandTop { get; private set; }
+        public float HandBaseline { get; private set; }
+        public float HandViewWidth { get; private set; }
+        public float HandTileWidth { get; private set; }
+        public float HandCenter { get; private set; }
+        public bool HandUsable { get; private set; }
+        public event System.Action HandGeometryChanged;
+        public event System.Action HandPanning;
+        public bool HandMotionOwned { get; set; }
+        public bool HandGestureActive { get; set; }
+        public float PresentedHandOffset => visibleHand;
         public float PixelsPerWorld { get; private set; } = 1f;
         /// <summary>Canvas scale factor. Zero means height / 1080, matching the scene's canvas scaler.</summary>
         public float UiScale { get; set; }
@@ -44,6 +54,8 @@ namespace Assets.Scripts.Game.Navigation
         private int handCount;
         private Vector2Int lastPixels;
         private float lastUi, lastDpi;
+        private Rect lastSafe, lastCameraRect;
+        private Matrix4x4 lastProjection;
 
         public void Initialize(LayoutManager owner, Camera camera)
         {
@@ -94,8 +106,9 @@ namespace Assets.Scripts.Game.Navigation
         public void ConfigureHand(int count)
         {
             handCount = count;
-            var size = layout.TileSize;
-            Hand.Configure(count, PositionHelper.GetScreenSize(cam).x, size.x, layout.HandSideMargin, size.x * 1.08f);
+            HandTileWidth = MeasureHandWidth(count);
+            Hand.Configure(count, HandViewWidth, HandTileWidth, layout.HandSideMargin,
+                HandTileWidth * (1 + Mathf.Max(0, layout.HandMinimumGap)), HandTileWidth * (1 + Mathf.Max(layout.HandMinimumGap, layout.HandMaximumGap)), HandCenter);
         }
 
         public bool IsSettled
@@ -110,7 +123,7 @@ namespace Assets.Scripts.Game.Navigation
 
         public void SnapVisible()
         {
-            visibleZoom = State.Zoom; visiblePanY = State.PanY; visibleHand = Hand.Offset;
+            visibleZoom = State.Zoom; visiblePanY = State.PanY; if (!HandMotionOwned) visibleHand = Hand.Offset;
             for (int i = 0; i < ActiveRows; i++) visibleOffsets[i] = State.Offset(i);
             Apply();
         }
@@ -123,7 +136,7 @@ namespace Assets.Scripts.Game.Navigation
             float k = 1f - Mathf.Exp(-Smoothing * dt);
             visibleZoom = Approach(visibleZoom, State.Zoom, k);
             visiblePanY = Approach(visiblePanY, State.PanY, k);
-            visibleHand = Approach(visibleHand, Hand.Offset, k);
+            if (!HandMotionOwned) visibleHand = Approach(visibleHand, Hand.Offset, k);
             for (int i = 0; i < ActiveRows; i++) visibleOffsets[i] = Approach(visibleOffsets[i], State.Offset(i), k);
             Apply();
         }
@@ -144,10 +157,29 @@ namespace Assets.Scripts.Game.Navigation
             if (cam == null || layout == null) return;
             var pixels = new Vector2Int(cam.pixelWidth, cam.pixelHeight);
             float ui = UiScale > 0 ? UiScale : pixels.y / 1080f;
-            if (!force && pixels == lastPixels && Mathf.Approximately(ui, lastUi) && Mathf.Approximately(Screen.dpi, lastDpi)) return;
+            var safe = cam.targetTexture != null ? cam.pixelRect : Screen.safeArea;
+            if (!force && pixels == lastPixels && Mathf.Approximately(ui, lastUi) && Mathf.Approximately(Screen.dpi, lastDpi)
+                && safe == lastSafe && cam.pixelRect == lastCameraRect && cam.projectionMatrix == lastProjection) return;
+            lastSafe = safe; lastCameraRect = cam.pixelRect; lastProjection = cam.projectionMatrix;
             lastPixels = pixels; lastUi = ui; lastDpi = Screen.dpi;
+            if (pixels.x <= 0 || pixels.y <= 0 || safe.width <= 0 || safe.height <= 0)
+            {
+                HandUsable = false;
+                HandGeometryChanged?.Invoke();
+                return;
+            }
             var size = layout.TileSize;
-            HandTop = cam.WorldToScreenPoint(new Vector3(0, layout.HandLocalY + size.y / 2 + layout.SelectionRaise, 0)).y;
+            // Use the body face nearest the camera so perspective depth cannot clip the lower values.
+            var usable = Rect.MinMaxRect(Mathf.Max(cam.pixelRect.xMin, safe.xMin), Mathf.Max(cam.pixelRect.yMin, safe.yMin),
+                Mathf.Min(cam.pixelRect.xMax, safe.xMax), Mathf.Min(cam.pixelRect.yMax, safe.yMax));
+            Vector3 handLow = ScreenToPlane(usable.min, layout.HandBodyCenter.z - size.z / 2), handHigh = ScreenToPlane(usable.max, layout.HandBodyCenter.z - size.z / 2);
+            HandViewWidth = Mathf.Max(0, handHigh.x - handLow.x);
+            HandCenter = (handLow.x + handHigh.x) / 2;
+            HandBaseline = handLow.y - layout.HandBodyCenter.y + size.y / 2 + layout.HandBottomPadding;
+            HandTileWidth = MeasureHandWidth(handCount);
+            HandUsable = usable.width > 0 && usable.height > 0 && HandViewWidth >= HandTileWidth + layout.HandSideMargin
+                && handHigh.y - handLow.y >= size.y + layout.HandBottomPadding + layout.SelectionRaise;
+            HandTop = cam.WorldToScreenPoint(new Vector3(0, HandBaseline + layout.HandBodyCenter.y + size.y / 2 + layout.SelectionRaise + size.y * .04f + .001f, layout.HandBodyCenter.z - size.z / 2)).y;
             var rect = Rect.MinMaxRect(LeftGutter * ui, Mathf.Max(0, HandTop + HandGap * ui), pixels.x - RightGutter * ui, pixels.y - TopGutter * ui);
             if (rect.width < pixels.x * 0.25f || rect.height < pixels.y * 0.2f) rect = Rect.MinMaxRect(pixels.x * 0.05f, pixels.y * 0.3f, pixels.x * 0.95f, pixels.y * 0.9f);
             BoardRect = rect;
@@ -159,15 +191,42 @@ namespace Assets.Scripts.Game.Navigation
             State.SetZoomLimits(readable, Mathf.Max(1.5f, readable * 4f), 1f);
             State.EndTolerance = size.y * 0.05f;
             State.TrailingSpace = layout.RowTrailingSpace;
-            ConfigureHand(handCount);
+            if (force) ConfigureHand(handCount);
+            HandGeometryChanged?.Invoke();
             Apply();
         }
 
+        // Measure at the content edges, not the empty viewport edges: a fitting hand must not
+        // acquire wider gaps merely because the window gets wider. Overflow uses visible edges.
+        private float MeasureHandWidth(int count)
+        {
+            var size = layout.TileSize;
+            float width = size.x;
+            for (int iteration = 0; iteration < 8; iteration++)
+            {
+                float half = Mathf.Min(HandViewWidth / 2, Mathf.Max(0, count - 1) * width
+                    * (1 + Mathf.Max(0, layout.HandMinimumGap, layout.HandMaximumGap)) / 2);
+                for (int sample = -1; sample <= 1; sample++)
+                {
+                    var center = new Vector3(HandCenter + sample * half, HandBaseline, 0) + layout.HandBodyCenter;
+                    float min = float.PositiveInfinity, max = float.NegativeInfinity;
+                    for (int corner = 0; corner < 8; corner++)
+                    {
+                        var world = center + Vector3.Scale(size / 2, new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+                        float x = ScreenToPlane(cam.WorldToScreenPoint(world)).x;
+                        min = Mathf.Min(min, x); max = Mathf.Max(max, x);
+                    }
+                    width = Mathf.Max(width, max - min);
+                }
+            }
+            return width;
+        }
+
         // Screen ↔ board plane (z = 0). The camera is perspective, so this is a ray-plane intersection.
-        public Vector3 ScreenToPlane(Vector2 screen)
+        public Vector3 ScreenToPlane(Vector2 screen, float z = 0)
         {
             var ray = cam.ScreenPointToRay(new Vector3(screen.x, screen.y, 0));
-            float t = Mathf.Abs(ray.direction.z) < 1e-6f ? 0 : -ray.origin.z / ray.direction.z;
+            float t = Mathf.Abs(ray.direction.z) < 1e-6f ? 0 : (z - ray.origin.z) / ray.direction.z;
             return ray.origin + ray.direction * t;
         }
 
@@ -211,7 +270,8 @@ namespace Assets.Scripts.Game.Navigation
             State.RevealX(row, layout.TrackLocalX(index), layout.TileSize.y);
         }
 
-        public void PanHand(float pixels) { Hand.Pan(PixelsToView(pixels)); }
+        public void PanHand(float pixels) { HandPanning?.Invoke(); Hand.Pan(PixelsToView(pixels)); }
+        public void SetPresentedHandOffset(float offset) { visibleHand = offset; Apply(); }
         public void EnsureHandVisible(int index) { Hand.EnsureVisible(index); }
 
         private static float Approach(float current, float target, float k)

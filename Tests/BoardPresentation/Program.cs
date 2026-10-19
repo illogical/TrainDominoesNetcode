@@ -34,6 +34,7 @@ static class Program
         Navigation();
         Gestures();
         Hand();
+        Reflow();
         Feedback();
         Console.WriteLine($"PASS: {passed} board presentation checks (navigation model, gestures, hand strip, feedback text). No Unity rendering or input devices.");
     }
@@ -204,10 +205,10 @@ static class Program
     {
         var h = new HandStrip();
         const float view = 0.47f, tile = 0.0125f, margin = 0.01f;
-        // Up to the minimum spacing, positions equal the original full-width spread.
+        // Fitting content stays together; extra viewport width becomes outer whitespace.
         h.Configure(15, view, tile, margin, tile * 1.08f);
-        float spacing = (view - tile - margin) / 14, offset = (view - tile - margin) / 2;
-        Check(!h.Scrolls && Enumerable.Range(0, 15).All(i => Near(h.X(i), i * spacing - offset)), "a normal hand keeps the original spread layout");
+        float spacing = tile * 1.16f, offset = 14 * spacing / 2;
+        Check(!h.Scrolls && Enumerable.Range(0, 15).All(i => Near(h.X(i), i * spacing - offset)), "a normal hand is centered with a capped gap");
         h.Configure(1, view, tile, margin, tile * 1.08f);
         Check(h.X(0) == 0, "a single tile is centred");
         // Beyond it, tiles keep the minimum spacing and the hand scrolls.
@@ -222,6 +223,49 @@ static class Program
         h.Reset(); Check(h.Offset == 0, "the hand offset resets on a new round");
         h.Configure(5, view, tile, margin, tile * 1.08f); h.Pan(-1);
         Check(h.Offset == 0, "a hand that fits cannot scroll");
+    }
+
+    static void Reflow()
+    {
+        var timer = new HandReflowSchedule();
+        timer.Dirty(1); Check(!timer.Ready(1.159f, .16f), "resize waits for quiet threshold");
+        Check(timer.Ready(1.161f, .16f), "resize becomes ready after quiet threshold");
+        timer.Dirty(1.15f); Check(!timer.Ready(1.2f, .16f), "resize burst coalesces to latest geometry");
+        timer.Clear(); Check(!timer.Ready(100, .16f), "cancelled resize never completes late");
+        var h = new HandStrip();
+        foreach (int count in new[] { 0, 1, 2, 5, 16, 60 })
+        foreach (float width in new[] { 0, .03f, .23f, .47f, 5f })
+        {
+            h.Configure(count, width, W, .01f, W * 1.08f, W * 1.16f, .1f);
+            Check(float.IsFinite(h.ContentWidth), "finite layout including zero width");
+            if (count > 1)
+            {
+                Check(h.Spacing >= W * 1.08f - 1e-6f && h.Spacing <= W * 1.16f + 1e-6f, "bounded nonoverlapping pitch");
+                if (!h.Scrolls) Check(Near((h.X(0) + h.X(count - 1)) / 2, .1f), "fitting content centers on asymmetric region");
+                if (h.Usable) for (int i = 0; i < count; i++)
+                {
+                    h.EnsureVisible(i);
+                    Check(h.X(i) - W / 2 >= .1f - width / 2 + .005f - 1e-5f && h.X(i) + W / 2 <= .1f + width / 2 - .005f + 1e-5f, "every hand tile reachable");
+                }
+            }
+        }
+        h.Configure(60, .23f, W, .01f, W * 1.08f); h.EnsureVisible(30);
+        float anchor = h.X(30);
+        h.Configure(60, .3f, W, .01f, W * 1.08f); h.Anchor(30, anchor);
+        Check(Near(h.X(30), anchor), "overflow resize retains inspected anchor");
+        h.Configure(5, .47f, W, .01f, W * 1.08f);
+        Check(h.Offset == 0, "overflow to fitting clears offset");
+        h.Configure(-1, float.NaN, -1, -1, -1); Check(h.Count == 0 && float.IsFinite(h.ContentWidth), "invalid settings sanitized");
+        for (int frame = 0; frame <= 400; frame++)
+        {
+            float t = frame / 400f;
+            // Shared monotonic interpolation between separated starts and ends preserves body separation.
+            float pitch = W * 1.08f * (1 - t) + W * 1.16f * t;
+            Check(pitch >= W, "stable hand bodies stay separated throughout slide");
+            float lift = HandReflowSchedule.Settle(t * .4f, .32f, .08f);
+            Check(lift >= 0 && lift <= 1, "shared settle is bounded");
+        }
+        Check(HandReflowSchedule.Settle(0, .32f, .08f) == 0 && HandReflowSchedule.Settle(.4f, .32f, .08f) == 0, "settle has exact endpoints");
     }
 
     static PlayerViewDto View(int player, long revision, string match = "m", int round = 0, AnnouncementPenalty penalty = AnnouncementPenalty.DrawOneTile, int boneyard = 10, int targetCount = 1)

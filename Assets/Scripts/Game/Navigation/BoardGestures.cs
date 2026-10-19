@@ -184,6 +184,12 @@ namespace Assets.Scripts.Game.Navigation
         public void Dirty(float now) { Pending = true; changed = now; }
         public bool Ready(float now, float quiet) => Pending && now - changed >= quiet;
         public void Clear() { Pending = false; }
+        public static float WaveDelay(int index, int count, float spread)
+        {
+            if (count <= 1 || float.IsNaN(spread) || float.IsInfinity(spread) || spread <= 0) return 0;
+            return Math.Max(0, Math.Min(count - 1, index)) * spread / (count - 1);
+        }
+
         public static float Settle(float elapsed, float slide, float settle)
         {
             float total = slide + settle;

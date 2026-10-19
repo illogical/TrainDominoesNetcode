@@ -35,6 +35,7 @@ static class Program
         Gestures();
         Hand();
         HandZoom();
+        WaveTiming();
         Reflow();
         Feedback();
         Console.WriteLine($"PASS: {passed} board presentation checks (navigation model, gestures, hand strip, feedback text). No Unity rendering or input devices.");
@@ -243,6 +244,23 @@ static class Program
         Check(Near(h.ContentWidth,content), "extra width remains outside a fitting hand");
     }
 
+    static void WaveTiming()
+    {
+        Check(Near(HandReflowSchedule.WaveDelay(15,16,.12f),.12f), "last domino starts after the authored whole-hand wave spread");
+        Check(HandReflowSchedule.WaveDelay(0,16,.12f)==0 && HandReflowSchedule.WaveDelay(0,1,.12f)==0, "first and single tile have no delay");
+        foreach(int count in new[]{2,16,60})
+        {
+            float previous=-1;
+            for(int i=0;i<count;i++)
+            {
+                float delay=HandReflowSchedule.WaveDelay(i,count,.12f);
+                Check(delay>=previous && delay>=0 && delay<=.120001f, "ordered delays stay within whole-hand budget even for stress hands");
+                previous=delay;
+            }
+        }
+        Check(HandReflowSchedule.WaveDelay(5,16,-1)==0 && HandReflowSchedule.WaveDelay(5,16,float.NaN)==0, "invalid wave budgets disable stagger");
+    }
+
     static void Reflow()
     {
         var timer = new HandReflowSchedule();
@@ -277,7 +295,7 @@ static class Program
         for (int frame = 0; frame <= 400; frame++)
         {
             float t = frame / 400f;
-            // Shared monotonic interpolation between separated starts and ends preserves body separation.
+            // Synchronized fallback/reduced-motion invariant; wave footprints are checked by the Unity harness.
             float pitch = W * 1.08f * (1 - t) + W * 1.16f * t;
             Check(pitch >= W, "stable hand bodies stay separated throughout slide");
             float lift = HandReflowSchedule.Settle(t * .4f, .32f, .08f);

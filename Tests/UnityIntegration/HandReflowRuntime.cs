@@ -18,11 +18,12 @@ public sealed class HandReflowRuntime : MonoBehaviour
     {
         public string stage; public float realtime, scaledtime; public int width, height, frame, selected;
         public Rect safeArea, handUsableRect, board; public float handTop, baseline, scroll, handZoom, minimumMarginPixels; public Vector3 handTileScale; public Rect handBounds; public long revision;
+        public float waveSpreadSeconds, phaseSpread; public int waveSafetyReductions;
         public bool busy, reflowMoving; public int recoverySnaps; public TileSample[] tiles;
     }
     LayoutManager layout; BoardNavigator nav; MeshManager meshes; InputManager input; GameSession session; Camera cam;
     PlayerViewDto fixture; string output, stage = "startup"; bool capture; int frame; float nextCapture;
-    StreamWriter samples, frames; int handCount; bool waiting;
+    StreamWriter samples, frames; int handCount; bool waiting, requireWave, sawWaveJob, sawPhaseSpread;
     static string Arg(string key, string fallback) { var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, key); return i >= 0 && i + 1 < a.Length ? a[i + 1] : fallback; }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot() { if (Environment.GetCommandLineArgs().Contains("--integration-hand-reflow")) new GameObject("HandReflowRuntime").AddComponent<HandReflowRuntime>(); }
@@ -37,6 +38,7 @@ public sealed class HandReflowRuntime : MonoBehaviour
     {
         handCount = int.Parse(Arg("--hand-reflow-count", "16"));
         waiting = Environment.GetCommandLineArgs().Contains("--hand-reflow-waiting");
+        requireWave = Environment.GetCommandLineArgs().Contains("--hand-reflow-require-wave");
         if (handCount < 1 || handCount > 74) throw new Exception("ASSERT hand-count-range-1-74");
         output = Arg("--hand-reflow-dir", "/tmp/td-hand-reflow"); Directory.CreateDirectory(output); Directory.CreateDirectory(Path.Combine(output, "frames"));
         samples = new StreamWriter(Path.Combine(output, "samples.jsonl")) { AutoFlush = true };
@@ -50,7 +52,7 @@ public sealed class HandReflowRuntime : MonoBehaviour
         Check(Mathf.Approximately(Time.timeScale, 1), "normal-time-scale");
         var sound = FindAnyObjectByType<SoundManager>(); Check(sound != null && sound.IsMuted, "muted");
         var menu = FindAnyObjectByType<MainMenuUI>(); if (menu != null) menu.gameObject.SetActive(false);
-        var sizes = Arg("--hand-reflow-sizes", "1280x720,1920x1080,1280x720").Split(',');
+        var sizes = Arg("--hand-reflow-sizes", "1356x754,1848x595,720x1000,1356x754").Split(',');
         yield return Resize(sizes[0]);
         fixture = Fixture(); stage = "deal";
         session.Client.Receive(new ProjectionPacket { View = fixture }); // production initial deal; no forced snap or timescale boost
@@ -94,6 +96,10 @@ public sealed class HandReflowRuntime : MonoBehaviour
         for (int i = 0; i < sizes.Length; i++) {
             string path = Path.Combine(output, i + "-" + sizes[i] + ".png");
             yield return Wait(() => File.Exists(path) && new FileInfo(path).Length > 24, "checkpoint-written-" + i, 10);
+        }
+        if (requireWave && !layout.ReduceHandMotion) {
+            Check(sawWaveJob, "resize-used-wave-spread-over-twenty-ms");
+            Check(sawPhaseSpread, "rendered-frame-used-different-tile-zoom-phases");
         }
         samples.Dispose(); frames.Dispose(); samples = null; frames = null;
         File.WriteAllText(Path.Combine(output, "complete"), "PASS\n"); Mark("PASS ALL"); Application.Quit(0);
@@ -173,12 +179,14 @@ public sealed class HandReflowRuntime : MonoBehaviour
         width = Screen.width, height = Screen.height, safeArea = Screen.safeArea, handUsableRect = nav.HandUsableRect, board = nav.BoardRect, handTop = nav.HandTop,
         baseline = layout.HandLocalY, scroll = nav.Hand.Offset, handZoom = nav.HandZoom, handTileScale = layout.HandTileScale,
         minimumMarginPixels = nav.HandMinimumMarginPixels, handBounds = CombinedBody(), selected = session.Client.SelectedTile ?? -1,
+        waveSpreadSeconds = layout.HandReflow.WaveSpreadSeconds, phaseSpread = layout.HandReflow.PhaseSpread, waveSafetyReductions = layout.HandReflow.WaveSafetyReductions,
         revision = fixture.Token.Revision, busy = session.Client.IsPresentationBusy, reflowMoving = layout.HandReflow.Moving, recoverySnaps = layout.HandReflow.RecoverySnaps,
         tiles = fixture.Hand.Select(id => { var t = meshes.GetDominoMeshById(id); var p = cam.WorldToScreenPoint(t.transform.position); return new TileSample { id = id, local = t.transform.localPosition, scale = t.transform.localScale, pixels = Body(t), raycast = input.TileAt(p) ?? -1 }; }).ToArray()
     };
     void Validate(bool settled)
     {
         var s = Measure();
+        ObserveWave(s);
         for (int i = 1; i < s.tiles.Length; i++) {
             Rect a = s.tiles[i - 1].pixels, b = s.tiles[i].pixels;
             // Only the intersection actually drawn inside the window counts. Overflow bodies
@@ -205,6 +213,14 @@ public sealed class HandReflowRuntime : MonoBehaviour
         Check(s.handZoom > 0 && s.handZoom <= 1, stage + "-valid-hand-zoom");
         Mark("BOUNDS " + JsonUtility.ToJson(s));
     }
+    void ObserveWave(Sample sample)
+    {
+        if (layout.ReduceHandMotion && (sample.waveSpreadSeconds > .0001f || sample.phaseSpread > .0001f))
+            throw new Exception("ASSERT reduced-motion-no-wave");
+        if (!sample.reflowMoving) return;
+        sawWaveJob |= sample.waveSpreadSeconds > .02f;
+        sawPhaseSpread |= sample.phaseSpread > .001f;
+    }
     IEnumerator CaptureFrames()
     {
         while (capture) {
@@ -212,7 +228,9 @@ public sealed class HandReflowRuntime : MonoBehaviour
             // capture now describe the same presented frame, independent of component update order.
             yield return new WaitForEndOfFrame();
             if (!capture || fixture == null) yield break;
-            samples.WriteLine(JsonUtility.ToJson(Measure()));
+            var sample = Measure();
+            ObserveWave(sample);
+            samples.WriteLine(JsonUtility.ToJson(sample));
             if (Time.realtimeSinceStartup >= nextCapture) {
                 nextCapture = Time.realtimeSinceStartup + 1f / 20f;
                 CapturePng(Path.Combine(output, "frames", frame.ToString("D6") + ".png"));

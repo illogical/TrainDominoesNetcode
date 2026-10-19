@@ -44,14 +44,16 @@ def encode(run):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--app', type=Path, default=Path('/tmp/td-integration-build/Integration.app/Contents/MacOS/TrainDominoesNetcode'))
-    p.add_argument('--sizes', default='1280x720,1920x1080,1280x720')
+    p.add_argument('--sizes', default='1356x754,1848x595,720x1000,1356x754')
     p.add_argument('--count', type=int, default=16, help='Synthetic local hand size, 1–74')
+    p.add_argument('--require-wave', action='store_true', help='Require an observed resize wave and differing tile phases; disabled for reduced motion')
     p.add_argument('--waiting', action='store_true', help='Use a waiting local recipient; preserve no selection during resize')
     p.add_argument('--reduced-motion', action='store_true', help='Use production short nonbouncing reflow')
     p.add_argument('--exercise-interruption', action='store_true', help='Simulate held navigator ownership during third resize; requires a layout-changing sequence')
     p.add_argument('--output', type=Path, help='New or empty directory, default temporary directory')
     p.add_argument('--no-clip', action='store_true', help='Keep PNG frames and timestamps without encoding')
     args = p.parse_args()
+    require_wave = args.require_wave and not args.reduced_motion
     sizes = args.sizes.split(',')
     if args.exercise_interruption and len(sizes) < 3:
         p.error('--exercise-interruption requires at least three --sizes entries')
@@ -75,7 +77,7 @@ def main():
             p.error('--output must be empty to preserve evidence')
     print(f'Actual-window hand reflow evidence: {run}', flush=True)
     (run / 'manifest.json').write_text(json.dumps(dict(
-        scenario='synthetic-recipient-real-window-resize', requestedSizes=sizes, handCount=args.count, waitingRecipient=args.waiting, reducedMotion=args.reduced_motion, simulatedHeldGestureInterruption=args.exercise_interruption, recipientRevision=1,
+        scenario='synthetic-recipient-real-window-resize', requestedSizes=sizes, handCount=args.count, waitingRecipient=args.waiting, requireWave=require_wave, reducedMotion=args.reduced_motion, simulatedHeldGestureInterruption=args.exercise_interruption, recipientRevision=1,
         executable=str(args.app.resolve()), executableSha256=hashlib.sha256(args.app.read_bytes()).hexdigest(),
         humanVisualAcceptance='UNREVIEWED', realTouchAndTrackpad='UNREVIEWED', network='not exercised',
         timeScale=1, clipTiming='actual realtime timestamps; constant padded canvas preserves original tile pixels',
@@ -84,6 +86,8 @@ def main():
     command = [str(args.app), '--integration-hand-reflow', '--mute-audio', '--hand-reflow-dir', str(run),
                '--hand-reflow-sizes', args.sizes, '--hand-reflow-count', str(args.count), '-screen-fullscreen', '0', '-screen-width', width,
                '-screen-height', height, '-logFile', str(run / 'player.log')]
+    if require_wave:
+        command.append('--hand-reflow-require-wave')
     if args.waiting:
         command.append('--hand-reflow-waiting')
     if args.reduced_motion:

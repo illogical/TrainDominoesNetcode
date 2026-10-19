@@ -1,5 +1,7 @@
 # Hand zoom and rendered-body centering
 
+**Later iteration:** the user requested staggered zoom/movement timing. [Hand wave verification](HAND_WAVE_VERIFICATION.md) records the current per-tile wave and safety checks. The synchronized-phase evidence below remains the preceding iteration.
+
 2026-10-18. User-requested follow-up to the [centered hand/reflow implementation](HAND_REFLOW_VERIFICATION.md). The user verified the preceding iteration, then requested automatic hand zoom-out and correction of unequal visible margins. This new direction supersedes the earlier plan's fixed-size overflow policy; the broader device/visual acceptance gates remain separate.
 
 ## Result and policy

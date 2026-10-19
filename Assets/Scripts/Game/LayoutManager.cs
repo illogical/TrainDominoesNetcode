@@ -43,6 +43,7 @@ public class LayoutManager : MonoBehaviour
 
     public BoardNavigator Navigator { get; private set; }
     public Vector3 TileSize => tileSize;
+    public Vector3 HandNativeScale => baseScale;
     public Vector3 HandBodyCenter { get; private set; }
     public float SelectionRaise => SelectionRaiseAmount;
     public float HandSideMargin => Mathf.Max(0, BottomSideMargin, Navigator != null ? Navigator.HandPaddingWorld : 0);
@@ -61,6 +62,8 @@ public class LayoutManager : MonoBehaviour
     public float HandResizeQuietSeconds = 0.16f;
     public float HandResizeSlideSeconds = 0.32f;
     public float HandResizeSettleSeconds = 0.08f;
+    [Tooltip("Total left-to-right start/completion spread, bounded for the entire hand rather than per tile.")]
+    [Range(0, .2f)] public float HandResizeWaveSeconds = .12f;
     public AnimationCurve HandResizeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     public HandReflowController HandReflow { get; private set; }
 

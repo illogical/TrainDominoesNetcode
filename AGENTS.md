@@ -25,6 +25,7 @@ The user selected the [Puremco rulebook baseline](Assets/Docs/TRAIN_DOMINOES_RUL
 - Preserve asset GUIDs, `.meta` files, serialized field references, and scene/prefab wiring. Use Unity-aware moves for assets; do not regenerate metadata for existing assets.
 - Avoid generated project/cache edits (`Library`, `Temp`, `Logs`, generated `.csproj`/solution files) and third-party source edits unless explicitly required by the task. Preserve unrelated user changes.
 - The inspected scene enables `IgnoreDominoComparisons` and starts at round 2. Recheck settings before verification; development bypasses are not intended rules. Do not silently change saved settings merely to make a test pass.
+- For new grouped domino animations, explicitly consider bounded staggering of start times and/or arrivals instead of making every tile move identically. Follow [animation guidelines](Assets/Docs/ANIMATION_GUIDELINES.md): preserve existing assets, validate projected separation under independent phases, keep one transform owner, support reduced motion, and never make animation completion authoritative.
 - Final four-color domino asset integration is late priority after rule/state work. Preserve the user's art and keep presentation ownership/color separate from rule decisions.
 
 ## Verification and handoff

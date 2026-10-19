@@ -30,6 +30,10 @@ namespace Assets.Scripts.Game.Navigation
         public float HandBaseline { get; private set; }
         public float HandViewWidth { get; private set; }
         public float HandTileWidth { get; private set; }
+        public float HandZoom { get; private set; } = 1;
+        public float HandPaddingWorld { get; private set; }
+        public float HandMinimumMarginPixels { get; private set; }
+        public Rect HandUsableRect { get; private set; }
         public float HandCenter { get; private set; }
         public bool HandUsable { get; private set; }
         public event System.Action HandGeometryChanged;
@@ -106,9 +110,45 @@ namespace Assets.Scripts.Game.Navigation
         public void ConfigureHand(int count)
         {
             handCount = count;
-            HandTileWidth = MeasureHandWidth(count);
-            Hand.Configure(count, HandViewWidth, HandTileWidth, layout.HandSideMargin,
-                HandTileWidth * (1 + Mathf.Max(0, layout.HandMinimumGap)), HandTileWidth * (1 + Mathf.Max(layout.HandMinimumGap, layout.HandMaximumGap)), HandCenter);
+            var low = ScreenToPlane(HandUsableRect.min);
+            var high = ScreenToPlane(HandUsableRect.max);
+            float center = (low.x + high.x) / 2;
+            float near = layout.HandBodyCenter.z - layout.TileSize.z / 2;
+            float fullHeight = Mathf.Abs(cam.WorldToScreenPoint(new Vector3(0, layout.TileSize.y / 2, near)).y
+                - cam.WorldToScreenPoint(new Vector3(0, -layout.TileSize.y / 2, near)).y);
+            float floor = Mathf.Clamp(Mathf.Max(layout.HandMinimumZoom,
+                GestureMetrics.Physical(layout.HandReadablePixels, Screen.dpi) / Mathf.Max(1, fullHeight)), .1f, 1);
+            float zoom = 1;
+            for (int iteration = 0; iteration < 12; iteration++)
+            {
+                HandZoom = zoom;
+                UpdateHandBaseline();
+                HandTileWidth = MeasureHandWidth(count, zoom) / zoom;
+                Hand.Configure(count, HandViewWidth, HandTileWidth, layout.HandSideMargin,
+                    HandTileWidth * (1 + Mathf.Max(0, layout.HandMinimumGap)),
+                    HandTileWidth * (1 + Mathf.Max(layout.HandMinimumGap, layout.HandMaximumGap)), center, floor);
+                zoom = Hand.Scale;
+            }
+            HandZoom = zoom;
+            UpdateHandBaseline();
+            // Mesh pivots are not necessarily body centers. Center the actual projected silhouette.
+            if (count > 0 && !Hand.Scrolls)
+            {
+                for (int iteration = 0; iteration < 4; iteration++)
+                {
+                    float left = float.PositiveInfinity, right = float.NegativeInfinity;
+                    for (int index = 0; index < count; index++)
+                    {
+                        var bounds = ProjectHandBody(Hand.X(index), HandZoom);
+                        left = Mathf.Min(left, bounds.xMin); right = Mathf.Max(right, bounds.xMax);
+                    }
+                    center += ScreenToPlane(HandUsableRect.center).x - ScreenToPlane(new Vector2((left + right) / 2, HandUsableRect.center.y)).x;
+                    Hand.Configure(count, HandViewWidth, HandTileWidth, layout.HandSideMargin,
+                        HandTileWidth * (1 + Mathf.Max(0, layout.HandMinimumGap)),
+                        HandTileWidth * (1 + Mathf.Max(layout.HandMinimumGap, layout.HandMaximumGap)), center, floor);
+                }
+            }
+            HandCenter = center;
         }
 
         public bool IsSettled
@@ -172,14 +212,18 @@ namespace Assets.Scripts.Game.Navigation
             // Use the body face nearest the camera so perspective depth cannot clip the lower values.
             var usable = Rect.MinMaxRect(Mathf.Max(cam.pixelRect.xMin, safe.xMin), Mathf.Max(cam.pixelRect.yMin, safe.yMin),
                 Mathf.Min(cam.pixelRect.xMax, safe.xMax), Mathf.Min(cam.pixelRect.yMax, safe.yMax));
-            Vector3 handLow = ScreenToPlane(usable.min, layout.HandBodyCenter.z - size.z / 2), handHigh = ScreenToPlane(usable.max, layout.HandBodyCenter.z - size.z / 2);
+            HandUsableRect = usable;
+            HandMinimumMarginPixels = Mathf.Max(0, layout.HandMinimumSideMargin) * ui;
+            HandPaddingWorld = Mathf.Abs(ScreenToPlane(usable.min + Vector2.right * HandMinimumMarginPixels).x - ScreenToPlane(usable.min).x) * 2;
+            Vector3 handLow = ScreenToPlane(usable.min), handHigh = ScreenToPlane(usable.max);
             HandViewWidth = Mathf.Max(0, handHigh.x - handLow.x);
             HandCenter = (handLow.x + handHigh.x) / 2;
-            HandBaseline = handLow.y - layout.HandBodyCenter.y + size.y / 2 + layout.HandBottomPadding;
-            HandTileWidth = MeasureHandWidth(handCount);
+            UpdateHandBaseline();
+            HandTileWidth = MeasureHandWidth(handCount, HandZoom);
             HandUsable = usable.width > 0 && usable.height > 0 && HandViewWidth >= HandTileWidth + layout.HandSideMargin
                 && handHigh.y - handLow.y >= size.y + layout.HandBottomPadding + layout.SelectionRaise;
-            HandTop = cam.WorldToScreenPoint(new Vector3(0, HandBaseline + layout.HandBodyCenter.y + size.y / 2 + layout.SelectionRaise + size.y * .04f + .001f, layout.HandBodyCenter.z - size.z / 2)).y;
+            float fullBaseline = ScreenToPlane(usable.min, layout.HandBodyCenter.z - size.z / 2).y - layout.HandBodyCenter.y + size.y / 2 + layout.HandBottomPadding;
+            HandTop = cam.WorldToScreenPoint(new Vector3(0, fullBaseline + layout.HandBodyCenter.y + size.y / 2 + layout.SelectionRaise + size.y * .04f + .001f, layout.HandBodyCenter.z - size.z / 2)).y;
             var rect = Rect.MinMaxRect(LeftGutter * ui, Mathf.Max(0, HandTop + HandGap * ui), pixels.x - RightGutter * ui, pixels.y - TopGutter * ui);
             if (rect.width < pixels.x * 0.25f || rect.height < pixels.y * 0.2f) rect = Rect.MinMaxRect(pixels.x * 0.05f, pixels.y * 0.3f, pixels.x * 0.95f, pixels.y * 0.9f);
             BoardRect = rect;
@@ -196,11 +240,33 @@ namespace Assets.Scripts.Game.Navigation
             Apply();
         }
 
+        private void UpdateHandBaseline()
+        {
+            var size = layout.TileSize * HandZoom;
+            var center = layout.HandBodyCenter * HandZoom;
+            float bottom = ScreenToPlane(HandUsableRect.min, center.z - size.z / 2).y;
+            HandBaseline = bottom - center.y + size.y / 2 + layout.HandBottomPadding;
+        }
+
+        private Rect ProjectHandBody(float x, float zoom)
+        {
+            var center = new Vector3(x, HandBaseline, 0) + layout.HandBodyCenter * zoom;
+            var size = layout.TileSize * zoom;
+            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            for (int corner = 0; corner < 8; corner++)
+            {
+                var p = WorldToScreen(center + Vector3.Scale(size / 2, new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1)));
+                min = Vector2.Min(min, p); max = Vector2.Max(max, p);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
         // Measure at the content edges, not the empty viewport edges: a fitting hand must not
         // acquire wider gaps merely because the window gets wider. Overflow uses visible edges.
-        private float MeasureHandWidth(int count)
+        private float MeasureHandWidth(int count, float zoom)
         {
-            var size = layout.TileSize;
+            var size = layout.TileSize * zoom;
             float width = size.x;
             for (int iteration = 0; iteration < 8; iteration++)
             {
@@ -208,7 +274,7 @@ namespace Assets.Scripts.Game.Navigation
                     * (1 + Mathf.Max(0, layout.HandMinimumGap, layout.HandMaximumGap)) / 2);
                 for (int sample = -1; sample <= 1; sample++)
                 {
-                    var center = new Vector3(HandCenter + sample * half, HandBaseline, 0) + layout.HandBodyCenter;
+                    var center = new Vector3(HandCenter + sample * half, HandBaseline, 0) + layout.HandBodyCenter * zoom;
                     float min = float.PositiveInfinity, max = float.NegativeInfinity;
                     for (int corner = 0; corner < 8; corner++)
                     {

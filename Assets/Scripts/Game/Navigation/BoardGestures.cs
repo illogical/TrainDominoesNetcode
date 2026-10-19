@@ -122,23 +122,28 @@ namespace Assets.Scripts.Game.Navigation
         public float MinSpacing { get; private set; }
         public float Offset { get; private set; }
         public float MaxSpacing { get; private set; }
+        public float Scale { get; private set; } = 1f;
         public float Center { get; private set; }
         public bool Usable => ViewWidth - Margin >= TileWidth && TileWidth > 0;
 
         public void Configure(int count, float viewWidth, float tileWidth, float margin, float minSpacing,
-            float maxSpacing = -1, float center = 0)
+            float maxSpacing = -1, float center = 0, float minimumScale = 1)
         {
             Count = Math.Max(0, count);
             ViewWidth = Finite(viewWidth); TileWidth = Math.Max(0, Finite(tileWidth));
             Margin = Math.Max(0, Finite(margin)); Center = Finite(center);
             MinSpacing = Math.Max(TileWidth, Finite(minSpacing));
             MaxSpacing = Math.Max(MinSpacing, maxSpacing < 0 ? TileWidth * 1.16f : Finite(maxSpacing));
+            float floor = Math.Max(.01f, Math.Min(1, Finite(minimumScale)));
+            float required = TileWidth + Math.Max(0, Count - 1) * MinSpacing;
+            Scale = Count == 0 || required <= 0 ? 1 : Math.Max(floor, Math.Min(1, (ViewWidth - Margin) / required));
+            TileWidth *= Scale; MinSpacing *= Scale; MaxSpacing *= Scale;
             Offset = Clamp(Offset);
         }
 
         private static float Finite(float value) => float.IsNaN(value) || float.IsInfinity(value) ? 0 : value;
         public float SpreadSpacing => Count <= 1 ? 0 : (ViewWidth - TileWidth - Margin) / (Count - 1);
-        public bool Scrolls => Count > 1 && SpreadSpacing < MinSpacing;
+        public bool Scrolls => Count > 1 && SpreadSpacing < MinSpacing - 1e-6f;
         public float Spacing => Count <= 1 ? 0 : Math.Max(MinSpacing, Math.Min(MaxSpacing, SpreadSpacing));
         public float ContentWidth => Count <= 0 ? 0 : TileWidth + Spacing * (Count - 1);
         public float MinOffset => Scrolls ? Math.Min(0, (ViewWidth - Margin) - ContentWidth) : 0;

@@ -14,7 +14,7 @@ namespace Assets.Scripts.Game.Navigation
         private Func<bool> busy;
         private readonly HandReflowSchedule schedule = new HandReflowSchedule();
         private Transform[] tiles;
-        private Vector3[] starts, ends;
+        private Vector3[] starts, ends, startScales;
         private float started, rootStart, rootEnd, bounce, amplitude, progress;
         private float inputGuardUntil;
         private bool manuallyInspected, guardingHandGesture;
@@ -117,10 +117,10 @@ namespace Assets.Scripts.Game.Navigation
                 bounce = layout.ReduceHandMotion ? 0 : amplitude * HandReflowSchedule.Settle(elapsed, slide, settle);
                 nav.SetPresentedHandOffset(Mathf.Lerp(rootStart, rootEnd, progress));
                 for (int i = 0; i < tiles.Length; i++)
-                    if (tiles[i] != null) tiles[i].localPosition = Vector3.Lerp(starts[i], ends[i], progress) + Vector3.up * bounce;
+                    if (tiles[i] != null) { tiles[i].localPosition = Vector3.Lerp(starts[i], ends[i], progress) + Vector3.up * bounce; tiles[i].localScale = Vector3.Lerp(startScales[i], layout.HandTileScale, progress); }
                 if (elapsed >= slide + settle)
                 {
-                    for (int i = 0; i < tiles.Length; i++) if (tiles[i] != null) tiles[i].localPosition = ends[i];
+                    for (int i = 0; i < tiles.Length; i++) if (tiles[i] != null) { tiles[i].localPosition = ends[i]; tiles[i].localScale = layout.HandTileScale; }
                     bounce = 0; Moving = false; nav.HandMotionOwned = false;
                 }
             }
@@ -132,7 +132,7 @@ namespace Assets.Scripts.Game.Navigation
             schedule.Clear();
             var current = hand();
             if (current.Count == 0) { nav.ConfigureHand(0); nav.HandMotionOwned = false; return; }
-            tiles = current.ToArray(); starts = new Vector3[tiles.Length]; ends = new Vector3[tiles.Length];
+            tiles = current.ToArray(); starts = new Vector3[tiles.Length]; ends = new Vector3[tiles.Length]; startScales = new Vector3[tiles.Length];
             int anchor = manuallyInspected ? -1 : selectedIndex();
             if (anchor < 0 || anchor >= tiles.Length)
             {
@@ -141,7 +141,7 @@ namespace Assets.Scripts.Game.Navigation
                 for (int i = 0; i < tiles.Length; i++) if (tiles[i].position.x >= left) { anchor = i; break; }
             }
             float anchorX = tiles[anchor].position.x;
-            for (int i = 0; i < tiles.Length; i++) starts[i] = tiles[i].localPosition;
+            for (int i = 0; i < tiles.Length; i++) { starts[i] = tiles[i].localPosition; startScales[i] = tiles[i].localScale; }
             rootStart = nav.PresentedHandOffset;
             var targets = layout.GetHandLocalPositions(tiles.Length);
             nav.Hand.Anchor(anchor, anchorX);
@@ -151,10 +151,10 @@ namespace Assets.Scripts.Game.Navigation
             {
                 ends[i] = targets[i] + (i == selectedIndex() ? Vector3.up * layout.SelectionRaise : Vector3.zero);
                 if (tiles[i].parent != nav.HandRoot || Quaternion.Angle(tiles[i].localRotation, LayoutManager.HandRotation) > 0.1f) safe = false;
-                if (i > 0 && starts[i].x - starts[i - 1].x < layout.TileSize.x) safe = false;
+                if (i > 0 && starts[i].x <= starts[i - 1].x) safe = false;
             }
             bool unchanged = Mathf.Abs(rootStart - rootEnd) < 1e-6f;
-            for (int i = 0; i < tiles.Length; i++) unchanged &= Vector3.Distance(starts[i], ends[i]) < 1e-6f;
+            for (int i = 0; i < tiles.Length; i++) unchanged &= Vector3.Distance(starts[i], ends[i]) < 1e-6f && Vector3.Distance(startScales[i], layout.HandTileScale) < 1e-4f;
             if (unchanged) { nav.HandMotionOwned = false; return; }
             if (!safe)
             {

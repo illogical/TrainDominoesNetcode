@@ -46,6 +46,7 @@ def main():
     p.add_argument('--app', type=Path, default=Path('/tmp/td-integration-build/Integration.app/Contents/MacOS/TrainDominoesNetcode'))
     p.add_argument('--sizes', default='1280x720,1920x1080,1280x720')
     p.add_argument('--count', type=int, default=16, help='Synthetic local hand size, 1–74')
+    p.add_argument('--waiting', action='store_true', help='Use a waiting local recipient; preserve no selection during resize')
     p.add_argument('--reduced-motion', action='store_true', help='Use production short nonbouncing reflow')
     p.add_argument('--exercise-interruption', action='store_true', help='Simulate held navigator ownership during third resize; requires a layout-changing sequence')
     p.add_argument('--output', type=Path, help='New or empty directory, default temporary directory')
@@ -74,7 +75,7 @@ def main():
             p.error('--output must be empty to preserve evidence')
     print(f'Actual-window hand reflow evidence: {run}', flush=True)
     (run / 'manifest.json').write_text(json.dumps(dict(
-        scenario='synthetic-recipient-real-window-resize', requestedSizes=sizes, handCount=args.count, reducedMotion=args.reduced_motion, simulatedHeldGestureInterruption=args.exercise_interruption, recipientRevision=1,
+        scenario='synthetic-recipient-real-window-resize', requestedSizes=sizes, handCount=args.count, waitingRecipient=args.waiting, reducedMotion=args.reduced_motion, simulatedHeldGestureInterruption=args.exercise_interruption, recipientRevision=1,
         executable=str(args.app.resolve()), executableSha256=hashlib.sha256(args.app.read_bytes()).hexdigest(),
         humanVisualAcceptance='UNREVIEWED', realTouchAndTrackpad='UNREVIEWED', network='not exercised',
         timeScale=1, clipTiming='actual realtime timestamps; constant padded canvas preserves original tile pixels',
@@ -83,6 +84,8 @@ def main():
     command = [str(args.app), '--integration-hand-reflow', '--mute-audio', '--hand-reflow-dir', str(run),
                '--hand-reflow-sizes', args.sizes, '--hand-reflow-count', str(args.count), '-screen-fullscreen', '0', '-screen-width', width,
                '-screen-height', height, '-logFile', str(run / 'player.log')]
+    if args.waiting:
+        command.append('--hand-reflow-waiting')
     if args.reduced_motion:
         command.append('--reduced-motion')
     if args.exercise_interruption:
@@ -115,7 +118,7 @@ def main():
             process.kill(); process.wait()
         gallery = ['# Hand reflow actual-window evidence', '', f'Automated probe: **{"PASS" if ok else "FAILED / INCOMPLETE"}**.',
                    'Human visual acceptance: **UNREVIEWED**.', '',
-                   f'Synthetic {args.count}-tile actor recipient view, one initial Receive, unchanged revision throughout real desktop client resizing. '
+                   f'Synthetic {args.count}-tile {"waiting" if args.waiting else "actor"} recipient view, one initial Receive, unchanged revision throughout real desktop client resizing. '
                    'No network, offscreen substitution, touch-device or manual window-drag claim.', '',
                    '[Manifest](manifest.json) · [Runtime receipts](receipt.log) · [Every-frame samples](samples.jsonl)', '']
         for path in sorted(run.glob('[0-9]*.png')):

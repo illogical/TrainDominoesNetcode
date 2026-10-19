@@ -45,7 +45,8 @@ public class LayoutManager : MonoBehaviour
     public Vector3 TileSize => tileSize;
     public Vector3 HandBodyCenter { get; private set; }
     public float SelectionRaise => SelectionRaiseAmount;
-    public float HandSideMargin => BottomSideMargin;
+    public float HandSideMargin => Mathf.Max(0, BottomSideMargin, Navigator != null ? Navigator.HandPaddingWorld : 0);
+    public Vector3 HandTileScale => baseScale * (Navigator != null ? Navigator.HandZoom : 1);
     /// <summary>Distance between neighbouring rows in board units.</summary>
     public float RowSpacing => tileSize.x + TrackMargin;
     public float HandLocalY => Navigator != null ? Navigator.HandBaseline : PositionHelper.GetPlayerDominoYPosition(tileSize, mainCamera);
@@ -53,6 +54,9 @@ public class LayoutManager : MonoBehaviour
     [Header("Hand reflow")]
     [Range(0, 1)] public float HandMinimumGap = 0.08f;
     [Range(0, 1)] public float HandMaximumGap = 0.16f;
+    [Range(.1f, 1)] public float HandMinimumZoom = .6f;
+    public float HandReadablePixels = 48f;
+    public float HandMinimumSideMargin = 32f;
     public bool ReduceHandMotion;
     public float HandResizeQuietSeconds = 0.16f;
     public float HandResizeSlideSeconds = 0.32f;
@@ -179,7 +183,7 @@ public class LayoutManager : MonoBehaviour
     public void SnapToHand(Transform tile, Vector3 local)
     {
         Attach(tile, Navigator.HandRoot);
-        tile.localPosition = local; tile.localRotation = HandRotation; tile.localScale = baseScale;
+        tile.localPosition = local; tile.localRotation = HandRotation; tile.localScale = HandTileScale;
     }
 
     public void PlaceLabel(GameObject label, int slot, int count, int tiles)
@@ -263,15 +267,15 @@ public class LayoutManager : MonoBehaviour
         {
             var destination = positions[index++];
             Attach(item.Value, Navigator.HandRoot);
-            routines.Add(item.Key == id ? ReturnWithDepth(item.Value, destination) : SlideLocal(item.Value, destination, 0.3f, 0.1f, baseScale));
+            routines.Add(item.Key == id ? ReturnWithDepth(item.Value, destination) : SlideLocal(item.Value, destination, 0.3f, 0.1f, HandTileScale));
         }
         yield return Together(routines.ToArray());
     }
 
     private IEnumerator ReturnWithDepth(Transform tile, Vector3 destination)
     {
-        yield return SlideLocal(tile, destination + new Vector3(0, 0, -0.0135f), 0.3f, 0.1f, baseScale);
-        yield return SlideLocal(tile, destination, 0.15f, 0);
+        yield return SlideLocal(tile, destination + new Vector3(0, 0, -0.0135f), 0.3f, 0.1f, HandTileScale);
+        yield return SlideLocal(tile, destination, 0.15f, 0, HandTileScale);
     }
 
     public IEnumerator UpdatePlayerPositions(Dictionary<int, Transform> hand)
@@ -282,7 +286,7 @@ public class LayoutManager : MonoBehaviour
         foreach (var item in hand)
         {
             Attach(item.Value, Navigator.HandRoot);
-            routines.Add(AnimationHelper.MoveLocalOverSeconds(item.Value, positions[index++], baseScale, RearrangePlayerDominoes));
+            routines.Add(AnimationHelper.MoveLocalOverSeconds(item.Value, positions[index++], HandTileScale, RearrangePlayerDominoes));
         }
         yield return Together(routines.ToArray());
     }

@@ -34,6 +34,7 @@ static class Program
         Navigation();
         Gestures();
         Hand();
+        HandZoom();
         Reflow();
         Feedback();
         Console.WriteLine($"PASS: {passed} board presentation checks (navigation model, gestures, hand strip, feedback text). No Unity rendering or input devices.");
@@ -223,6 +224,23 @@ static class Program
         h.Reset(); Check(h.Offset == 0, "the hand offset resets on a new round");
         h.Configure(5, view, tile, margin, tile * 1.08f); h.Pan(-1);
         Check(h.Offset == 0, "a hand that fits cannot scroll");
+    }
+
+    static void HandZoom()
+    {
+        var h = new HandStrip();
+        h.Configure(16, .47f, .03f, .024f, .0324f, .0348f, .07f, .6f);
+        Check(h.Scale < 1 && h.Scale >= .6f && !h.Scrolls, "crowded hand zooms just enough to fit instead of clipping an end");
+        Check(Near((h.X(0) + h.X(15)) / 2, .07f), "zoomed hand stays centered within its usable region");
+        Check(h.X(0)-h.TileWidth/2 >= .07f-.47f/2+.012f-1e-5f && h.X(15)+h.TileWidth/2 <= .07f+.47f/2-.012f+1e-5f, "zoom preserves minimum outer margins");
+        h.Configure(60, .47f, .03f, .024f, .0324f, .0348f, 0, .6f);
+        Check(Near(h.Scale,.6f) && h.Scrolls, "unreadable fit falls back to scrolling at zoom floor");
+        h.EnsureVisible(59); Check(h.X(59)+h.TileWidth/2<=.47f/2-.012f+1e-5f, "zoomed overflow still exposes complete last tile");
+        h.Configure(5, 2, .03f, .024f, .0324f, .0348f, 0, .6f);
+        Check(h.Scale==1 && !h.Scrolls, "small hands retain original readable size");
+        float content=h.ContentWidth;
+        h.Configure(5, 4, .03f, .024f, .0324f, .0348f, 0, .6f);
+        Check(Near(h.ContentWidth,content), "extra width remains outside a fitting hand");
     }
 
     static void Reflow()

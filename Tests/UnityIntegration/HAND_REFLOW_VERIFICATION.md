@@ -1,5 +1,7 @@
 # Centered hand and resize verification
 
+**Follow-up:** the user subsequently requested zoom-out before scrolling and rendered-body centering. Current behavior and new evidence are in [hand zoom verification](HAND_ZOOM_VERIFICATION.md); the fixed-size overflow discussion below records the preceding iteration.
+
 Dated 2026-10-18. Focused coverage for the [centered-hand plan](../../Assets/Docs/plans/2026-10-18-1625-fix-centered-hand-spacing-and-resize-reflow-plan.md). This file records the implementation, observed checks, reproducible harness and remaining review limits. No human acceptance is inferred from automated receipts.
 
 ## Actual-window harness
